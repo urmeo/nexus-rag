@@ -1,0 +1,57 @@
+# NexusRAG Configuration
+# These values match the Python defaults in src/nexusrag/config.py.
+# This file serves as a reference; settings are read from environment
+# variables via pydantic-settings.
+
+llm:
+  base_url: ${OLLAMA_BASE_URL:http://localhost:11434}
+  model: ${LLM_MODEL:llama3.2:3b}  # Smaller model for 8GB RAM systems
+  temperature: 0.1
+  max_tokens: 256  # Reduced for faster responses
+  timeout: 60
+
+embedding:
+  model: ${EMBEDDING_MODEL:all-MiniLM-L6-v2}
+  device: cpu
+  batch_size: 16  # Reduced for lower memory usage
+
+ingestion:
+  chunk_size: 1200  # Large chunks for better context
+  chunk_overlap: 300  # Significant overlap for continuity
+  min_chunk_size: 200  # Ensure meaningful chunks
+  supported_formats:
+    - .pdf
+    - .docx
+    - .txt
+    - .md
+
+retrieval:
+  top_k: 8  # Retrieve more initially
+  rerank_top_k: 4  # Keep top 4 after reranking
+  similarity_threshold: 0.2  # Lower threshold for better recall
+  max_query_length: 512
+
+self_correction:
+  enabled: true
+  max_iterations: 1  # Single pass with batched grading
+  relevance_threshold: 0.4  # Slightly lower threshold
+  reformulation_enabled: true
+  grounding_enabled: false  # NLI faithfulness check (opt-in)
+  grounding_model: cross-encoder/nli-deberta-v3-small
+  grounding_threshold: 0.5
+
+storage:
+  lancedb_path: ${LANCEDB_PATH:./data/lancedb}
+  table_name: documents
+
+api:
+  host: ${API_HOST:0.0.0.0}
+  port: ${API_PORT:8000}
+  cors_origins:
+    - "http://localhost:8000"
+    - "http://127.0.0.1:8000"
+
+logging:
+  level: ${LOG_LEVEL:INFO}
+  format: json
+  file: null
