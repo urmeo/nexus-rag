@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusRAG - AI Research Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <svg class="logo-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#7C3AED"/>
+                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="#7C3AED" stroke-width="2" fill="none"/>
+                    </svg>
+                    <div class="logo-text">
+                        <h1>NexusRAG</h1>
+                        <span class="tagline">AI Research Assistant</span>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="model-status" id="modelStatus">
+                    <span class="status-dot"></span>
+                    <span class="model-name">Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <main class="main">
+            <!-- Sidebar -->
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <h2>Documents</h2>
+                    <span class="doc-count" id="docCount">0</span>
+                </div>
+
+                <!-- Upload Zone -->
+                <div class="upload-zone" id="uploadZone" role="button" tabindex="0"
+                     aria-label="Upload documents. Drop PDF, DOCX, TXT or MD files here, or activate to browse.">
+                    <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt,.md"
+                           aria-label="Choose documents to upload" hidden>
+                    <div class="upload-content">
+                        <svg class="upload-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <p class="upload-text">Drop files here</p>
+                        <p class="upload-hint">PDF, DOCX, TXT, MD</p>
+                    </div>
+                    <div class="upload-progress" id="uploadProgress">
+                        <div class="progress-bar" role="progressbar" aria-label="Upload progress"
+                             aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <p class="progress-text" id="progressText">Processing...</p>
+                    </div>
+                </div>
+
+                <!-- Document List -->
+                <div class="document-list" id="documentList">
+                    <div class="empty-docs" id="emptyDocs">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true" focusable="false">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <p>No documents yet</p>
+                        <span>Upload your first document to get started</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Chat Area -->
+            <section class="chat-area">
+                <!-- Messages -->
+                <div class="messages" id="messages" role="log" aria-live="polite" aria-atomic="false">
+                    <div class="welcome" id="welcome">
+                        <div class="welcome-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="1.5" aria-hidden="true" focusable="false">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                        </div>
+                        <h2>Welcome to NexusRAG</h2>
+                        <p>Upload research papers and ask questions. I'll provide answers with precise citations from your documents.</p>
+                        <div class="welcome-suggestions">
+                            <button class="suggestion" onclick="askSuggestion('What is the main methodology used?')">What is the main methodology?</button>
+                            <button class="suggestion" onclick="askSuggestion('Summarize the key findings')">Summarize key findings</button>
+                            <button class="suggestion" onclick="askSuggestion('What are the limitations?')">What are the limitations?</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="input-area">
+                    <div class="input-container">
+                        <textarea
+                            id="chatInput"
+                            placeholder="Ask a question about your documents..."
+                            aria-label="Ask a question about your documents"
+                            rows="1"
+                        ></textarea>
+                        <button class="send-btn" id="sendBtn" aria-label="Send question" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                                <line x1="22" y1="2" x2="11" y2="13"/>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="input-hint">
+                        <span id="statusHint">Upload documents to start asking questions</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sources Panel (slides in) -->
+            <aside class="sources-panel" id="sourcesPanel">
+                <div class="sources-header">
+                    <h3>Sources</h3>
+                    <button class="close-sources" id="closeSources" aria-label="Close sources panel">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="sources-list" id="sourcesList"></div>
+            </aside>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <div class="status-item">
+                <span class="status-label">LLM:</span>
+                <span class="status-value" id="llmStatus">--</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Embeddings:</span>
+                <span class="status-value" id="embeddingStatus">--</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Documents:</span>
+                <span class="status-value" id="docStatus">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Chunks:</span>
+                <span class="status-value" id="chunkStatus">0</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
