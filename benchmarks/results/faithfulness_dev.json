@@ -1,0 +1,20 @@
+{
+  "dataset": "scifact-claims",
+  "split": "dev",
+  "num_claims": 188,
+  "num_candidate_sentences": 2031,
+  "tuned_threshold": 0.6,
+  "model": "cross-encoder/nli-deberta-v3-small",
+  "nli_verifier": {
+    "rationale_precision": 0.3486682808716707,
+    "rationale_recall": 0.39344262295081966,
+    "rationale_f1": 0.3697047496790757,
+    "label_accuracy": 0.526595744680851
+  },
+  "citation_index_baseline": {
+    "rationale_precision": 0.0,
+    "rationale_recall": 0.0,
+    "rationale_f1": 0.0,
+    "note": "checks citation numbers only; cannot localize evidence sentences"
+  }
+}
