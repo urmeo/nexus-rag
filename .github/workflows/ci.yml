@@ -89,3 +89,26 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t nexusrag:ci .
+
+  security:
+    name: Dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project + pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-lock.txt
+          pip install pip-audit
+
+      - name: Audit installed dependencies
+        run: pip-audit --desc
+        continue-on-error: true  # advisory-only rollout; remove this line to make CVEs block the build
