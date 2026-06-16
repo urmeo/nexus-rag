@@ -1,4 +1,4 @@
-"""NexusRAG: Self-correcting RAG for scientific literature synthesis."""
+"""NexusRAG: local hybrid retrieval for scientific papers."""
 
 __version__ = "0.1.0"
 __author__ = "Urme Bose"

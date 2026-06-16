@@ -20,7 +20,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="NexusRAG",
-        description="Self-correcting retrieval for scientific literature synthesis",
+        description="Local hybrid retrieval and faithfulness evaluation for scientific papers",
         version="0.1.0",
     )
 

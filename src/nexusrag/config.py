@@ -55,7 +55,7 @@ class RetrievalSettings(BaseSettings):
 
 
 class SelfCorrectionSettings(BaseSettings):
-    """Self-correction loop configuration."""
+    """Confidence-gated corrective re-retrieval settings."""
 
     model_config = SettingsConfigDict(env_prefix="SELF_CORRECTION_")
 
