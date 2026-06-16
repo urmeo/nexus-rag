@@ -12,15 +12,13 @@ from nexusrag.retrieval.stopwords import STOP_WORDS
 
 @dataclass
 class BM25Index:
-    """BM25 index with chunk mapping."""
-
     bm25: BM25Okapi
     chunks: list[Chunk]
     tokenized_corpus: list[list[str]] = field(default_factory=list)
 
 
 class BM25Retriever:
-    """Lexical retrieval using BM25 algorithm."""
+    """Lexical retrieval with BM25."""
 
     def __init__(self, stopwords: set[str] | None = None):
         self._index: BM25Index | None = None
@@ -28,21 +26,10 @@ class BM25Retriever:
         self.stopwords = stopwords or STOP_WORDS
 
     def tokenize(self, text: str) -> list[str]:
-        """Tokenize and normalize text."""
-        text = text.lower()
-        tokens = re.findall(r"\b[a-z0-9]+\b", text)
+        tokens = re.findall(r"\b[a-z0-9]+\b", text.lower())
         return [t for t in tokens if t not in self.stopwords and len(t) > 1]
 
     def add(self, chunks: list[Chunk]) -> int:
-        """
-        Build BM25 index from chunks.
-
-        Args:
-            chunks: List of chunks to index
-
-        Returns:
-            Number of chunks indexed
-        """
         if not chunks:
             return 0
 
@@ -65,21 +52,7 @@ class BM25Retriever:
         all_chunks = self._index.chunks + chunks
         return self.add(all_chunks)
 
-    def retrieve(
-        self,
-        query: str,
-        top_k: int = 5,
-    ) -> list[RetrievalResult]:
-        """
-        Retrieve relevant chunks using BM25.
-
-        Args:
-            query: Search query
-            top_k: Number of results
-
-        Returns:
-            List of RetrievalResult sorted by BM25 score
-        """
+    def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
         if self._index is None:
             return []
 
@@ -88,15 +61,7 @@ class BM25Retriever:
             return []
 
         scores = self._index.bm25.get_scores(tokenized_query)
-
-        # Get top-k indices
-        top_indices = sorted(
-            range(len(scores)),
-            key=lambda i: scores[i],
-            reverse=True,
-        )[:top_k]
-
-        # Normalize scores to 0-1 range
+        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
         max_score = max(scores) if max(scores) > 0 else 1.0
 
         return [

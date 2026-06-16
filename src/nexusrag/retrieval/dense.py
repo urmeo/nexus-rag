@@ -1,4 +1,4 @@
-"""Dense retrieval using vector similarity."""
+"""Dense retrieval over an embedding store."""
 
 from dataclasses import dataclass
 from typing import Protocol
@@ -9,15 +9,13 @@ from nexusrag.storage import VectorStore
 
 @dataclass
 class RetrievalResult:
-    """Unified retrieval result across different retrievers."""
-
     chunk: Chunk
     score: float
     source: str = "dense"
 
 
 class DenseSearcher(Protocol):
-    """Anything the hybrid retriever needs from a dense backend."""
+    """What the hybrid retriever needs from a dense backend."""
 
     embedder: Embedder
 
@@ -25,13 +23,7 @@ class DenseSearcher(Protocol):
 
 
 class DenseRetriever:
-    """Semantic retrieval using dense embeddings."""
-
-    def __init__(
-        self,
-        embedder: Embedder,
-        vector_store: VectorStore,
-    ):
+    def __init__(self, embedder: Embedder, vector_store: VectorStore):
         self.embedder = embedder
         self.vector_store = vector_store
 
@@ -41,17 +33,6 @@ class DenseRetriever:
         top_k: int = 5,
         document_id: str | None = None,
     ) -> list[RetrievalResult]:
-        """
-        Retrieve relevant chunks for a query.
-
-        Args:
-            query: Search query
-            top_k: Number of results
-            document_id: Optional filter to specific document
-
-        Returns:
-            List of RetrievalResult sorted by relevance
-        """
         query_embedding = self.embedder.embed_query(query)
 
         if document_id:
@@ -67,6 +48,5 @@ class DenseRetriever:
         top_k: int = 5,
         min_score: float = 0.3,
     ) -> list[RetrievalResult]:
-        """Retrieve with minimum similarity threshold."""
         results = self.retrieve(query, top_k)
         return [r for r in results if r.score >= min_score]

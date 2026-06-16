@@ -1,4 +1,4 @@
-"""Cross-encoder reranking for improved relevance."""
+"""Cross-encoder reranking."""
 
 from typing import Any, Literal
 
@@ -6,13 +6,13 @@ from nexusrag.retrieval.dense import RetrievalResult
 
 
 class Reranker:
-    """Cross-encoder reranker for result refinement."""
+    """Re-scores a shortlist with a cross-encoder."""
 
     def __init__(
         self,
         model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
         device: Literal["cpu", "cuda", "mps"] | None = None,
-        batch_size: int = 8,  # Reduced for 8GB RAM systems
+        batch_size: int = 8,
     ):
         self.model_name = model_name
         self.device = device
@@ -21,7 +21,6 @@ class Reranker:
 
     @property
     def model(self) -> Any:
-        """Lazy load cross-encoder model."""
         if self._model is None:
             from sentence_transformers import CrossEncoder
 
@@ -37,24 +36,12 @@ class Reranker:
         results: list[RetrievalResult],
         top_k: int | None = None,
     ) -> list[RetrievalResult]:
-        """
-        Rerank results using cross-encoder.
-
-        Args:
-            query: Original query
-            results: Initial retrieval results
-            top_k: Number of results to return (None = all)
-
-        Returns:
-            Reranked results sorted by cross-encoder score
-        """
         if not results:
             return []
 
         pairs = [(query, r.chunk.content) for r in results]
         scores = self.model.predict(pairs, batch_size=self.batch_size)
 
-        # Normalize scores to 0-1
         min_score, max_score = min(scores), max(scores)
         score_range = max_score - min_score if max_score != min_score else 1.0
 
