@@ -174,21 +174,18 @@ def build_macros(
         ]
     if corr_sci:
         cq = {r["system"]: r for r in corr_sci["cost_quality"]["systems"]}
+        max_fire = max(s["trigger_rate"] for s in corr_sci["tau_sweep"])
+        speedup = cq["Rerank (cross-enc)"]["latency_ms"] / max(cq["Adaptive"]["latency_ms"], 1e-9)
         macros += [
             _macro("SciCorrTau", f"{corr_sci['best_tau']:.2f}"),
+            _macro("SciCorrMaxFire", f"{max_fire * 100:.0f}\\%"),
             _macro("RerankMs", f"{cq['Rerank (cross-enc)']['latency_ms']:.0f}"),
             _macro("CorrMs", f"{cq['Corrective PRF']['latency_ms']:.0f}"),
             _macro("BaseMs", f"{cq['Adaptive']['latency_ms']:.0f}"),
+            _macro("RerankSlowdown", f"{speedup:.0f}"),
+            _macro("BaseND", f"{cq['Adaptive']['ndcg']:.3f}"),
+            _macro("RerankND", f"{cq['Rerank (cross-enc)']['ndcg']:.3f}"),
         ]
-        best = next(
-            (s for s in corr_sci["tau_sweep"] if abs(s["tau"] - corr_sci["best_tau"]) < 1e-9), None
-        )
-        if best and best["triggered_n"]:
-            macros += [
-                _macro("SciCorrFire", f"{best['trigger_rate'] * 100:.0f}\\%"),
-                _macro("SciCorrDelta", f"{best['triggered_delta']:+.3f}"),
-                _macro("SciCorrP", _fmt_p(best["triggered_p"], False).replace("*", "")),
-            ]
     if faith:
         m = faith["methods"]
         macros += [
