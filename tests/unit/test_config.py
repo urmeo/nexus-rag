@@ -17,7 +17,7 @@ class TestSettings:
 
         assert settings.llm.model == "llama3.2:3b"
         assert settings.llm.base_url == "http://localhost:11434"
-        assert settings.embedding.model == "all-MiniLM-L6-v2"
+        assert settings.embedding.model == "BAAI/bge-small-en-v1.5"
         assert settings.ingestion.chunk_size == 1200
         assert settings.retrieval.top_k == 8
         assert settings.self_correction.enabled is True
@@ -126,9 +126,9 @@ class TestSettings:
 
         correction = SelfCorrectionSettings()
 
-        assert correction.max_iterations >= 1
-        assert 0 <= correction.relevance_threshold <= 1
-        assert isinstance(correction.reformulation_enabled, bool)
+        assert correction.enabled is True
+        assert 0 <= correction.confidence_tau <= 1
+        assert correction.feedback_docs > 0 and correction.feedback_terms > 0
 
     def test_get_settings_caching(self):
         """get_settings returns cached instance."""
