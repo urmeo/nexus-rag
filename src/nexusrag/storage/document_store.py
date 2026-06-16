@@ -75,26 +75,13 @@ class DocumentStore:
             raise
 
     def _doc_path(self, doc_id: str) -> Path:
-        """Get file path for a document (with path traversal protection)."""
         safe_id = self._validate_doc_id(doc_id)
         doc_path = (self.path / f"{safe_id}.json").resolve()
-
-        # Final safety check: ensure path is within data directory
-        if not str(doc_path).startswith(str(self.path)):
+        if not doc_path.is_relative_to(self.path):
             raise ValueError("Invalid document path")
-
         return doc_path
 
     def add(self, document: ParsedDocument) -> str:
-        """
-        Store a parsed document.
-
-        Args:
-            document: ParsedDocument to store
-
-        Returns:
-            Document ID
-        """
         doc_dict = {
             "id": document.id,
             "content": document.content,
@@ -131,15 +118,6 @@ class DocumentStore:
         return document.id
 
     def get(self, doc_id: str) -> ParsedDocument | None:
-        """
-        Retrieve a document by ID.
-
-        Args:
-            doc_id: Document ID
-
-        Returns:
-            ParsedDocument or None if not found
-        """
         doc_path = self._doc_path(doc_id)
         if not doc_path.exists():
             return None
@@ -174,15 +152,6 @@ class DocumentStore:
         return dict(self.index)
 
     def delete(self, doc_id: str) -> bool:
-        """
-        Remove a document.
-
-        Args:
-            doc_id: Document ID to delete
-
-        Returns:
-            True if deleted, False if not found
-        """
         doc_path = self._doc_path(doc_id)
         if not doc_path.exists():
             return False
@@ -197,12 +166,6 @@ class DocumentStore:
         return len(self.index)
 
     def clear(self) -> int:
-        """
-        Remove all documents.
-
-        Returns:
-            Number of documents deleted
-        """
         count = len(self.index)
         for doc_id in list(self.index.keys()):
             self.delete(doc_id)

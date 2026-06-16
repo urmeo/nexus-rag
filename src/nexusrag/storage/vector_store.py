@@ -83,21 +83,7 @@ class VectorStore:
         )
         return self.db.create_table(self.table_name, schema=schema)
 
-    def add(
-        self,
-        chunks: list[Chunk],
-        embeddings: NDArray[np.float32],
-    ) -> int:
-        """
-        Add chunks with their embeddings to the store.
-
-        Args:
-            chunks: List of Chunk objects
-            embeddings: Array of shape (len(chunks), embedding_dim)
-
-        Returns:
-            Number of chunks added
-        """
+    def add(self, chunks: list[Chunk], embeddings: NDArray[np.float32]) -> int:
         if len(chunks) == 0:
             return 0
 
@@ -126,17 +112,6 @@ class VectorStore:
         top_k: int = 5,
         filter_expr: str | None = None,
     ) -> list[SearchResult]:
-        """
-        Search for similar chunks.
-
-        Args:
-            query_embedding: Query vector of shape (embedding_dim,)
-            top_k: Number of results to return
-            filter_expr: Optional SQL filter (e.g., "document_id = 'abc'")
-
-        Returns:
-            List of SearchResult sorted by similarity (descending)
-        """
         import json
 
         query = self.table.search(query_embedding.tolist()).limit(top_k)
@@ -154,7 +129,7 @@ class VectorStore:
                     document_id=row["document_id"],
                     metadata=json.loads(row["metadata"]),
                 ),
-                score=1.0 - row["_distance"],  # Convert distance to similarity
+                score=1.0 - row["_distance"],
             )
             for row in results
         ]
@@ -196,19 +171,9 @@ class VectorStore:
         ]
 
     def delete(self, chunk_ids: list[str]) -> int:
-        """
-        Delete chunks by their IDs.
-
-        Args:
-            chunk_ids: List of chunk IDs to delete
-
-        Returns:
-            Number of chunks deleted
-        """
         if not chunk_ids:
             return 0
 
-        # Sanitize all IDs to prevent SQL injection
         safe_ids = [_sanitize_id(cid) for cid in chunk_ids]
         ids_str = ", ".join(f"'{cid}'" for cid in safe_ids)
         initial_count = self.count()
