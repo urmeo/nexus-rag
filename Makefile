@@ -1,4 +1,4 @@
-.PHONY: install install-dev test test-unit test-integration test-cov lint format type-check eval eval-sample corrective faithfulness generation paper run clean help docker-build docker-up docker-down docker-logs
+.PHONY: install install-dev test test-unit test-integration test-cov lint format type-check eval eval-sample corrective faithfulness ragtruth generation paper run clean help docker-build docker-up docker-down docker-logs
 
 PYTHON := python3
 PIP := $(PYTHON) -m pip
@@ -44,6 +44,9 @@ corrective:
 
 faithfulness:
 	$(PYTHON) -m nexusrag.eval.faithfulness
+
+ragtruth:
+	$(PYTHON) -m nexusrag.eval.ragtruth
 
 generation:
 	$(PYTHON) -m nexusrag.eval.generation
@@ -93,6 +96,7 @@ help:
 	@echo "  eval-sample    Run the offline vendored subset (no download)"
 	@echo "  corrective     Corrective-loop trigger and cost/quality analysis"
 	@echo "  faithfulness   Run the evidence-detection evaluation"
+	@echo "  ragtruth       Run the RAGTruth hallucination-detection evaluation"
 	@echo "  paper          Regenerate tables/figures and build the PDF"
 	@echo "  clean          Remove build artifacts"
 	@echo "  docker-build   Build Docker image"
