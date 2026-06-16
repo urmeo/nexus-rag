@@ -139,6 +139,34 @@ def pr_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
     return float(np.sum((recall - prev) * precision))
 
 
+def risk_coverage_auc(confidence: Sequence[float], correct: Sequence[int]) -> float:
+    """Area under the risk-coverage curve (lower is better)."""
+    conf = np.asarray(confidence, dtype=np.float64)
+    err = 1 - np.asarray(correct, dtype=np.float64)
+    if conf.size == 0:
+        return float("nan")
+    order = np.argsort(-conf, kind="mergesort")
+    cum_err = np.cumsum(err[order])
+    risk = cum_err / np.arange(1, conf.size + 1)
+    return float(risk.mean())
+
+
+def ece(probs: Sequence[float], labels: Sequence[int], n_bins: int = 10) -> float:
+    """Expected calibration error over equal-width probability bins."""
+    p = np.asarray(probs, dtype=np.float64)
+    y = np.asarray(labels, dtype=np.float64)
+    if p.size == 0:
+        return float("nan")
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    total = 0.0
+    for i in range(n_bins):
+        hi = p <= edges[i + 1] if i == n_bins - 1 else p < edges[i + 1]
+        mask = (p >= edges[i]) & hi
+        if mask.any():
+            total += mask.mean() * abs(y[mask].mean() - p[mask].mean())
+    return float(total)
+
+
 def bootstrap_ci(
     values: Sequence[float], n_boot: int = 10000, ci: float = 0.95, seed: int = 0
 ) -> tuple[float, float, float]:
