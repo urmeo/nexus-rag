@@ -1,7 +1,7 @@
-# NexusRAG Configuration
-# These values match the Python defaults in src/nexusrag/config.py.
-# This file serves as a reference; settings are read from environment
-# variables via pydantic-settings.
+# NexusRAG configuration reference.
+# The running system reads settings from environment variables via
+# pydantic-settings (src/nexusrag/config.py); this file documents the
+# defaults and the shape of each section.
 
 llm:
   base_url: ${OLLAMA_BASE_URL:http://localhost:11434}
