@@ -1,8 +1,8 @@
 """Tests for vendored dataset loaders and sentence splitting."""
 
-from nexusrag.agents.grounding import split_sentences
 from nexusrag.eval import datasets as D
 from nexusrag.eval import faithfulness as F
+from nexusrag.generation.grounding import split_sentences
 
 
 class TestVendoredIR:

@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from nexusrag.agents import LLMClient, Orchestrator, RAGResponse, ReasoningStep
 from nexusrag.config import Settings, get_settings
+from nexusrag.generation import LLMClient, Orchestrator, RAGResponse, ReasoningStep
 from nexusrag.ingestion import (
     DocumentParser,
     Embedder,
@@ -144,7 +144,7 @@ class NexusRAG:
 
             grounding_verifier = None
             if sc.grounding_enabled:
-                from nexusrag.agents.grounding import GroundingVerifier
+                from nexusrag.generation.grounding import GroundingVerifier
 
                 grounding_verifier = GroundingVerifier(
                     model_name=sc.grounding_model,

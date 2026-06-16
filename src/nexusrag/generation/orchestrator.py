@@ -6,11 +6,11 @@ from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from nexusrag.agents.grounding import GroundingVerifier
-from nexusrag.agents.llm import LLMClient
-from nexusrag.agents.query_analyzer import QueryAnalyzer
-from nexusrag.agents.synthesizer import Source, Synthesizer
-from nexusrag.agents.verifier import AnswerVerifier
+from nexusrag.generation.grounding import GroundingVerifier
+from nexusrag.generation.llm import LLMClient
+from nexusrag.generation.query_analyzer import QueryAnalyzer
+from nexusrag.generation.synthesizer import Source, Synthesizer
+from nexusrag.generation.verifier import AnswerVerifier
 from nexusrag.retrieval import CorrectiveRetriever, RetrievalResult
 from nexusrag.utils.filenames import resolve_display_name
 

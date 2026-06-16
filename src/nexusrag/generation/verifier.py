@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from nexusrag.agents.citations import extract_citations, strip_citations
+from nexusrag.generation.citations import extract_citations, strip_citations
 
 
 @dataclass

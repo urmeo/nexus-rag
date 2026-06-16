@@ -16,9 +16,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from nexusrag.agents.grounding import GroundingVerifier
 from nexusrag.eval import datasets as D
 from nexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
+from nexusrag.generation.grounding import GroundingVerifier
 from nexusrag.ingestion import Embedder
 from nexusrag.retrieval import AdaptiveHybridRetriever, BM25Retriever, CorrectiveRetriever
 

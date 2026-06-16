@@ -5,9 +5,9 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any
 
-from nexusrag.agents.citations import strip_citations
-from nexusrag.agents.llm import LLMClient
-from nexusrag.agents.query_analyzer import QueryType
+from nexusrag.generation.citations import strip_citations
+from nexusrag.generation.llm import LLMClient
+from nexusrag.generation.query_analyzer import QueryType
 from nexusrag.retrieval import RetrievalResult
 
 logger = logging.getLogger(__name__)

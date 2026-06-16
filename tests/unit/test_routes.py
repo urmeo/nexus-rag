@@ -8,7 +8,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from nexusrag.agents import RAGResponse, Source
 from nexusrag.api.routes import (
     MAX_FILE_SIZE_BYTES,
     MAX_FILE_SIZE_MB,
@@ -23,6 +22,7 @@ from nexusrag.api.routes import (
     UploadResponse,
     router,
 )
+from nexusrag.generation import RAGResponse, Source
 from nexusrag.pipeline import IngestResult, NexusRAG, SystemStats
 
 
@@ -329,7 +329,7 @@ class TestIngestDocument:
 
 class TestQueryDocuments:
     def test_query_success(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.agents import RAGResponse
+        from nexusrag.generation import RAGResponse
 
         source = Source(
             index=1,
@@ -424,7 +424,7 @@ class TestQueryDocuments:
         assert response.status_code == 422
 
     def test_query_no_documents(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.agents import RAGResponse
+        from nexusrag.generation import RAGResponse
 
         mock_response = RAGResponse(
             answer="No documents have been uploaded yet.",
@@ -446,7 +446,7 @@ class TestQueryDocuments:
         assert "No documents" in data["answer"] or data["confidence"] == 0.0
 
     def test_query_multiple_sources(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.agents import RAGResponse
+        from nexusrag.generation import RAGResponse
 
         sources = [
             Source(
@@ -496,7 +496,7 @@ class TestQueryDocuments:
         assert data["sources"][1]["score"] == 0.87
 
     def test_query_long_source_content_truncated(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.agents import RAGResponse
+        from nexusrag.generation import RAGResponse
 
         long_content = "x" * 1000  # 1000 characters
         source = Source(
@@ -542,7 +542,7 @@ class TestQueryDocuments:
         assert "Failed to process query" in response.json()["detail"]
 
     def test_query_response_model(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.agents import RAGResponse
+        from nexusrag.generation import RAGResponse
 
         mock_response = RAGResponse(
             answer="Test answer",
@@ -759,7 +759,7 @@ class TestClearAllDocuments:
 
 class TestIntegration:
     def test_workflow_ingest_query_list(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.agents import RAGResponse
+        from nexusrag.generation import RAGResponse
 
         mock_nexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_1",

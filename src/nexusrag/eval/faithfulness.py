@@ -18,8 +18,8 @@ from typing import Any
 
 import numpy as np
 
-from nexusrag.agents.grounding import GroundingVerifier
 from nexusrag.eval.metrics import pr_auc, roc_auc
+from nexusrag.generation.grounding import GroundingVerifier
 from nexusrag.retrieval.stopwords import STOP_WORDS
 
 RAW_DIR = Path("data/scifact_raw/data")
