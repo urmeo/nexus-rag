@@ -12,6 +12,11 @@ VENDORED_DIR = Path(__file__).resolve().parents[3] / "benchmarks" / "datasets"
 BEIR_REPOS = {
     "scifact": "BeIR/scifact",
     "nfcorpus": "BeIR/nfcorpus",
+    "arguana": "BeIR/arguana",
+    "scidocs": "BeIR/scidocs",
+    "fiqa": "BeIR/fiqa",
+    "trec-covid": "BeIR/trec-covid",
+    "touche2020": "BeIR/webis-touche2020",
 }
 
 
