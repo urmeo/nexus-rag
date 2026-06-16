@@ -33,6 +33,7 @@ def build_systems(
     chunks: list[Chunk],
     embedder: Embedder,
     include_rerank: bool = False,
+    include_splade: bool = False,
     tau: float = 0.55,
 ) -> dict[str, RetrieveFn]:
     """Each rung adds exactly one component over the previous."""
@@ -63,5 +64,11 @@ def build_systems(
             return _ids(reranker.rerank(q, cands, top_k=k))
 
         systems["+ Rerank (cross-enc)"] = with_rerank
+
+    if include_splade:
+        from nexusrag.retrieval.splade import SpladeRetriever
+
+        splade = SpladeRetriever(chunks, device="cpu")
+        systems["SPLADE"] = lambda q, k: _ids(splade.retrieve(q, top_k=depth(k)))
 
     return systems

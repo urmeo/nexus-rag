@@ -23,6 +23,7 @@ def evaluate(
     use_sample: bool = False,
     depth: int = 50,
     include_rerank: bool = False,
+    include_splade: bool = False,
     embedding_model: str = "BAAI/bge-small-en-v1.5",
     limit: int | None = None,
     seed: int = 0,
@@ -37,7 +38,9 @@ def evaluate(
     chunks = corpus_to_chunks(corpus_text)
 
     embedder = Embedder(model_name=embedding_model, device="cpu")
-    systems = build_systems(chunks, embedder, include_rerank=include_rerank)
+    systems = build_systems(
+        chunks, embedder, include_rerank=include_rerank, include_splade=include_splade
+    )
 
     results: dict[str, dict[str, Any]] = {}
     per_query_ndcg: dict[str, list[float]] = {}
@@ -92,6 +95,7 @@ def main() -> None:
     p.add_argument("--sample", action="store_true", help="use vendored offline subset")
     p.add_argument("--depth", type=int, default=50)
     p.add_argument("--rerank", action="store_true", help="add the cross-encoder rerank rung")
+    p.add_argument("--splade", action="store_true", help="add the SPLADE baseline")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--embedding-model", default="BAAI/bge-small-en-v1.5")
@@ -104,6 +108,7 @@ def main() -> None:
         use_sample=args.sample,
         depth=args.depth,
         include_rerank=args.rerank,
+        include_splade=args.splade,
         limit=args.limit,
         seed=args.seed,
         embedding_model=args.embedding_model,

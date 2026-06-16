@@ -52,6 +52,7 @@ dev = [
 eval = [
     "datasets>=3.0.0",
     "matplotlib>=3.8.0",
+    "scipy>=1.11.0",
 ]
 
 [project.urls]
@@ -122,6 +123,8 @@ module = [
     "matplotlib.*",
     "transformers",
     "transformers.*",
+    "scipy",
+    "scipy.*",
 ]
 ignore_missing_imports = true
 
