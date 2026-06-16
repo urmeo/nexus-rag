@@ -22,8 +22,8 @@ def evaluate(
     split: str = "test",
     use_sample: bool = False,
     depth: int = 50,
-    include_rerank: bool = True,
-    embedding_model: str = "all-MiniLM-L6-v2",
+    include_rerank: bool = False,
+    embedding_model: str = "BAAI/bge-small-en-v1.5",
     limit: int | None = None,
     seed: int = 0,
 ) -> dict[str, Any]:
@@ -36,7 +36,7 @@ def evaluate(
     corpus_text = {doc_id: ds.doc_text(doc_id) for doc_id in ds.corpus}
     chunks = corpus_to_chunks(corpus_text)
 
-    embedder = Embedder(model_name=embedding_model)
+    embedder = Embedder(model_name=embedding_model, device="cpu")
     systems = build_systems(chunks, embedder, include_rerank=include_rerank)
 
     results: dict[str, dict[str, Any]] = {}
@@ -91,9 +91,10 @@ def main() -> None:
     p.add_argument("--split", default="test")
     p.add_argument("--sample", action="store_true", help="use vendored offline subset")
     p.add_argument("--depth", type=int, default=50)
-    p.add_argument("--no-rerank", action="store_true")
+    p.add_argument("--rerank", action="store_true", help="add the cross-encoder rerank rung")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--embedding-model", default="BAAI/bge-small-en-v1.5")
     p.add_argument("--out", default=None)
     args = p.parse_args()
 
@@ -102,9 +103,10 @@ def main() -> None:
         split=args.split,
         use_sample=args.sample,
         depth=args.depth,
-        include_rerank=not args.no_rerank,
+        include_rerank=args.rerank,
         limit=args.limit,
         seed=args.seed,
+        embedding_model=args.embedding_model,
     )
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)

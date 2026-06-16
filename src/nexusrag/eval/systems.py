@@ -1,4 +1,4 @@
-"""Retrieval system ladder for ablation experiments."""
+"""The additive retrieval ladder for the ablation."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from nexusrag.ingestion import Chunk, Embedder
 from nexusrag.retrieval import (
     AdaptiveHybridRetriever,
     BM25Retriever,
+    CorrectiveRetriever,
     HybridRetriever,
     Reranker,
 )
@@ -28,46 +29,39 @@ def _ids(results: Sequence[RetrievalResult]) -> list[str]:
     return out
 
 
-def _with_rerank(base: HybridRetriever, reranker: Reranker) -> RetrieveFn:
-    def fn(query: str, k: int) -> list[str]:
-        candidates = base.retrieve(query, top_k=max(k, 50))
-        reranked = reranker.rerank(query, candidates, top_k=k)
-        return _ids(reranked)
-
-    return fn
-
-
 def build_systems(
     chunks: list[Chunk],
     embedder: Embedder,
-    include_rerank: bool = True,
+    include_rerank: bool = False,
+    tau: float = 0.55,
 ) -> dict[str, RetrieveFn]:
-    """The additive ablation ladder.
-
-    Each entry adds exactly one component over the previous.
-    """
+    """Each rung adds exactly one component over the previous."""
     dense = ExactDenseRetriever(embedder, chunks)
     bm25 = BM25Retriever()
     bm25.add(chunks)
 
-    rrf = HybridRetriever(dense, bm25, 0.7, 0.3, use_mmr=False, use_keyword_boost=False)
-    adaptive = AdaptiveHybridRetriever(
-        dense, bm25, 0.7, 0.3, use_mmr=False, use_keyword_boost=False
-    )
-    boosted = AdaptiveHybridRetriever(dense, bm25, 0.7, 0.3, use_mmr=False, use_keyword_boost=True)
-    full = AdaptiveHybridRetriever(dense, bm25, 0.7, 0.3, use_mmr=True, use_keyword_boost=True)
+    hybrid = HybridRetriever(dense, bm25, 0.5, 0.5)
+    adaptive = AdaptiveHybridRetriever(dense, bm25, 0.5, 0.5)
+    corrective = CorrectiveRetriever(adaptive, tau=tau)
+
+    def depth(k: int) -> int:
+        return max(k, 50)
 
     systems: dict[str, RetrieveFn] = {
-        "BM25": lambda q, k: _ids(bm25.retrieve(q, top_k=k)),
-        "Dense (MiniLM)": lambda q, k: _ids(dense.retrieve(q, top_k=k)),
-        "Hybrid-RRF": lambda q, k: _ids(rrf.retrieve(q, top_k=k)),
-        "+ Adaptive weights": lambda q, k: _ids(adaptive.retrieve(q, top_k=k)),
-        "+ Keyword boost": lambda q, k: _ids(boosted.retrieve(q, top_k=k)),
+        "BM25": lambda q, k: _ids(bm25.retrieve(q, top_k=depth(k))),
+        "Dense": lambda q, k: _ids(dense.retrieve(q, top_k=depth(k))),
+        "Hybrid (RRF)": lambda q, k: _ids(hybrid.retrieve(q, top_k=k, depth=depth(k))),
+        "+ Adaptive weights": lambda q, k: _ids(adaptive.retrieve(q, top_k=k, depth=depth(k))),
+        "+ Corrective PRF": lambda q, k: _ids(corrective.retrieve(q, top_k=k, depth=depth(k))),
     }
 
     if include_rerank:
-        reranker = Reranker()
-        systems["+ Rerank (cross-enc)"] = _with_rerank(boosted, reranker)
-        systems["+ MMR (full)"] = _with_rerank(full, reranker)
+        reranker = Reranker(device="cpu")
+
+        def with_rerank(q: str, k: int) -> list[str]:
+            cands = adaptive.retrieve(q, top_k=depth(k), depth=depth(k))
+            return _ids(reranker.rerank(q, cands, top_k=k))
+
+        systems["+ Rerank (cross-enc)"] = with_rerank
 
     return systems
