@@ -59,7 +59,7 @@ def evaluate(
     base = {q: _ids(adaptive.retrieve(ds.queries[q], top_k=depth, depth=depth)) for q in qids}
     base_ndcg = {q: NDCG(base[q], ds.qrels[q]) for q in qids}
 
-    sweep = []
+    sweep: list[dict[str, Any]] = []
     for tau in taus:
         cr = CorrectiveRetriever(adaptive, tau=tau)
         corr_ndcg: dict[str, float] = {}
@@ -84,8 +84,8 @@ def evaluate(
             }
         )
 
-    best = max(sweep, key=lambda s: s["ndcg"])
-    cost = _cost_quality(adaptive, ds, qids, best["tau"], depth, with_reranker)
+    best = max(sweep, key=lambda s: float(s["ndcg"]))
+    cost = _cost_quality(adaptive, ds, qids, float(best["tau"]), depth, with_reranker)
 
     return {
         "dataset": dataset,

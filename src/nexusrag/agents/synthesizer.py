@@ -44,7 +44,7 @@ class SynthesisResult:
 
     answer: str
     sources: list[Source]
-    confidence: float
+    confidence: float = 0.0
     raw_response: str = ""
     tokens_used: int = 0
 

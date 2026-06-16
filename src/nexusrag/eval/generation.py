@@ -109,7 +109,8 @@ def evaluate(
 
     # phase 3: score grounding (NLI verifier only); apply faithfulness gate
     verifier = GroundingVerifier(device="cpu")
-    baseline, corrective = [], []
+    base_scores: list[float] = []
+    corr_scores: list[float] = []
     corrected = 0
     for qid in qids:
         f0 = verifier.verify(base_answer[qid], initial[qid]).faithfulness
@@ -119,8 +120,8 @@ def evaluate(
             if f1 > f0:
                 corrected += 1
             best = max(f0, f1)
-        baseline.append(f0)
-        corrective.append(best)
+        base_scores.append(f0)
+        corr_scores.append(best)
 
     return {
         "dataset": "scifact-claims",
@@ -131,9 +132,9 @@ def evaluate(
         "top_k": top_k,
         "gate_tau": tau,
         "num_corrected": corrected,
-        "baseline_faithfulness": _mean(baseline),
-        "corrective_faithfulness": _mean(corrective),
-        "improvement": _mean(corrective) - _mean(baseline),
+        "baseline_faithfulness": _mean(base_scores),
+        "corrective_faithfulness": _mean(corr_scores),
+        "improvement": _mean(corr_scores) - _mean(base_scores),
     }
 
 
