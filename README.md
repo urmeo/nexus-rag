@@ -61,7 +61,7 @@ make paper          # regenerate tables, figures, and the PDF (needs `tectonic`)
 | Retrieval | sentence-transformers (BGE-small), rank-bm25, RRF, cross-encoder reranker, DeBERTa NLI, LanceDB |
 | Serving | FastAPI, Uvicorn, Ollama |
 | Evaluation | SciFact, NFCorpus (BEIR), bootstrap CIs, paired randomization tests, Holm correction |
-| Quality | pytest, ruff, mypy, GitHub Actions, Docker |
+| Quality | pytest, ruff, mypy (strict), Docker |
 
 ## License
 
