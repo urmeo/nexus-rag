@@ -114,14 +114,13 @@ def evaluate(
     corrected = 0
     for qid in qids:
         f0 = verifier.verify(base_answer[qid], initial[qid]).faithfulness
-        best = f0
+        gated = f0
         if f0 < tau:
-            f1 = verifier.verify(corr_answer[qid], reformed[qid]).faithfulness
-            if f1 > f0:
-                corrected += 1
-            best = max(f0, f1)
+            # commit to the corrected answer when the gate fires (no oracle)
+            gated = verifier.verify(corr_answer[qid], reformed[qid]).faithfulness
+            corrected += 1
         base_scores.append(f0)
-        corr_scores.append(best)
+        corr_scores.append(gated)
 
     return {
         "dataset": "scifact-claims",
