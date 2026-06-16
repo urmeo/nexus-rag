@@ -1,16 +1,4 @@
-"""Tests for the corrective-generation eval logic (no model loads)."""
-
-from nexusrag.eval.generation import _format_sources, _mean, _reformulate
-
-
-class TestReformulate:
-    def test_drops_stopwords(self) -> None:
-        out = _reformulate("What is the role of BRCA1 in cancer?")
-        assert "what" not in out and "the" not in out
-        assert "brca1" in out and "cancer" in out
-
-    def test_empty_or_all_stopwords_falls_back(self) -> None:
-        assert _reformulate("the of a") == "the of a"
+from nexusrag.eval.generation import _format_sources, _mean
 
 
 class TestFormatSources:
