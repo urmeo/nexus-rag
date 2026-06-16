@@ -1,4 +1,4 @@
-"""Text embedding using sentence-transformers."""
+"""Text embedding with sentence-transformers."""
 
 import gc
 from typing import TYPE_CHECKING, Any, Literal
@@ -10,36 +10,44 @@ if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
 
+def default_prefixes(model_name: str) -> tuple[str, str]:
+    name = model_name.lower()
+    if "e5" in name:
+        return "query: ", "passage: "
+    if "bge" in name and "-en" in name:
+        return "Represent this sentence for searching relevant passages: ", ""
+    return "", ""
+
+
 class Embedder:
-    """Wrapper for sentence-transformer embedding models."""
+    """Sentence-transformer embeddings with optional query/passage prefixes."""
 
     def __init__(
         self,
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: str = "BAAI/bge-small-en-v1.5",
         device: Literal["cpu", "cuda", "mps"] | None = None,
         normalize: bool = True,
+        query_prefix: str | None = None,
+        doc_prefix: str | None = None,
     ):
         self.model_name = model_name
         self.normalize = normalize
         self._model: SentenceTransformer | None = None
         self._device = device
+        qp, dp = default_prefixes(model_name)
+        self.query_prefix = qp if query_prefix is None else query_prefix
+        self.doc_prefix = dp if doc_prefix is None else doc_prefix
 
     @property
     def model(self) -> Any:
-        """Lazy load the model on first use."""
         if self._model is None:
             from sentence_transformers import SentenceTransformer
 
-            self._model = SentenceTransformer(
-                self.model_name,
-                device=self._device,
-            )
+            self._model = SentenceTransformer(self.model_name, device=self._device)
         return self._model
 
     @property
     def dimension(self) -> int:
-        """Embedding vector dimension."""
-        # newer sentence-transformers renamed the method
         get_dim = getattr(self.model, "get_embedding_dimension", None) or (
             self.model.get_sentence_embedding_dimension
         )
@@ -48,22 +56,14 @@ class Embedder:
     def embed(
         self,
         texts: list[str],
-        batch_size: int = 16,  # Reduced default for 8GB RAM systems
+        batch_size: int = 32,
         show_progress: bool = False,
     ) -> NDArray[np.float32]:
-        """
-        Embed multiple texts in batches.
-
-        Args:
-            texts: List of texts to embed
-            batch_size: Number of texts per batch (default 16 for memory efficiency)
-            show_progress: Show progress bar
-
-        Returns:
-            Array of shape (len(texts), dimension)
-        """
         if not texts:
             return np.array([], dtype=np.float32).reshape(0, self.dimension)
+
+        if self.doc_prefix:
+            texts = [self.doc_prefix + t for t in texts]
 
         embeddings = self.model.encode(
             texts,
@@ -73,25 +73,13 @@ class Embedder:
             convert_to_numpy=True,
         )
         result: NDArray[np.float32] = embeddings.astype(np.float32)
-
-        # Memory cleanup for large batches
         if len(texts) > 100:
             gc.collect()
-
         return result
 
     def embed_query(self, query: str) -> NDArray[np.float32]:
-        """
-        Embed a single query string.
-
-        Args:
-            query: Query text
-
-        Returns:
-            1D array of shape (dimension,)
-        """
         embedding = self.model.encode(
-            query,
+            self.query_prefix + query,
             normalize_embeddings=self.normalize,
             convert_to_numpy=True,
         )
@@ -103,21 +91,10 @@ class Embedder:
         query_embedding: NDArray[np.float32],
         document_embeddings: NDArray[np.float32],
     ) -> NDArray[np.float32]:
-        """
-        Compute cosine similarity between query and documents.
-
-        Args:
-            query_embedding: Shape (dimension,)
-            document_embeddings: Shape (n_docs, dimension)
-
-        Returns:
-            Similarity scores of shape (n_docs,)
-        """
         if self.normalize:
             result: NDArray[np.float32] = np.dot(document_embeddings, query_embedding)
             return result
-
-        query_norm = query_embedding / np.linalg.norm(query_embedding)
-        doc_norms = document_embeddings / np.linalg.norm(document_embeddings, axis=1, keepdims=True)
-        result2: NDArray[np.float32] = np.dot(doc_norms, query_norm)
+        q = query_embedding / np.linalg.norm(query_embedding)
+        d = document_embeddings / np.linalg.norm(document_embeddings, axis=1, keepdims=True)
+        result2: NDArray[np.float32] = np.dot(d, q)
         return result2
