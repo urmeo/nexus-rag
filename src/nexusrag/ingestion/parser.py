@@ -41,7 +41,6 @@ class DocumentParser:
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md"}
 
     def parse(self, file_path: str | Path) -> ParsedDocument:
-        """Parse a document from file path."""
         path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(f"File not found: {path}")
@@ -81,11 +80,11 @@ class DocumentParser:
 
         try:
             doc = self.parse(tmp_path)
-            # CRITICAL: Override temp filename with original user filename
+            # keep the user's filename, not the temp one
             doc.metadata["filename"] = filename
             doc.metadata["original_filename"] = filename
             doc.metadata["file_type"] = extension.lstrip(".")
-            doc.metadata["display_name"] = filename  # Extra field for safety
+            doc.metadata["display_name"] = filename
             return doc
         finally:
             tmp_path.unlink()
@@ -145,7 +144,6 @@ class DocumentParser:
         return self._clean_text(full_text), sections
 
     def _parse_text(self, path: Path) -> tuple[str, list[Section]]:
-        """Parse plain text file."""
         content = path.read_text(encoding="utf-8")
         sections = self._extract_sections_from_text(content)
         return self._clean_text(content), sections
@@ -215,18 +213,16 @@ class DocumentParser:
         return int(match.group(1)) if match else 1
 
     def _clean_text(self, text: str) -> str:
-        """Normalize whitespace and remove artifacts."""
         text = re.sub(r"\n{3,}", "\n\n", text)
         text = re.sub(r"[ \t]+", " ", text)
         return text.strip()
 
     def _generate_id(self, path: Path, content: str) -> str:
-        """Generate deterministic document ID."""
+        """Stable id from name + length + head of content."""
         hash_input = f"{path.name}:{len(content)}:{content[:500]}"
         return hashlib.sha256(hash_input.encode()).hexdigest()[:16]
 
     def _extract_metadata(self, path: Path) -> dict[str, Any]:
-        """Extract file metadata."""
         stat = path.stat()
         return {
             "filename": path.name,

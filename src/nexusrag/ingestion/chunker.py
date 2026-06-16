@@ -1,4 +1,4 @@
-"""Production-grade hierarchical chunking for RAG systems."""
+"""Hierarchical, structure-aware chunking."""
 
 import hashlib
 import logging
@@ -14,29 +14,26 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Chunk:
-    """A text chunk with rich metadata for high-quality retrieval."""
+    """A text chunk with metadata for retrieval and citation."""
 
     id: str
     content: str
     document_id: str
     metadata: dict[str, object] = field(default_factory=dict)
 
-    # Rich metadata for better retrieval and citation
     document_name: str = ""
     section_title: str = ""
     page_number: int | None = None
     chunk_index: int = 0
-    context_before: str = ""  # Previous ~100 chars for context
-    context_after: str = ""  # Next ~100 chars for context
+    context_before: str = ""
+    context_after: str = ""
 
     @property
     def token_estimate(self) -> int:
-        """Rough token count estimate (words * 1.3)."""
         return int(len(self.content.split()) * 1.3)
 
     @property
     def full_context(self) -> str:
-        """Content with surrounding context for better understanding."""
         parts = []
         if self.context_before:
             parts.append(f"[...]{self.context_before}")
@@ -47,7 +44,6 @@ class Chunk:
 
     @property
     def header(self) -> str:
-        """Generate a header for this chunk."""
         parts = []
         if self.document_name:
             parts.append(self.document_name)
@@ -59,29 +55,12 @@ class Chunk:
 
 
 class HierarchicalChunker:
-    """
-    Production-grade hierarchical chunking strategy.
+    """Splits documents by section, then paragraph, then sentence.
 
-    Hierarchy:
-    1. Document → Sections (by headings)
-    2. Sections → Paragraphs
-    3. Paragraphs → Sentences (only if too long)
-
-    Features:
-    - Preserves document structure
-    - Never splits mid-sentence
-    - Includes context windows
-    - Prepends section headers
-    - Maintains page numbers
-
-    Default configuration optimized for RAG quality:
-    - Target: 1200 chars (larger chunks for more context)
-    - Max: 1500 chars
-    - Min: 400 chars
-    - Overlap: 300 chars (prevents missing info at boundaries)
+    Keeps chunks near a target size without breaking sentences, prepends
+    the section header, and carries page numbers for citation.
     """
 
-    # Default configuration values
     DEFAULT_TARGET_SIZE = 1200
     DEFAULT_MAX_SIZE = 1500
     DEFAULT_MIN_SIZE = 400
@@ -110,29 +89,14 @@ class HierarchicalChunker:
         )
 
     def chunk(self, document: ParsedDocument) -> list[Chunk]:
-        """
-        Split document into chunks using hierarchical strategy.
-
-        Args:
-            document: Parsed document with sections
-
-        Returns:
-            List of chunks with rich metadata
-        """
         doc_name = resolve_display_name(document.metadata, fallback="Document")
-
-        logger.info(f"Chunking document: {doc_name}")
-
         if document.sections:
             chunks = self._chunk_by_sections(document, doc_name)
         else:
             chunks = self._chunk_by_paragraphs(document, doc_name)
-
-        # Add context windows
         if self.include_context:
             self._add_context_windows(chunks, document.content)
-
-        logger.info(f"Created {len(chunks)} chunks from document")
+        logger.info(f"Chunked {doc_name} into {len(chunks)} chunks")
         return chunks
 
     def _chunk_by_sections(self, document: ParsedDocument, doc_name: str) -> list[Chunk]:
@@ -359,24 +323,26 @@ class HierarchicalChunker:
         return overlap_content
 
     def _add_context_windows(self, chunks: list[Chunk], full_text: str) -> None:
-        """Add context_before and context_after to each chunk."""
         for chunk in chunks:
-            # Find chunk position in full text
-            start_idx = full_text.find(chunk.content[:100])
+            body = chunk.content
+            header = re.match(r"^\[[^\]]*\]\n\n", body)  # synthetic section prefix
+            if header:
+                body = body[header.end() :]
+            needle = body[:80]
+            if not needle:
+                continue
+            start_idx = full_text.find(needle)
             if start_idx == -1:
                 continue
-
-            end_idx = start_idx + len(chunk.content)
-
-            # Context before
+            end_idx = start_idx + len(body)
             if start_idx > 0:
-                before_start = max(0, start_idx - self.context_chars)
-                chunk.context_before = full_text[before_start:start_idx].strip()
-
-            # Context after
+                chunk.context_before = full_text[
+                    max(0, start_idx - self.context_chars) : start_idx
+                ].strip()
             if end_idx < len(full_text):
-                after_end = min(len(full_text), end_idx + self.context_chars)
-                chunk.context_after = full_text[end_idx:after_end].strip()
+                chunk.context_after = full_text[
+                    end_idx : end_idx + self.context_chars
+                ].strip()
 
     def _create_chunk(
         self,
