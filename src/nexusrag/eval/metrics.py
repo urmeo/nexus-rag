@@ -6,6 +6,7 @@ import math
 from collections.abc import Callable, Mapping, Sequence
 
 import numpy as np
+from numpy.typing import NDArray
 
 Qrels = Mapping[str, set[str]]
 Run = Mapping[str, Sequence[str]]
@@ -96,6 +97,48 @@ def aggregate(scores: Mapping[str, Mapping[str, float]]) -> dict[str, float]:
     return means
 
 
+def _avg_ranks(values: NDArray[np.float64]) -> NDArray[np.float64]:
+    order = np.argsort(values, kind="mergesort")
+    ranks = np.empty(values.size, dtype=np.float64)
+    i = 0
+    while i < values.size:
+        j = i
+        while j + 1 < values.size and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        ranks[order[i : j + 1]] = (i + j) / 2 + 1
+        i = j + 1
+    return ranks
+
+
+def roc_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
+    """Area under the ROC curve via the rank-sum statistic (tie-aware)."""
+    s = np.asarray(scores, dtype=np.float64)
+    y = np.asarray(labels, dtype=np.int64)
+    n_pos = int((y == 1).sum())
+    n_neg = int((y == 0).sum())
+    if n_pos == 0 or n_neg == 0:
+        return float("nan")
+    ranks = _avg_ranks(s)
+    return float((ranks[y == 1].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
+
+
+def pr_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
+    """Average precision (area under the precision-recall curve)."""
+    s = np.asarray(scores, dtype=np.float64)
+    y = np.asarray(labels, dtype=np.int64)
+    n_pos = int((y == 1).sum())
+    if n_pos == 0:
+        return float("nan")
+    order = np.argsort(-s, kind="mergesort")
+    y = y[order]
+    tp = np.cumsum(y)
+    fp = np.cumsum(1 - y)
+    precision = tp / np.maximum(tp + fp, 1)
+    recall = tp / n_pos
+    prev = np.concatenate([[0.0], recall[:-1]])
+    return float(np.sum((recall - prev) * precision))
+
+
 def bootstrap_ci(
     values: Sequence[float], n_boot: int = 10000, ci: float = 0.95, seed: int = 0
 ) -> tuple[float, float, float]:
@@ -124,4 +167,18 @@ def paired_randomization_test(
     rng = np.random.default_rng(seed)
     signs = rng.choice([-1.0, 1.0], size=(n_perm, diff.size))
     perm_means = np.abs((signs * diff).mean(axis=1))
-    return float((perm_means >= observed - 1e-12).mean())
+    # add-one estimator: observed labeling counts as one permutation
+    exceed = int((perm_means >= observed - 1e-12).sum())
+    return (exceed + 1) / (n_perm + 1)
+
+
+def holm_correction(pvalues: dict[str, float]) -> dict[str, float]:
+    """Holm-Bonferroni step-down adjusted p-values."""
+    ordered = sorted(pvalues.items(), key=lambda kv: kv[1])
+    m = len(ordered)
+    adjusted: dict[str, float] = {}
+    running = 0.0
+    for i, (name, p) in enumerate(ordered):
+        running = max(running, min(1.0, (m - i) * p))
+        adjusted[name] = running
+    return adjusted
