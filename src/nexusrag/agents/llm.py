@@ -22,7 +22,7 @@ class LLMClient:
 
     def __init__(
         self,
-        model: str = "llama3.1:8b",
+        model: str = "llama3.2:3b",
         base_url: str = "http://localhost:11434",
         timeout: float = 120.0,
     ):
@@ -33,7 +33,6 @@ class LLMClient:
 
     @property
     def client(self) -> httpx.Client:
-        """Lazy HTTP client initialization."""
         if self._client is None:
             self._client = httpx.Client(
                 base_url=self.base_url,
@@ -49,19 +48,6 @@ class LLMClient:
         max_tokens: int = 2048,
         stop: list[str] | None = None,
     ) -> str:
-        """
-        Generate text completion.
-
-        Args:
-            prompt: User prompt
-            system: Optional system message
-            temperature: Sampling temperature (0-1)
-            max_tokens: Maximum tokens to generate
-            stop: Stop sequences
-
-        Returns:
-            Generated text
-        """
         payload = {
             "model": self.model,
             "prompt": prompt,
@@ -91,12 +77,6 @@ class LLMClient:
         temperature: float = 0.1,
         max_tokens: int = 2048,
     ) -> Generator[str, None, None]:
-        """
-        Stream text completion token by token.
-
-        Yields:
-            Generated tokens
-        """
         payload = {
             "model": self.model,
             "prompt": prompt,
@@ -126,17 +106,6 @@ class LLMClient:
         temperature: float = 0.1,
         max_tokens: int = 2048,
     ) -> str:
-        """
-        Chat completion with message history.
-
-        Args:
-            messages: List of {"role": "user"|"assistant"|"system", "content": str}
-            temperature: Sampling temperature
-            max_tokens: Maximum tokens
-
-        Returns:
-            Assistant response
-        """
         payload = {
             "model": self.model,
             "messages": messages,

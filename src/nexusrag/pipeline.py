@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from nexusrag.agents import LLMClient, Orchestrator, RAGResponse, ReasoningStep, RetrievalQuality
+from nexusrag.agents import LLMClient, Orchestrator, RAGResponse, ReasoningStep
 from nexusrag.config import Settings, get_settings
 from nexusrag.ingestion import (
     DocumentParser,
@@ -18,8 +18,8 @@ from nexusrag.ingestion import (
 from nexusrag.retrieval import (
     AdaptiveHybridRetriever,
     BM25Retriever,
+    CorrectiveRetriever,
     DenseRetriever,
-    Reranker,
 )
 from nexusrag.storage import DocumentStore, VectorStore
 
@@ -52,12 +52,7 @@ class SystemStats:
 
 
 class NexusRAG:
-    """
-    Self-correcting RAG system for scientific literature synthesis.
-
-    Integrates document ingestion, hybrid retrieval, and LLM-based
-    answer generation with inline citations.
-    """
+    """Document ingestion, corrective hybrid retrieval, and cited generation."""
 
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
@@ -138,61 +133,39 @@ class NexusRAG:
     def orchestrator(self) -> Orchestrator:
         if self._orchestrator is None:
             dense = DenseRetriever(self.embedder, self.vector_store)
-            hybrid = AdaptiveHybridRetriever(
-                dense_retriever=dense,
-                sparse_retriever=self.bm25,
-                base_dense_weight=0.7,
-                base_sparse_weight=0.3,
+            hybrid = AdaptiveHybridRetriever(dense, self.bm25, 0.5, 0.5)
+            sc = self.settings.self_correction
+            retriever = CorrectiveRetriever(
+                hybrid,
+                tau=sc.confidence_tau,
+                feedback_docs=sc.feedback_docs,
+                feedback_terms=sc.feedback_terms,
             )
 
-            reranker = None
-            if self.settings.retrieval.rerank_top_k > 0:
-                try:
-                    reranker = Reranker()
-                except Exception:
-                    logger.warning(
-                        "Reranker initialization failed, proceeding without reranking",
-                        exc_info=True,
-                    )
-
             grounding_verifier = None
-            if self.settings.self_correction.grounding_enabled:
+            if sc.grounding_enabled:
                 from nexusrag.agents.grounding import GroundingVerifier
 
                 grounding_verifier = GroundingVerifier(
-                    model_name=self.settings.self_correction.grounding_model,
-                    threshold=self.settings.self_correction.grounding_threshold,
+                    model_name=sc.grounding_model,
+                    threshold=sc.grounding_threshold,
+                    device=self.settings.embedding.device,
                 )
 
             self._orchestrator = Orchestrator(
-                retriever=hybrid,
+                retriever=retriever,
                 llm=self.llm,
-                reranker=reranker,
-                max_retrieval_attempts=self.settings.self_correction.max_iterations,
                 top_k=self.settings.retrieval.top_k,
                 document_store=self.document_store,
-                relevance_threshold=self.settings.self_correction.relevance_threshold,
                 grounding_verifier=grounding_verifier,
             )
         return self._orchestrator
 
     def ingest(self, file_path: str | Path) -> IngestResult:
-        """
-        Ingest a single document into the system.
-
-        Args:
-            file_path: Path to PDF, DOCX, TXT, or MD file
-
-        Returns:
-            IngestResult with document details
-        """
         path = Path(file_path)
 
         try:
-            # Parse document
             document = self.parser.parse(path)
-
-            # Check for duplicates
             if self.document_store.exists(document.id):
                 return IngestResult(
                     document_id=document.id,
@@ -203,7 +176,6 @@ class NexusRAG:
                     error="Document already exists",
                 )
 
-            # Chunk document
             chunks = self.chunker.chunk(document)
             if not chunks:
                 return IngestResult(
@@ -215,20 +187,13 @@ class NexusRAG:
                     error="No content extracted",
                 )
 
-            # Generate embeddings
-            texts = [chunk.content for chunk in chunks]
             embeddings = self.embedder.embed(
-                texts,
+                [c.content for c in chunks],
                 batch_size=self.settings.embedding.batch_size,
-                show_progress=False,
             )
-
-            # Store
             self.document_store.add(document)
             self.vector_store.add(chunks, embeddings)
             self.bm25.add_incremental(chunks)
-
-            # Memory cleanup after ingestion
             gc.collect()
 
             return IngestResult(
@@ -313,16 +278,6 @@ class NexusRAG:
             )
 
     def ingest_directory(self, dir_path: str | Path, recursive: bool = False) -> list[IngestResult]:
-        """
-        Ingest all supported documents from a directory.
-
-        Args:
-            dir_path: Directory path
-            recursive: Include subdirectories
-
-        Returns:
-            List of IngestResult for each file
-        """
         path = Path(dir_path)
         if not path.is_dir():
             raise ValueError(f"Not a directory: {path}")
@@ -339,31 +294,12 @@ class NexusRAG:
         return results
 
     def query(self, question: str) -> RAGResponse:
-        """
-        Query the knowledge base.
-
-        Args:
-            question: Research question
-
-        Returns:
-            RAGResponse with answer, sources, and reasoning trace
-        """
         if self.vector_store.count() == 0:
             return RAGResponse(
                 answer="No documents have been uploaded yet. Please upload research papers first.",
                 sources=[],
                 confidence=0.0,
-                reasoning_trace=[
-                    ReasoningStep(
-                        stage="validation",
-                        action="Checking knowledge base",
-                        result="No documents found",
-                    )
-                ],
-                query_plan=None,
-                retrieval_quality=RetrievalQuality.INCORRECT,
-                total_chunks_retrieved=0,
-                processing_time_ms=0.0,
+                reasoning_trace=[ReasoningStep("validation", "no documents in knowledge base")],
             )
 
         return self.orchestrator.query(question)

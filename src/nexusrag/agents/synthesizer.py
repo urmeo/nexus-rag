@@ -1,11 +1,11 @@
-"""Production-grade answer synthesis with structured citations."""
+"""Answer synthesis with inline citations."""
 
 import logging
 from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any
 
-from nexusrag.agents.citations import extract_citations, strip_citations
+from nexusrag.agents.citations import strip_citations
 from nexusrag.agents.llm import LLMClient
 from nexusrag.agents.query_analyzer import QueryType
 from nexusrag.retrieval import RetrievalResult
@@ -49,7 +49,6 @@ class SynthesisResult:
     tokens_used: int = 0
 
 
-# Production system prompt - strict, concise, accurate
 SYSTEM_PROMPT = """You are a precise research assistant. Answer questions using ONLY the provided sources.
 
 RULES:
@@ -69,15 +68,7 @@ Answer using only the sources above. Cite with [1], [2], etc."""
 
 
 class Synthesizer:
-    """
-    Production-grade answer synthesizer.
-
-    Features:
-    - Structured prompts for consistent output
-    - Citation verification
-    - Confidence scoring
-    - Source deduplication
-    """
+    """Builds the prompt, calls the LLM, and keeps only valid citations."""
 
     def __init__(
         self,
@@ -88,12 +79,8 @@ class Synthesizer:
         self.llm = llm
         self.max_context_length = max_context_length
         self.max_sources = max_sources
-        logger.info(
-            f"Initialized Synthesizer: max_context={max_context_length}, max_sources={max_sources}"
-        )
 
     def _get_type_hint(self, query_type: QueryType) -> str | None:
-        """Return type-specific synthesis instructions."""
         hints = {
             QueryType.COMPARISON: "Structure as a comparison, highlighting similarities and differences.",
             QueryType.METHODOLOGY: "Explain step by step.",
@@ -113,57 +100,28 @@ class Synthesizer:
         doc_names: dict[str, str] | None = None,
         query_type: QueryType | None = None,
     ) -> SynthesisResult:
-        """
-        Generate answer with verified citations.
-
-        Args:
-            query: User's question
-            results: Retrieved chunks with scores
-            temperature: LLM temperature (lower = more focused, default 0.1)
-            doc_names: Mapping of document_id to filename
-
-        Returns:
-            SynthesisResult with answer and sources
-        """
-        logger.info(f"Synthesizing answer for: {query[:50]}...")
-
         if not results:
-            logger.warning("No results provided for synthesis")
             return SynthesisResult(
                 answer="No relevant documents found. Please upload documents and try again.",
                 sources=[],
                 confidence=0.0,
             )
 
-        # Build sources with document names
         doc_names = doc_names or {}
-        sources = self._build_sources(results, doc_names)
-
-        # Limit sources
-        sources = sources[: self.max_sources]
-
-        # Format sources for LLM
+        sources = self._build_sources(results, doc_names)[: self.max_sources]
         formatted_sources = self._format_sources_for_llm(sources)
 
-        # Truncate if needed
         if len(formatted_sources) > self.max_context_length:
-            formatted_sources = formatted_sources[: self.max_context_length]
-            formatted_sources += "\n\n[Additional sources truncated for length]"
-            logger.warning("Sources truncated due to length")
+            formatted_sources = formatted_sources[: self.max_context_length] + "\n\n[truncated]"
 
-        # Build prompt
         user_prompt = USER_PROMPT_TEMPLATE.format(
             question=query, formatted_sources=formatted_sources
         )
-
-        # Append query-type-specific hint
         if query_type is not None:
-            type_hint = self._get_type_hint(query_type)
-            if type_hint:
-                user_prompt += f"\n\nInstruction: {type_hint}"
+            hint = self._get_type_hint(query_type)
+            if hint:
+                user_prompt += f"\n\nInstruction: {hint}"
 
-        # Generate answer
-        logger.info(f"Calling LLM with {len(sources)} sources...")
         try:
             answer = self.llm.generate(
                 user_prompt,
@@ -171,28 +129,16 @@ class Synthesizer:
                 temperature=temperature,
                 max_tokens=min(768, 256 + 100 * len(sources)),
             )
-        except Exception as e:
-            logger.error(f"LLM generation failed: {e}")
+        except Exception:
+            logger.error("LLM generation failed", exc_info=True)
             return SynthesisResult(
                 answer="Unable to generate response. Please try again.",
                 sources=sources,
                 confidence=0.0,
             )
 
-        # Verify and clean citations
-        answer = self._verify_citations(answer, len(sources))
-
-        # Calculate confidence
-        confidence = self._calculate_confidence(results, answer, sources)
-
-        logger.info(f"Synthesis complete: confidence={confidence:.2f}")
-
-        return SynthesisResult(
-            answer=answer.strip(),
-            sources=sources,
-            confidence=confidence,
-            raw_response=answer,
-        )
+        answer = strip_citations(answer, set(range(1, len(sources) + 1)))
+        return SynthesisResult(answer=answer.strip(), sources=sources, raw_response=answer)
 
     def synthesize_streaming(
         self,
@@ -329,50 +275,3 @@ class Synthesizer:
 
         return "\n".join(formatted_parts)
 
-    def _verify_citations(self, answer: str, num_sources: int) -> str:
-        """Drop citations that point past the available sources."""
-        return strip_citations(answer, set(range(1, num_sources + 1)))
-
-    def _calculate_confidence(
-        self, results: list[RetrievalResult], answer: str, sources: list[Source]
-    ) -> float:
-        """Calculate confidence based on multiple factors."""
-        if not results:
-            return 0.0
-
-        scores = []
-
-        # 1. Source relevance (avg similarity score) - 30%
-        avg_similarity = sum(r.score for r in results) / len(results)
-        scores.append(min(1.0, avg_similarity) * 0.30)
-
-        # 2. Citation coverage (does answer cite sources?) - 25%
-        cited_sources = set(extract_citations(answer))
-        citation_ratio = len(cited_sources) / len(sources) if sources else 0
-        scores.append(min(1.0, citation_ratio) * 0.25)
-
-        # 3. Answer completeness - 25%
-        completeness = 0.5  # Base
-        if "not found" in answer.lower() or "not in the" in answer.lower():
-            completeness = 0.2
-        elif len(answer) > 100:
-            completeness = 0.9
-        else:
-            completeness = 0.6
-        scores.append(completeness * 0.25)
-
-        # 4. Query word coverage (does answer address the question?) - 20%
-        # This is approximated by checking if sources are diverse
-        unique_docs = {s.document_id for s in sources}
-        doc_diversity = min(1.0, len(unique_docs) / 2)  # 2+ docs = full score
-
-        # Multiple citations from same doc = lower diversity
-        if len(cited_sources) >= 2:
-            doc_diversity = min(1.0, doc_diversity + 0.3)
-
-        scores.append(doc_diversity * 0.20)
-
-        total = sum(scores)
-
-        # Clamp to reasonable range
-        return max(0.15, min(0.95, total))
