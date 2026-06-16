@@ -1,9 +1,9 @@
 cff-version: 1.2.0
 message: "If you use NexusRAG, please cite it as below."
 type: software
-title: "NexusRAG: Local, Self-Correcting Retrieval-Augmented Generation for Scientific Papers"
+title: "NexusRAG: Local Hybrid Retrieval and Faithfulness Evaluation for Scientific Papers"
 version: 0.1.0
-date-released: 2026-06-15
+date-released: 2026-06-17
 url: "https://github.com/urmeo/nexus-rag"
 repository-code: "https://github.com/urmeo/nexus-rag"
 license: MIT
@@ -27,9 +27,11 @@ keywords:
   - llm
 abstract: >-
   NexusRAG is a fully local retrieval-augmented generation system for
-  scientific papers. It combines dense (MiniLM) and sparse (BM25)
-  retrieval with reciprocal-rank fusion and cross-encoder reranking,
-  verifies each generated sentence against its sources with a
-  natural-language-inference model, and re-retrieves when grounding is
-  weak. It ships with a reproducible benchmark reporting nDCG@10,
-  Recall@20, and sentence-level faithfulness on SciFact and NFCorpus.
+  scientific papers, built around an honest, reproducible benchmark. It
+  fuses dense (BGE-small) and sparse (BM25) retrieval with reciprocal-rank
+  fusion and a confidence-gated corrective re-retrieval, and answers with
+  a local model and inline citations. The accompanying CPU-only study on
+  SciFact and NFCorpus measures each component (bootstrap confidence
+  intervals, paired randomization tests, Holm correction) and evaluates
+  faithfulness as evidence detection (ROC-AUC, PR-AUC) against lexical and
+  cross-encoder baselines.
