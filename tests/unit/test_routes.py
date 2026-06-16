@@ -1,9 +1,4 @@
-"""
-Comprehensive unit tests for NexusRAG API routes.
-
-Tests all endpoints with proper mocking of the NexusRAG singleton
-to avoid requiring real ML models or document stores.
-"""
+"""Tests for the API routes."""
 
 import io
 from unittest.mock import MagicMock, patch
@@ -70,9 +65,6 @@ def patch_get_nexusrag(mock_nexusrag):
         yield mock_nexusrag
 
 
-# Health Check Tests
-
-
 class TestHealthCheck:
     def test_health_check_success(self, client, patch_get_nexusrag, mock_nexusrag):
         response = client.get("/api/health")
@@ -107,9 +99,6 @@ class TestHealthCheck:
         assert health_response.status in ["ok", "error"]
 
 
-# Document Ingestion Tests
-
-
 class TestIngestDocument:
     def test_ingest_pdf_success(self, client, patch_get_nexusrag, mock_nexusrag):
         mock_nexusrag.ingest_bytes.return_value = IngestResult(
@@ -120,7 +109,6 @@ class TestIngestDocument:
             success=True,
         )
 
-        # Create a simple PDF file-like object
         file_content = b"%PDF-1.4\ntest content"
 
         response = client.post(
@@ -337,9 +325,6 @@ class TestIngestDocument:
         data = response.json()
         upload_response = UploadResponse(**data)
         assert upload_response.success is True
-
-
-# Query Tests
 
 
 class TestQueryDocuments:
@@ -578,9 +563,6 @@ class TestQueryDocuments:
         assert query_response.confidence == 0.85
 
 
-# Documents List Tests
-
-
 class TestListDocuments:
     def test_list_documents_empty(self, client, patch_get_nexusrag, mock_nexusrag):
         mock_nexusrag.list_documents.return_value = []
@@ -655,9 +637,6 @@ class TestListDocuments:
         assert "Failed to retrieve documents" in response.json()["detail"]
 
 
-# Status Tests
-
-
 class TestGetStatus:
     def test_get_status_success(self, client, patch_get_nexusrag, mock_nexusrag):
         response = client.get("/api/status")
@@ -686,9 +665,6 @@ class TestGetStatus:
 
         assert response.status_code == 500
         assert "Failed to retrieve status" in response.json()["detail"]
-
-
-# Delete Tests
 
 
 class TestDeleteDocument:
@@ -766,7 +742,6 @@ class TestClearAllDocuments:
     def test_clear_all_documents_exception_returns_500(
         self, client, patch_get_nexusrag, mock_nexusrag
     ):
-        """Test that exceptions during clear_all return 500 error."""
         mock_nexusrag.clear_all.side_effect = Exception("Clear error")
 
         response = client.delete("/api/documents")
@@ -782,14 +757,10 @@ class TestClearAllDocuments:
         assert delete_response.success is True
 
 
-# Integration Tests
-
-
 class TestIntegration:
     def test_workflow_ingest_query_list(self, client, patch_get_nexusrag, mock_nexusrag):
         from nexusrag.agents import RAGResponse
 
-        # Step 1: Ingest document
         mock_nexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_1",
             filename="research.pdf",
@@ -804,7 +775,6 @@ class TestIntegration:
         )
         assert ingest_response.status_code == 200
 
-        # Step 2: Query the document
         source = Source(
             index=1,
             chunk_id="chunk_1",
@@ -843,7 +813,6 @@ class TestIntegration:
         assert query_response.status_code == 200
         assert query_response.json()["answer"] == "The research shows..."
 
-        # Step 3: List documents
         list_response = client.get("/api/documents")
         assert list_response.status_code == 200
         assert len(list_response.json()["documents"]) == 1
@@ -870,9 +839,6 @@ class TestIntegration:
         delete_response = client.delete("/api/documents/doc_to_delete")
         assert delete_response.status_code == 200
         assert delete_response.json()["success"] is True
-
-
-# Pydantic Validation Tests
 
 
 class TestPydanticValidation:
@@ -903,9 +869,6 @@ class TestPydanticValidation:
     def test_query_request_trims_whitespace(self):
         request = QueryRequest(question="  What is this?  \n")
         assert request.question == "What is this?"
-
-
-# Error Handling Tests
 
 
 class TestErrorHandling:

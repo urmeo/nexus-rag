@@ -1,14 +1,4 @@
-"""Integration tests for NexusRAG pipeline.
-
-Tests the full ingest → query → delete workflow with mocked ML components
-but real file I/O and storage operations. Covers:
-- Single file ingestion with query workflow
-- Multi-file directory ingestion
-- Duplicate detection
-- Document deletion and clearing
-- Statistics and metadata tracking
-- Error handling for edge cases
-"""
+"""Integration tests for the ingest -> query -> delete pipeline."""
 
 import tempfile
 from collections.abc import Generator
@@ -26,8 +16,6 @@ from nexusrag.config import (
     StorageSettings,
 )
 from nexusrag.pipeline import IngestResult, NexusRAG, SystemStats, get_nexusrag
-
-# FIXTURES
 
 
 @pytest.fixture
@@ -164,7 +152,7 @@ Testing is crucial for reliability and performance.
 ### Objectives
 
 The objectives of this work are threefold:
-1. Develop comprehensive test suites
+1. Write thorough test suites
 2. Validate ingestion pipelines
 3. Ensure retrieval quality
 
@@ -225,9 +213,6 @@ def docs_directory(temp_data_dir: Path) -> Path:
     return docs_dir
 
 
-# TESTS: BASIC PIPELINE OPERATIONS
-
-
 class TestBasicPipelineWorkflow:
     def test_ingest_single_text_file(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
         result = nexusrag_instance.ingest(sample_text_file)
@@ -250,7 +235,6 @@ class TestBasicPipelineWorkflow:
     def test_full_workflow_ingest_and_query(
         self, nexusrag_instance: NexusRAG, sample_text_file: Path
     ):
-        """Test complete workflow: ingest file, then query it."""
         # Ingest
         ingest_result = nexusrag_instance.ingest(sample_text_file)
         assert ingest_result.success is True
@@ -291,9 +275,6 @@ class TestBasicPipelineWorkflow:
         assert deleted is False
 
 
-# TESTS: MULTI-FILE OPERATIONS
-
-
 class TestMultiFileIngestion:
     def test_ingest_directory(self, nexusrag_instance: NexusRAG, docs_directory: Path):
         results = nexusrag_instance.ingest_directory(docs_directory)
@@ -322,7 +303,6 @@ class TestMultiFileIngestion:
     def test_ingest_directory_with_unsupported_format(
         self, nexusrag_instance: NexusRAG, temp_data_dir: Path
     ):
-        """Test that unsupported file formats are skipped."""
         test_dir = temp_data_dir / "mixed_docs"
         test_dir.mkdir()
 
@@ -336,9 +316,6 @@ class TestMultiFileIngestion:
         assert len(results) == 1
         assert results[0].success is True
         assert results[0].filename == "valid.txt"
-
-
-# TESTS: DUPLICATE DETECTION
 
 
 class TestDuplicateDetection:
@@ -377,9 +354,6 @@ class TestDuplicateDetection:
         assert len(successful) >= 1
 
 
-# TESTS: CLEARING AND RESET
-
-
 class TestClearOperations:
     def test_clear_all_documents(self, nexusrag_instance: NexusRAG, docs_directory: Path):
         # Ingest multiple documents
@@ -405,9 +379,6 @@ class TestClearOperations:
         # Should be able to ingest the same file again
         result2 = nexusrag_instance.ingest(sample_text_file)
         assert result2.success is True
-
-
-# TESTS: STATISTICS AND METADATA
 
 
 class TestStatisticsAndMetadata:
@@ -437,7 +408,6 @@ class TestStatisticsAndMetadata:
     def test_list_documents_with_metadata(
         self, nexusrag_instance: NexusRAG, sample_text_file: Path
     ):
-        """Test listing documents includes proper metadata."""
         ingest_result = nexusrag_instance.ingest(sample_text_file)
 
         docs = nexusrag_instance.list_documents()
@@ -455,9 +425,6 @@ class TestStatisticsAndMetadata:
 
         total_chunks_expected = sum(r.chunk_count for r in results)
         assert stats.total_chunks == total_chunks_expected
-
-
-# TESTS: ERROR HANDLING
 
 
 class TestErrorHandling:
@@ -512,9 +479,6 @@ class TestErrorHandling:
         assert result.success is True
 
 
-# TESTS: INGEST RESULT DATACLASS
-
-
 class TestIngestResult:
     def test_ingest_result_success(self, sample_text_file: Path):
         result = IngestResult(
@@ -545,9 +509,6 @@ class TestIngestResult:
         assert result.success is False
         assert result.error == "Unsupported format"
         assert result.chunk_count == 0
-
-
-# TESTS: SYSTEM STATS DATACLASS
 
 
 class TestSystemStats:
@@ -581,9 +542,6 @@ class TestSystemStats:
         assert stats.llm_available is False
 
 
-# TESTS: LAZY LOADING OF COMPONENTS
-
-
 class TestLazyLoading:
     def test_components_not_loaded_initially(self, nexusrag_instance: NexusRAG):
         # Only _embedder and _llm are pre-loaded by fixture for mocking
@@ -613,9 +571,6 @@ class TestLazyLoading:
         assert nexusrag_instance._document_store is store
 
 
-# TESTS: SINGLETON BEHAVIOR
-
-
 class TestSingletonBehavior:
     def test_get_nexusrag_returns_same_instance(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -637,9 +592,6 @@ class TestSingletonBehavior:
 
             # Both should be same due to singleton pattern
             assert instance1 is instance2
-
-
-# TESTS: INGEST BYTES OPERATIONS
 
 
 class TestIngestBytes:
@@ -687,9 +639,6 @@ More content for proper chunking.
         assert isinstance(result2.success, bool)
 
 
-# TESTS: EDGE CASES AND STRESS
-
-
 class TestEdgeCases:
     def test_ingest_very_short_document(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
         short_file = temp_data_dir / "short.txt"
@@ -703,7 +652,6 @@ class TestEdgeCases:
     def test_ingest_large_document(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
         large_file = temp_data_dir / "large.txt"
 
-        # Create a large document
         large_content = "This is a test sentence that will be repeated many times. " * 200
         large_file.write_text(large_content)
 
@@ -741,14 +689,10 @@ class TestEdgeCases:
         assert len(docs) == 1
 
 
-# TESTS: INTEGRATION WITH REAL COMPONENTS (SELECTIVE)
-
-
 class TestIntegrationWithRealComponents:
     def test_with_real_parser_and_chunker(
         self, test_settings: Settings, sample_text_file: Path, mock_embedder, mock_llm
     ):
-        """Test pipeline with real parser and chunker but mocked embedder/LLM."""
         rag = NexusRAG(settings=test_settings)
         rag._embedder = mock_embedder
         rag._llm = mock_llm
@@ -766,7 +710,6 @@ class TestIntegrationWithRealComponents:
     def test_document_store_persistence(
         self, test_settings: Settings, sample_text_file: Path, mock_embedder, mock_llm
     ):
-        """Test that document store persists metadata correctly."""
         rag = NexusRAG(settings=test_settings)
         rag._embedder = mock_embedder
         rag._llm = mock_llm
@@ -782,9 +725,6 @@ class TestIntegrationWithRealComponents:
         assert doc["id"] == ingest_result.document_id
 
 
-# PARAMETRIZED TESTS
-
-
 class TestParametrized:
     @pytest.mark.parametrize(
         "filename,content",
@@ -797,7 +737,6 @@ class TestParametrized:
     def test_ingest_multiple_variations(
         self, nexusrag_instance: NexusRAG, temp_data_dir: Path, filename: str, content: str
     ):
-        """Test ingesting various document variations."""
         file_path = temp_data_dir / filename
         file_path.write_text(content)
 
@@ -816,7 +755,6 @@ class TestParametrized:
     def test_various_formats(
         self, nexusrag_instance: NexusRAG, temp_data_dir: Path, format_ext: str, format_name: str
     ):
-        """Test ingesting various document formats."""
         file_path = temp_data_dir / f"doc{format_ext}"
 
         if format_ext == ".txt":
