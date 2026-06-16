@@ -20,8 +20,7 @@ from nexusrag.agents.grounding import GroundingVerifier
 from nexusrag.eval import datasets as D
 from nexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
 from nexusrag.ingestion import Embedder
-from nexusrag.retrieval import AdaptiveHybridRetriever, BM25Retriever
-from nexusrag.retrieval.stopwords import STOP_WORDS
+from nexusrag.retrieval import AdaptiveHybridRetriever, BM25Retriever, CorrectiveRetriever
 
 RESULTS_DIR = Path("benchmarks/results")
 DEFAULT_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
@@ -67,12 +66,6 @@ def _format_sources(passages: list[str]) -> str:
     return "\n".join(f"[{i}] {p[:400]}" for i, p in enumerate(passages, 1))
 
 
-def _reformulate(query: str) -> str:
-    """Keyword-only rewrite for the corrective re-retrieval."""
-    words = [w for w in query.lower().split() if len(w) > 2 and w not in STOP_WORDS]
-    return " ".join(words) if words else query
-
-
 def evaluate(
     n: int = 15, top_k: int = 4, tau: float = 0.5, model_name: str | None = None
 ) -> dict[str, Any]:
@@ -81,19 +74,20 @@ def evaluate(
 
     # phase 1: retrieve (embedder only)
     chunks = corpus_to_chunks({d: ds.doc_text(d) for d in ds.corpus})
-    embedder = Embedder()
+    embedder = Embedder(device="cpu")
     dense = ExactDenseRetriever(embedder, chunks)
     bm25 = BM25Retriever()
     bm25.add(chunks)
-    hybrid = AdaptiveHybridRetriever(dense, bm25, 0.7, 0.3, use_mmr=True, use_keyword_boost=True)
+    hybrid = AdaptiveHybridRetriever(dense, bm25, 0.5, 0.5)
+    corrective = CorrectiveRetriever(hybrid, tau=tau)
 
     initial: dict[str, list[str]] = {}
     reformed: dict[str, list[str]] = {}
     for qid in qids:
         q = ds.queries[qid]
         initial[qid] = [r.chunk.content for r in hybrid.retrieve(q, top_k=top_k)]
-        reformed[qid] = [r.chunk.content for r in hybrid.retrieve(_reformulate(q), top_k=top_k)]
-    del embedder, dense, bm25, hybrid
+        reformed[qid] = [r.chunk.content for r in corrective.retrieve(q, top_k=top_k)]
+    del embedder, dense, bm25, hybrid, corrective
     gc.collect()
 
     # phase 2: generate (generator only)
@@ -114,7 +108,7 @@ def evaluate(
     gc.collect()
 
     # phase 3: score grounding (NLI verifier only); apply faithfulness gate
-    verifier = GroundingVerifier()
+    verifier = GroundingVerifier(device="cpu")
     baseline, corrective = [], []
     corrected = 0
     for qid in qids:

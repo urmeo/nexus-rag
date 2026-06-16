@@ -9,7 +9,6 @@ from nexusrag.retrieval.dense import RetrievalResult
 
 
 def corpus_to_chunks(corpus_text: dict[str, str]) -> list[Chunk]:
-    """One chunk per corpus document."""
     return [
         Chunk(id=doc_id, content=text, document_id=doc_id, metadata={"doc_id": doc_id})
         for doc_id, text in corpus_text.items()
@@ -17,11 +16,7 @@ def corpus_to_chunks(corpus_text: dict[str, str]) -> list[Chunk]:
 
 
 class ExactDenseRetriever:
-    """Brute-force cosine retrieval over precomputed embeddings.
-
-    Drop-in for the product DenseRetriever but exact and reproducible
-    (no ANN approximation, no disk).
-    """
+    """Brute-force cosine search over precomputed embeddings, for reproducible eval."""
 
     def __init__(self, embedder: Embedder, chunks: list[Chunk], batch_size: int = 64):
         self.embedder = embedder
