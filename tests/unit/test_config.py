@@ -7,10 +7,7 @@ import yaml
 
 
 class TestSettings:
-    """Test suite for Settings configuration."""
-
     def test_default_settings(self):
-        """Default settings are loaded correctly."""
         from nexusrag.config import Settings
 
         settings = Settings()
@@ -24,7 +21,6 @@ class TestSettings:
         assert settings.log_level == "INFO"
 
     def test_nested_settings_types(self):
-        """Nested settings have correct types."""
         from nexusrag.config import (
             APISettings,
             EmbeddingSettings,
@@ -47,7 +43,6 @@ class TestSettings:
         assert isinstance(settings.api, APISettings)
 
     def test_env_override_llm(self, monkeypatch):
-        """Environment variables override LLM settings."""
         monkeypatch.setenv("OLLAMA_BASE_URL", "http://custom:8080")
         monkeypatch.setenv("LLM_MODEL", "mistral:7b")
 
@@ -60,7 +55,6 @@ class TestSettings:
         assert llm.model == "mistral:7b"
 
     def test_env_override_embedding(self, monkeypatch):
-        """Environment variables override embedding settings."""
         monkeypatch.setenv("EMBEDDING_MODEL", "custom-embedding-model")
         monkeypatch.setenv("EMBEDDING_DEVICE", "cuda")
 
@@ -72,7 +66,6 @@ class TestSettings:
         assert embedding.device == "cuda"
 
     def test_env_override_log_level(self, monkeypatch):
-        """LOG_LEVEL env var overrides setting."""
         monkeypatch.setenv("LOG_LEVEL", "DEBUG")
 
         from nexusrag.config import Settings
@@ -82,7 +75,6 @@ class TestSettings:
         assert settings.log_level == "DEBUG"
 
     def test_storage_path_types(self):
-        """Storage paths are Path objects."""
         from nexusrag.config import Settings
 
         settings = Settings()
@@ -91,7 +83,6 @@ class TestSettings:
         assert isinstance(settings.data_dir, Path)
 
     def test_api_settings(self):
-        """API settings have correct defaults."""
         from nexusrag.config import APISettings
 
         api = APISettings()
@@ -100,7 +91,6 @@ class TestSettings:
         assert api.port == 8000
 
     def test_ingestion_settings_values(self):
-        """Ingestion settings have reasonable defaults."""
         from nexusrag.config import IngestionSettings
 
         ingestion = IngestionSettings()
@@ -111,7 +101,6 @@ class TestSettings:
         assert ingestion.min_chunk_size > 0
 
     def test_retrieval_settings_values(self):
-        """Retrieval settings have reasonable defaults."""
         from nexusrag.config import RetrievalSettings
 
         retrieval = RetrievalSettings()
@@ -121,7 +110,6 @@ class TestSettings:
         assert 0 <= retrieval.similarity_threshold <= 1
 
     def test_self_correction_settings(self):
-        """Self-correction settings have reasonable defaults."""
         from nexusrag.config import SelfCorrectionSettings
 
         correction = SelfCorrectionSettings()
@@ -131,7 +119,6 @@ class TestSettings:
         assert correction.feedback_docs > 0 and correction.feedback_terms > 0
 
     def test_get_settings_caching(self):
-        """get_settings returns cached instance."""
         from nexusrag.config import get_settings
 
         # Clear cache first
@@ -143,7 +130,6 @@ class TestSettings:
         assert settings1 is settings2
 
     def test_env_file_loading(self, temp_dir, monkeypatch):
-        """Settings load from environment variables."""
         # Set env vars directly (pydantic-settings nested models read env independently)
         monkeypatch.setenv("OLLAMA_BASE_URL", "http://env-file:1234")
         monkeypatch.setenv("LLM_MODEL", "from-env-file")
@@ -157,15 +143,11 @@ class TestSettings:
 
 
 class TestYAMLLoading:
-    """Test YAML configuration loading."""
-
     def test_yaml_file_exists(self):
-        """Default YAML config file exists."""
         config_path = Path("configs/default.yaml")
         assert config_path.exists()
 
     def test_yaml_structure(self):
-        """YAML config has expected structure."""
         config_path = Path("configs/default.yaml")
         with open(config_path) as f:
             config = yaml.safe_load(f)
@@ -179,7 +161,6 @@ class TestYAMLLoading:
         assert "api" in config
 
     def test_yaml_llm_section(self):
-        """YAML LLM section has required fields."""
         config_path = Path("configs/default.yaml")
         with open(config_path) as f:
             config = yaml.safe_load(f)
@@ -190,7 +171,6 @@ class TestYAMLLoading:
         assert "max_tokens" in llm
 
     def test_yaml_ingestion_section(self):
-        """YAML ingestion section has required fields."""
         config_path = Path("configs/default.yaml")
         with open(config_path) as f:
             config = yaml.safe_load(f)
@@ -201,7 +181,6 @@ class TestYAMLLoading:
         assert "supported_formats" in ingestion
 
     def test_yaml_retrieval_section(self):
-        """YAML retrieval section has required fields."""
         config_path = Path("configs/default.yaml")
         with open(config_path) as f:
             config = yaml.safe_load(f)
@@ -211,7 +190,6 @@ class TestYAMLLoading:
         assert "similarity_threshold" in retrieval
 
     def test_yaml_self_correction_section(self):
-        """YAML self-correction section has required fields."""
         config_path = Path("configs/default.yaml")
         with open(config_path) as f:
             config = yaml.safe_load(f)
@@ -223,10 +201,7 @@ class TestYAMLLoading:
 
 
 class TestConfigValidation:
-    """Test configuration validation."""
-
     def test_invalid_log_level(self, monkeypatch):
-        """Invalid log level raises validation error."""
         monkeypatch.setenv("LOG_LEVEL", "INVALID")
 
         from pydantic import ValidationError
@@ -237,7 +212,6 @@ class TestConfigValidation:
             Settings()
 
     def test_invalid_device(self, monkeypatch):
-        """Invalid device raises validation error."""
         monkeypatch.setenv("EMBEDDING_DEVICE", "tpu")
 
         from pydantic import ValidationError

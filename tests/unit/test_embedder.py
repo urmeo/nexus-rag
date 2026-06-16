@@ -9,11 +9,8 @@ from nexusrag.ingestion import Embedder
 
 
 class TestEmbedder:
-    """Test suite for Embedder."""
-
     @pytest.fixture
     def mock_sentence_transformer(self):
-        """Create a mock SentenceTransformer."""
         with patch("sentence_transformers.SentenceTransformer") as mock_cls:
             mock_model = MagicMock()
             mock_model.get_embedding_dimension.return_value = 384
@@ -32,7 +29,6 @@ class TestEmbedder:
             yield mock_model
 
     def test_embed_single_text(self, mock_sentence_transformer):
-        """Embed a single text and verify shape."""
         embedder = Embedder(model_name="test-model")
         texts = ["This is a test sentence."]
 
@@ -42,7 +38,6 @@ class TestEmbedder:
         assert embeddings.dtype == np.float32
 
     def test_embed_batch(self, mock_sentence_transformer):
-        """Embed multiple texts in a batch."""
         embedder = Embedder(model_name="test-model")
         texts = [
             "First sentence.",
@@ -57,7 +52,6 @@ class TestEmbedder:
         mock_sentence_transformer.encode.assert_called_once()
 
     def test_embed_query(self, mock_sentence_transformer):
-        """Embed a single query returns 1D array."""
         embedder = Embedder(model_name="test-model")
         query = "What is the meaning of life?"
 
@@ -67,14 +61,12 @@ class TestEmbedder:
         assert embedding.dtype == np.float32
 
     def test_embedding_dimension(self, mock_sentence_transformer):
-        """Dimension property returns correct value."""
         embedder = Embedder(model_name="test-model")
 
         assert embedder.dimension == 384
         mock_sentence_transformer.get_embedding_dimension.assert_called()
 
     def test_empty_list(self, mock_sentence_transformer):
-        """Empty list returns empty array with correct shape."""
         embedder = Embedder(model_name="test-model")
 
         embeddings = embedder.embed([])
@@ -82,7 +74,6 @@ class TestEmbedder:
         assert embeddings.shape == (0, 384)
 
     def test_batch_size_passed(self, mock_sentence_transformer):
-        """Batch size is passed to encode method."""
         embedder = Embedder(model_name="test-model")
         texts = ["text"] * 10
 
@@ -92,7 +83,6 @@ class TestEmbedder:
         assert call_kwargs["batch_size"] == 16
 
     def test_normalization_default(self, mock_sentence_transformer):
-        """Embeddings are normalized by default."""
         embedder = Embedder(model_name="test-model", normalize=True)
         texts = ["Test text"]
 
@@ -102,7 +92,6 @@ class TestEmbedder:
         assert call_kwargs["normalize_embeddings"] is True
 
     def test_normalization_disabled(self, mock_sentence_transformer):
-        """Normalization can be disabled."""
         embedder = Embedder(model_name="test-model", normalize=False)
         texts = ["Test text"]
 
@@ -112,7 +101,6 @@ class TestEmbedder:
         assert call_kwargs["normalize_embeddings"] is False
 
     def test_lazy_model_loading(self):
-        """Model is not loaded until first use."""
         with patch("sentence_transformers.SentenceTransformer") as mock_cls:
             embedder = Embedder(model_name="test-model")
 
@@ -125,7 +113,6 @@ class TestEmbedder:
             mock_cls.assert_called_once_with("test-model", device=None)
 
     def test_device_configuration(self):
-        """Device is passed to SentenceTransformer."""
         with patch("sentence_transformers.SentenceTransformer") as mock_cls:
             mock_cls.return_value = MagicMock()
             embedder = Embedder(model_name="test-model", device="cuda")
@@ -135,7 +122,6 @@ class TestEmbedder:
             mock_cls.assert_called_once_with("test-model", device="cuda")
 
     def test_similarity_normalized(self, mock_sentence_transformer):
-        """Similarity uses dot product for normalized embeddings."""
         embedder = Embedder(model_name="test-model", normalize=True)
 
         query_emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
@@ -158,7 +144,6 @@ class TestEmbedder:
         assert similarities[1] == pytest.approx(0.0, abs=0.01)  # Orthogonal
 
     def test_similarity_unnormalized(self, mock_sentence_transformer):
-        """Similarity normalizes vectors when embeddings are not pre-normalized."""
         embedder = Embedder(model_name="test-model", normalize=False)
 
         query_emb = np.array([2.0, 0.0], dtype=np.float32)
@@ -177,7 +162,6 @@ class TestEmbedder:
         assert similarities[1] == pytest.approx(0.0, abs=0.01)  # Orthogonal
 
     def test_show_progress_flag(self, mock_sentence_transformer):
-        """Show progress flag is passed correctly."""
         embedder = Embedder(model_name="test-model")
         texts = ["text"] * 5
 

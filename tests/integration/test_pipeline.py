@@ -27,21 +27,17 @@ from nexusrag.config import (
 )
 from nexusrag.pipeline import IngestResult, NexusRAG, SystemStats, get_nexusrag
 
-# ============================================================================
 # FIXTURES
-# ============================================================================
 
 
 @pytest.fixture
 def temp_data_dir() -> Generator[Path, None, None]:
-    """Provide a temporary data directory for pipeline testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
 
 
 @pytest.fixture
 def test_settings(temp_data_dir: Path) -> Settings:
-    """Create test settings with temporary storage."""
     return Settings(
         data_dir=temp_data_dir,
         storage=StorageSettings(
@@ -68,12 +64,10 @@ def test_settings(temp_data_dir: Path) -> Settings:
 
 @pytest.fixture
 def mock_embedder():
-    """Mock embedder that returns deterministic embeddings."""
     embedder = MagicMock()
     embedder.dimension = 384
 
     def mock_embed(texts, batch_size=None, show_progress=False):
-        """Return deterministic embeddings based on text."""
         if isinstance(texts, str):
             texts = [texts]
         np.random.seed(hash("".join(texts)) % (2**31))
@@ -85,12 +79,10 @@ def mock_embedder():
 
 @pytest.fixture
 def mock_llm():
-    """Mock LLM client that returns deterministic responses."""
     llm = MagicMock()
     llm.model = "test-llm"
 
     def mock_generate(prompt, **kwargs):
-        """Return a mock response."""
         if "What is" in prompt or "?" in prompt:
             return "Based on the retrieved context, this is a test answer about the query."
         return "This is a test response."
@@ -102,7 +94,6 @@ def mock_llm():
 
 @pytest.fixture
 def nexusrag_instance(test_settings: Settings, mock_embedder, mock_llm) -> NexusRAG:
-    """Create a NexusRAG instance with mocked heavy components."""
     rag = NexusRAG(settings=test_settings)
 
     # Inject mocks before any properties are accessed
@@ -114,7 +105,6 @@ def nexusrag_instance(test_settings: Settings, mock_embedder, mock_llm) -> Nexus
 
 @pytest.fixture
 def sample_text_file(temp_data_dir: Path) -> Path:
-    """Create a sample text file for ingestion."""
     file_path = temp_data_dir / "test_document.txt"
     content = """INTRODUCTION
 
@@ -157,7 +147,6 @@ Future improvements are planned and documented elsewhere.
 
 @pytest.fixture
 def sample_markdown_file(temp_data_dir: Path) -> Path:
-    """Create a sample markdown file for ingestion."""
     file_path = temp_data_dir / "test_paper.md"
     content = """# Scientific Paper on Testing
 
@@ -207,7 +196,6 @@ The methodologies presented here are applicable to similar systems.
 
 @pytest.fixture
 def docs_directory(temp_data_dir: Path) -> Path:
-    """Create a directory with multiple document files."""
     docs_dir = temp_data_dir / "documents"
     docs_dir.mkdir()
 
@@ -237,16 +225,11 @@ def docs_directory(temp_data_dir: Path) -> Path:
     return docs_dir
 
 
-# ============================================================================
 # TESTS: BASIC PIPELINE OPERATIONS
-# ============================================================================
 
 
 class TestBasicPipelineWorkflow:
-    """Test complete ingest → query → delete workflows."""
-
     def test_ingest_single_text_file(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
-        """Test ingesting a single text file."""
         result = nexusrag_instance.ingest(sample_text_file)
 
         assert result.success is True
@@ -257,7 +240,6 @@ class TestBasicPipelineWorkflow:
         assert result.error is None
 
     def test_ingest_markdown_file(self, nexusrag_instance: NexusRAG, sample_markdown_file: Path):
-        """Test ingesting a markdown file."""
         result = nexusrag_instance.ingest(sample_markdown_file)
 
         assert result.success is True
@@ -285,7 +267,6 @@ class TestBasicPipelineWorkflow:
         assert stats.total_chunks == ingest_result.chunk_count
 
     def test_delete_document_workflow(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
-        """Test deleting a document and verifying removal."""
         # Ingest
         ingest_result = nexusrag_instance.ingest(sample_text_file)
         document_id = ingest_result.document_id
@@ -306,21 +287,15 @@ class TestBasicPipelineWorkflow:
         assert stats.total_chunks == 0
 
     def test_delete_nonexistent_document(self, nexusrag_instance: NexusRAG):
-        """Test deleting a document that doesn't exist."""
         deleted = nexusrag_instance.delete_document("nonexistent_id")
         assert deleted is False
 
 
-# ============================================================================
 # TESTS: MULTI-FILE OPERATIONS
-# ============================================================================
 
 
 class TestMultiFileIngestion:
-    """Test ingesting multiple files from directories."""
-
     def test_ingest_directory(self, nexusrag_instance: NexusRAG, docs_directory: Path):
-        """Test ingesting all files from a directory."""
         results = nexusrag_instance.ingest_directory(docs_directory)
 
         assert len(results) == 3
@@ -335,7 +310,6 @@ class TestMultiFileIngestion:
             assert result.chunk_count > 0
 
     def test_ingest_directory_stats(self, nexusrag_instance: NexusRAG, docs_directory: Path):
-        """Test that stats reflect multiple ingested documents."""
         results = nexusrag_instance.ingest_directory(docs_directory)
         total_chunks = sum(r.chunk_count for r in results)
         total_words = sum(r.word_count for r in results)
@@ -364,16 +338,11 @@ class TestMultiFileIngestion:
         assert results[0].filename == "valid.txt"
 
 
-# ============================================================================
 # TESTS: DUPLICATE DETECTION
-# ============================================================================
 
 
 class TestDuplicateDetection:
-    """Test detection and handling of duplicate documents."""
-
     def test_duplicate_file_detection(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
-        """Test that ingesting the same file twice is detected."""
         # First ingestion should succeed
         result1 = nexusrag_instance.ingest(sample_text_file)
         assert result1.success is True
@@ -389,7 +358,6 @@ class TestDuplicateDetection:
         assert len(docs) == 1
 
     def test_duplicate_in_batch_ingest(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
-        """Test duplicate handling in directory ingestion."""
         docs_dir = temp_data_dir / "dup_test"
         docs_dir.mkdir()
 
@@ -409,16 +377,11 @@ class TestDuplicateDetection:
         assert len(successful) >= 1
 
 
-# ============================================================================
 # TESTS: CLEARING AND RESET
-# ============================================================================
 
 
 class TestClearOperations:
-    """Test clearing all documents and resetting the system."""
-
     def test_clear_all_documents(self, nexusrag_instance: NexusRAG, docs_directory: Path):
-        """Test clearing all documents from the system."""
         # Ingest multiple documents
         nexusrag_instance.ingest_directory(docs_directory)
         assert nexusrag_instance.get_stats().total_documents == 3
@@ -432,7 +395,6 @@ class TestClearOperations:
         assert len(nexusrag_instance.list_documents()) == 0
 
     def test_clear_all_then_reingest(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
-        """Test that system works correctly after clearing."""
         # Ingest, clear, then ingest again
         result1 = nexusrag_instance.ingest(sample_text_file)
         assert result1.success is True
@@ -445,16 +407,11 @@ class TestClearOperations:
         assert result2.success is True
 
 
-# ============================================================================
 # TESTS: STATISTICS AND METADATA
-# ============================================================================
 
 
 class TestStatisticsAndMetadata:
-    """Test statistics and metadata tracking."""
-
     def test_get_stats_empty_system(self, nexusrag_instance: NexusRAG):
-        """Test statistics on empty system."""
         stats = nexusrag_instance.get_stats()
 
         assert stats.total_documents == 0
@@ -465,7 +422,6 @@ class TestStatisticsAndMetadata:
         assert stats.llm_model == "test-llm"
 
     def test_get_stats_after_ingestion(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
-        """Test statistics after ingesting a document."""
         result = nexusrag_instance.ingest(sample_text_file)
 
         stats = nexusrag_instance.get_stats()
@@ -475,7 +431,6 @@ class TestStatisticsAndMetadata:
         assert "tmp" in str(stats.storage_path).lower()  # Temp directory
 
     def test_list_documents_empty(self, nexusrag_instance: NexusRAG):
-        """Test listing documents on empty system."""
         docs = nexusrag_instance.list_documents()
         assert docs == []
 
@@ -493,7 +448,6 @@ class TestStatisticsAndMetadata:
         assert "filename" in doc or "original_filename" in doc
 
     def test_stats_with_multiple_documents(self, nexusrag_instance: NexusRAG, docs_directory: Path):
-        """Test statistics with multiple documents."""
         results = nexusrag_instance.ingest_directory(docs_directory)
 
         stats = nexusrag_instance.get_stats()
@@ -503,16 +457,11 @@ class TestStatisticsAndMetadata:
         assert stats.total_chunks == total_chunks_expected
 
 
-# ============================================================================
 # TESTS: ERROR HANDLING
-# ============================================================================
 
 
 class TestErrorHandling:
-    """Test error handling for edge cases and invalid inputs."""
-
     def test_ingest_empty_file(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
-        """Test ingesting an empty file."""
         empty_file = temp_data_dir / "empty.txt"
         empty_file.write_text("")
 
@@ -523,14 +472,12 @@ class TestErrorHandling:
         assert result.chunk_count == 0
 
     def test_ingest_nonexistent_file(self, nexusrag_instance: NexusRAG):
-        """Test ingesting a file that doesn't exist."""
         result = nexusrag_instance.ingest("/nonexistent/path/file.txt")
 
         assert result.success is False
         assert "Ingestion failed" in result.error or "FileNotFoundError" in result.error
 
     def test_ingest_unsupported_format(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
-        """Test ingesting an unsupported file format."""
         unsupported = temp_data_dir / "file.xyz"
         unsupported.write_text("Some content")
 
@@ -540,19 +487,16 @@ class TestErrorHandling:
         assert "Ingestion failed" in result.error
 
     def test_ingest_directory_nonexistent(self, nexusrag_instance: NexusRAG):
-        """Test ingesting from a non-existent directory."""
         with pytest.raises(ValueError, match="Not a directory"):
             nexusrag_instance.ingest_directory("/nonexistent/directory")
 
     def test_ingest_bytes_empty(self, nexusrag_instance: NexusRAG):
-        """Test ingesting empty bytes."""
         result = nexusrag_instance.ingest_bytes(b"", "empty.txt", ".txt")
 
         assert result.success is False
         assert result.chunk_count == 0
 
     def test_ingest_bytes_valid(self, nexusrag_instance: NexusRAG):
-        """Test ingesting valid bytes."""
         content = b"This is test content for bytes ingestion.\n" * 5
         result = nexusrag_instance.ingest_bytes(content, "test.txt", ".txt")
 
@@ -561,7 +505,6 @@ class TestErrorHandling:
         assert result.chunk_count > 0
 
     def test_ingest_bytes_without_extension(self, nexusrag_instance: NexusRAG):
-        """Test ingesting bytes without file extension prefix."""
         content = b"Test content.\n" * 5
         # Should handle both ".txt" and "txt" formats
         result = nexusrag_instance.ingest_bytes(content, "test.txt", "txt")
@@ -569,16 +512,11 @@ class TestErrorHandling:
         assert result.success is True
 
 
-# ============================================================================
 # TESTS: INGEST RESULT DATACLASS
-# ============================================================================
 
 
 class TestIngestResult:
-    """Test IngestResult dataclass behavior."""
-
     def test_ingest_result_success(self, sample_text_file: Path):
-        """Test creating successful IngestResult."""
         result = IngestResult(
             document_id="doc_123",
             filename="test.txt",
@@ -595,7 +533,6 @@ class TestIngestResult:
         assert result.error is None
 
     def test_ingest_result_failure(self):
-        """Test creating failed IngestResult."""
         result = IngestResult(
             document_id="",
             filename="bad.xyz",
@@ -610,16 +547,11 @@ class TestIngestResult:
         assert result.chunk_count == 0
 
 
-# ============================================================================
 # TESTS: SYSTEM STATS DATACLASS
-# ============================================================================
 
 
 class TestSystemStats:
-    """Test SystemStats dataclass behavior."""
-
     def test_system_stats_creation(self, test_settings: Settings):
-        """Test creating SystemStats."""
         stats = SystemStats(
             total_documents=5,
             total_chunks=42,
@@ -636,7 +568,6 @@ class TestSystemStats:
         assert stats.llm_available is True
 
     def test_system_stats_no_llm(self, test_settings: Settings):
-        """Test SystemStats when LLM is not available."""
         stats = SystemStats(
             total_documents=2,
             total_chunks=10,
@@ -650,16 +581,11 @@ class TestSystemStats:
         assert stats.llm_available is False
 
 
-# ============================================================================
 # TESTS: LAZY LOADING OF COMPONENTS
-# ============================================================================
 
 
 class TestLazyLoading:
-    """Test lazy loading of pipeline components."""
-
     def test_components_not_loaded_initially(self, nexusrag_instance: NexusRAG):
-        """Test that components are not loaded on initialization."""
         # Only _embedder and _llm are pre-loaded by fixture for mocking
         # Others should be None initially
         assert nexusrag_instance._parser is None
@@ -669,37 +595,29 @@ class TestLazyLoading:
         assert nexusrag_instance._bm25 is None
 
     def test_parser_lazy_loads_on_access(self, nexusrag_instance: NexusRAG):
-        """Test that parser is loaded on first access."""
         assert nexusrag_instance._parser is None
         parser = nexusrag_instance.parser
         assert parser is not None
         assert nexusrag_instance._parser is parser
 
     def test_chunker_lazy_loads_on_access(self, nexusrag_instance: NexusRAG):
-        """Test that chunker is loaded on first access."""
         assert nexusrag_instance._chunker is None
         chunker = nexusrag_instance.chunker
         assert chunker is not None
         assert nexusrag_instance._chunker is chunker
 
     def test_document_store_lazy_loads_on_access(self, nexusrag_instance: NexusRAG):
-        """Test that document store is loaded on first access."""
         assert nexusrag_instance._document_store is None
         store = nexusrag_instance.document_store
         assert store is not None
         assert nexusrag_instance._document_store is store
 
 
-# ============================================================================
 # TESTS: SINGLETON BEHAVIOR
-# ============================================================================
 
 
 class TestSingletonBehavior:
-    """Test get_nexusrag() singleton function."""
-
     def test_get_nexusrag_returns_same_instance(self):
-        """Test that get_nexusrag() returns the same instance."""
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = Settings(data_dir=Path(tmpdir))
             instance1 = get_nexusrag(settings)
@@ -708,7 +626,6 @@ class TestSingletonBehavior:
             assert instance1 is instance2
 
     def test_get_nexusrag_with_different_settings(self):
-        """Test getting new instance with different settings."""
         with tempfile.TemporaryDirectory() as tmpdir1, tempfile.TemporaryDirectory() as tmpdir2:
             settings1 = Settings(data_dir=Path(tmpdir1))
             settings2 = Settings(data_dir=Path(tmpdir2))
@@ -722,16 +639,11 @@ class TestSingletonBehavior:
             assert instance1 is instance2
 
 
-# ============================================================================
 # TESTS: INGEST BYTES OPERATIONS
-# ============================================================================
 
 
 class TestIngestBytes:
-    """Test ingesting documents from bytes."""
-
     def test_ingest_bytes_text(self, nexusrag_instance: NexusRAG):
-        """Test ingesting text content as bytes."""
         content = b"""
         # Test Document
 
@@ -749,7 +661,6 @@ class TestIngestBytes:
         assert result.chunk_count > 0
 
     def test_ingest_bytes_md_format(self, nexusrag_instance: NexusRAG):
-        """Test ingesting markdown content as bytes."""
         content = b"""# Markdown Test
 
 ## Section 1
@@ -765,7 +676,6 @@ More content for proper chunking.
         assert result.chunk_count > 0
 
     def test_ingest_bytes_duplicate_detection(self, nexusrag_instance: NexusRAG):
-        """Test that duplicate bytes content is detected."""
         content = b"Unique test content for duplicate detection.\n" * 5
 
         result1 = nexusrag_instance.ingest_bytes(content, "file1.txt", ".txt")
@@ -777,16 +687,11 @@ More content for proper chunking.
         assert isinstance(result2.success, bool)
 
 
-# ============================================================================
 # TESTS: EDGE CASES AND STRESS
-# ============================================================================
 
 
 class TestEdgeCases:
-    """Test edge cases and boundary conditions."""
-
     def test_ingest_very_short_document(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
-        """Test ingesting a very short document."""
         short_file = temp_data_dir / "short.txt"
         short_file.write_text("Short content.")
 
@@ -796,7 +701,6 @@ class TestEdgeCases:
         assert isinstance(result.success, bool)
 
     def test_ingest_large_document(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
-        """Test ingesting a large document."""
         large_file = temp_data_dir / "large.txt"
 
         # Create a large document
@@ -809,7 +713,6 @@ class TestEdgeCases:
         assert result.chunk_count > 1  # Should be split into multiple chunks
 
     def test_concurrent_operations_sequence(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
-        """Test sequential operations that might have ordering issues."""
         file1 = temp_data_dir / "doc1.txt"
         file2 = temp_data_dir / "doc2.txt"
 
@@ -838,14 +741,10 @@ class TestEdgeCases:
         assert len(docs) == 1
 
 
-# ============================================================================
 # TESTS: INTEGRATION WITH REAL COMPONENTS (SELECTIVE)
-# ============================================================================
 
 
 class TestIntegrationWithRealComponents:
-    """Test integration with some real components (not fully mocked)."""
-
     def test_with_real_parser_and_chunker(
         self, test_settings: Settings, sample_text_file: Path, mock_embedder, mock_llm
     ):
@@ -883,14 +782,10 @@ class TestIntegrationWithRealComponents:
         assert doc["id"] == ingest_result.document_id
 
 
-# ============================================================================
 # PARAMETRIZED TESTS
-# ============================================================================
 
 
 class TestParametrized:
-    """Parametrized tests for comprehensive coverage."""
-
     @pytest.mark.parametrize(
         "filename,content",
         [
