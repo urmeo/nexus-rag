@@ -44,6 +44,7 @@ def evaluate(
     taus: tuple[float, ...] = (0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70),
     embedding_model: str = "BAAI/bge-small-en-v1.5",
     depth: int = 50,
+    with_reranker: bool = True,
 ) -> dict[str, Any]:
     ds = D.load(dataset, split=split)
     qids = [q for q in ds.queries if ds.qrels.get(q)]
@@ -84,7 +85,7 @@ def evaluate(
         )
 
     best = max(sweep, key=lambda s: s["ndcg"])
-    cost = _cost_quality(adaptive, ds, qids, best["tau"], depth)
+    cost = _cost_quality(adaptive, ds, qids, best["tau"], depth, with_reranker)
 
     return {
         "dataset": dataset,
@@ -105,6 +106,7 @@ def _cost_quality(
     qids: list[str],
     tau: float,
     depth: int,
+    with_reranker: bool = True,
 ) -> dict[str, Any]:
     rows = []
 
@@ -118,14 +120,17 @@ def _cost_quality(
         rows.append({"system": name, "ndcg": ndcg, "r20": r20, "latency_ms": ms})
 
     corrective = CorrectiveRetriever(adaptive, tau=tau)
-    reranker = Reranker(device="cpu")
 
     timed("Adaptive", lambda q: _ids(adaptive.retrieve(q, top_k=depth, depth=depth)))
     timed("Corrective PRF", lambda q: _ids(corrective.retrieve(q, top_k=depth, depth=depth)))
-    timed(
-        "Rerank (cross-enc)",
-        lambda q: _ids(reranker.rerank(q, adaptive.retrieve(q, top_k=depth, depth=depth), top_k=depth)),
-    )
+    if with_reranker:
+        reranker = Reranker(device="cpu")
+        timed(
+            "Rerank (cross-enc)",
+            lambda q: _ids(
+                reranker.rerank(q, adaptive.retrieve(q, top_k=depth, depth=depth), top_k=depth)
+            ),
+        )
     return {"systems": rows}
 
 
@@ -134,10 +139,16 @@ def main() -> None:
     p.add_argument("--dataset", default="scifact")
     p.add_argument("--split", default="test")
     p.add_argument("--embedding-model", default="BAAI/bge-small-en-v1.5")
+    p.add_argument("--no-reranker", action="store_true")
     p.add_argument("--out", default=None)
     args = p.parse_args()
 
-    res = evaluate(dataset=args.dataset, split=args.split, embedding_model=args.embedding_model)
+    res = evaluate(
+        dataset=args.dataset,
+        split=args.split,
+        embedding_model=args.embedding_model,
+        with_reranker=not args.no_reranker,
+    )
     for s in res["tau_sweep"]:
         print(
             f"tau={s['tau']:.2f}  nDCG={s['ndcg']:.3f}  fire={s['trigger_rate']:.2f}  "
