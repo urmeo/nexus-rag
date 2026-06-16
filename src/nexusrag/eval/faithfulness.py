@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-from nexusrag.eval.metrics import pr_auc, roc_auc
+from nexusrag.eval.metrics import ece, pr_auc, risk_coverage_auc, roc_auc
 from nexusrag.generation.grounding import GroundingVerifier
 from nexusrag.retrieval.stopwords import STOP_WORDS
 
@@ -126,11 +126,16 @@ def _f1_at(scores: list[float], labels: list[int], tau: float) -> float:
 
 def _detection(scores: list[float], labels: list[int]) -> dict[str, float]:
     best_tau = max(THRESHOLD_GRID, key=lambda t: _f1_at(scores, labels, t))
+    s = np.asarray(scores)
+    y = np.asarray(labels)
+    correct = ((s >= best_tau).astype(int) == y).astype(int)
     return {
         "roc_auc": roc_auc(scores, labels),
         "pr_auc": pr_auc(scores, labels),
         "f1": _f1_at(scores, labels, best_tau),
         "f1_tau": best_tau,
+        "aurc": risk_coverage_auc(np.abs(s - best_tau), correct),
+        "ece": ece(scores, labels),
     }
 
 
