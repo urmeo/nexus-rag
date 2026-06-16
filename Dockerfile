@@ -17,6 +17,10 @@ COPY configs/ configs/
 # Copy frontend if present
 COPY frontend/ frontend/
 
+# Run as a non-root user
+RUN useradd --create-home --uid 1000 app && chown -R app:app /app
+USER app
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
