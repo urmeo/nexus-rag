@@ -1,4 +1,4 @@
-"""Render result tables and figures for the paper."""
+"""Render tables, a figure, and LaTeX macros for the paper."""
 
 from __future__ import annotations
 
@@ -7,76 +7,119 @@ import json
 from pathlib import Path
 from typing import Any
 
-COLUMNS = ["nDCG@10", "R@5", "R@10", "R@20", "MRR", "MAP"]
+from nexusrag.eval.metrics import holm_correction
+from nexusrag.eval.metrics import paired_randomization_test as prt
+
+RESULTS = Path("benchmarks/results")
+COLS = ["nDCG@10", "R@5", "R@10", "R@20", "MRR", "MAP"]
 
 
-def _load(path: str) -> dict[str, Any]:
-    with open(path) as f:
-        data: dict[str, Any] = json.load(f)
-        return data
+def _load(name: str) -> dict[str, Any] | None:
+    path = RESULTS / name
+    return json.loads(path.read_text()) if path.exists() else None
 
 
-def markdown_table(res: dict[str, Any]) -> str:
-    head = "| System | " + " | ".join(COLUMNS) + " | p vs final |"
-    sep = "|" + "---|" * (len(COLUMNS) + 2)
-    lines = [head, sep]
-    for name, s in res["systems"].items():
-        cells = [f"{s['means'][c]:.3f}" for c in COLUMNS]
-        p = s.get("p_vs_final")
-        pcell = "—" if p is None else (f"{p:.3f}" + ("*" if p < 0.05 else ""))
-        lines.append(f"| {name} | " + " | ".join(cells) + f" | {pcell} |")
-    return "\n".join(lines)
+def _p_vs_baseline(res: dict[str, Any], baseline: str = "BM25") -> dict[str, float]:
+    pq = res["per_query_ndcg"]
+    base = pq[baseline]
+    return {n: prt(pq[n], base) for n in pq if n != baseline}
 
 
-def latex_table(res: dict[str, Any]) -> str:
-    cols = "l" + "r" * len(COLUMNS)
+def _fmt_p(p: float, significant: bool) -> str:
+    star = "*" if significant else ""
+    return ("$<$0.001" if p < 1e-3 else f"{p:.3f}") + star
+
+
+def ablation_table(res: dict[str, Any]) -> str:
+    pvs = _p_vs_baseline(res)
+    holm = holm_correction(pvs)
     names = list(res["systems"])
-    column_max = {c: max(res["systems"][n]["means"][c] for n in names) for c in COLUMNS}
+    colmax = {c: max(res["systems"][n]["means"][c] for n in names) for c in COLS}
+
     lines = [
-        "\\begin{tabular}{" + cols + "}",
+        "\\begin{tabular}{l" + "r" * (len(COLS) + 1) + "}",
         "\\toprule",
-        "System & " + " & ".join(COLUMNS) + " \\\\",
+        "System & " + " & ".join(COLS) + " & $p$ vs BM25 \\\\",
         "\\midrule",
     ]
     for i, (name, s) in enumerate(res["systems"].items()):
         cells = []
-        for c in COLUMNS:
+        for c in COLS:
             v = s["means"][c]
             txt = f"{v:.3f}"
-            if abs(v - column_max[c]) < 1e-9:
+            if abs(v - colmax[c]) < 1e-9:
                 txt = f"\\textbf{{{txt}}}"
             cells.append(txt)
-        safe = name.replace("&", "\\&")
-        lines.append(safe + " & " + " & ".join(cells) + " \\\\")
+        pcell = "--" if name == "BM25" else _fmt_p(pvs[name], holm[name] < 0.05)
+        lines.append(name.replace("&", "\\&") + " & " + " & ".join(cells) + f" & {pcell} \\\\")
         if i == 1:
             lines.append("\\midrule")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
 
-def plot_ablation(res: dict[str, Any], out_path: Path) -> None:
+def cost_quality_table(corr: dict[str, Any]) -> str:
+    rows = corr["cost_quality"]["systems"]
+    lines = [
+        "\\begin{tabular}{lrrr}",
+        "\\toprule",
+        "System & nDCG@10 & R@20 & ms/query \\\\",
+        "\\midrule",
+    ]
+    for r in rows:
+        lines.append(f"{r['system']} & {r['ndcg']:.3f} & {r['r20']:.3f} & {r['latency_ms']:.0f} \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    return "\n".join(lines)
+
+
+def faithfulness_table(faith: dict[str, Any]) -> str:
+    label = {"nli": "NLI (DeBERTa)", "lexical_overlap": "Lexical overlap", "cross_encoder": "Cross-encoder"}
+    m = faith["methods"]
+    cols = ["roc_auc", "pr_auc", "f1"]
+    colmax = {c: max(m[k][c] for k in m) for c in cols}
+    lines = [
+        "\\begin{tabular}{lrrr}",
+        "\\toprule",
+        "Scorer & ROC-AUC & PR-AUC & F1 \\\\",
+        "\\midrule",
+    ]
+    for key in ("lexical_overlap", "cross_encoder", "nli"):
+        if key not in m:
+            continue
+        cells = []
+        for c in cols:
+            v = m[key][c]
+            txt = f"{v:.3f}"
+            if abs(v - colmax[c]) < 1e-9:
+                txt = f"\\textbf{{{txt}}}"
+            cells.append(txt)
+        lines.append(f"{label.get(key, key)} & " + " & ".join(cells) + " \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    return "\n".join(lines)
+
+
+def plot_ablation(sci: dict[str, Any], nf: dict[str, Any], out_path: Path) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    names = list(res["systems"])
-    means = [res["systems"][n]["ci"]["nDCG@10"]["mean"] for n in names]
-    los = [res["systems"][n]["ci"]["nDCG@10"]["lo"] for n in names]
-    his = [res["systems"][n]["ci"]["nDCG@10"]["hi"] for n in names]
-    err = [
-        [max(0.0, m - lo) for m, lo in zip(means, los, strict=True)],
-        [max(0.0, hi - m) for m, hi in zip(means, his, strict=True)],
-    ]
-
-    fig, ax = plt.subplots(figsize=(8, 4.2))
-    x = range(len(names))
-    ax.bar(x, means, yerr=err, capsize=4, color="#3b6ea5")
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(names, rotation=30, ha="right", fontsize=8)
-    ax.set_ylabel("nDCG@10")
-    ax.set_title(f"Retrieval ablation on {res['dataset']} ({res['num_queries']} queries, 95% CI)")
-    ax.grid(axis="y", alpha=0.3)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    for ax, res, title in ((axes[0], sci, "SciFact"), (axes[1], nf, "NFCorpus")):
+        names = list(res["systems"])
+        means = [res["systems"][n]["ci"]["nDCG@10"]["mean"] for n in names]
+        lo = [res["systems"][n]["ci"]["nDCG@10"]["lo"] for n in names]
+        hi = [res["systems"][n]["ci"]["nDCG@10"]["hi"] for n in names]
+        err = [
+            [max(0.0, m - x) for m, x in zip(means, lo, strict=True)],
+            [max(0.0, x - m) for m, x in zip(means, hi, strict=True)],
+        ]
+        ax.bar(range(len(names)), means, yerr=err, capsize=4, color="#3b6ea5")
+        ax.set_xticks(range(len(names)))
+        ax.set_xticklabels(names, rotation=35, ha="right", fontsize=8)
+        ax.set_ylabel("nDCG@10")
+        ax.set_title(f"{title} ({res['num_queries']} queries, 95% CI)")
+        ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
@@ -86,76 +129,103 @@ def _macro(name: str, value: str) -> str:
     return f"\\newcommand{{\\{name}}}{{{value}}}"
 
 
-def write_paper_bundle(
-    res: dict[str, Any], paper_dir: Path, faith: dict[str, Any] | None = None
-) -> None:
-    """Emit LaTeX macros, table and figure into the paper tree."""
+def build_macros(
+    sci: dict[str, Any],
+    nf: dict[str, Any],
+    mini: dict[str, Any] | None,
+    corr_sci: dict[str, Any] | None,
+    faith: dict[str, Any] | None,
+) -> list[str]:
+    def nd(res: dict[str, Any], sysname: str) -> str:
+        return f"{res['systems'][sysname]['means']['nDCG@10']:.3f}"
+
+    sci_p = _p_vs_baseline(sci)
+    nf_p = _p_vs_baseline(nf)
+    macros = [
+        _macro("NumQueries", str(sci["num_queries"])),
+        _macro("CorpusSize", str(sci["corpus_size"])),
+        _macro("NFqueries", str(nf["num_queries"])),
+        _macro("NFcorpus", str(nf["corpus_size"])),
+        _macro("SciBM", nd(sci, "BM25")),
+        _macro("SciDense", nd(sci, "Dense")),
+        _macro("SciHybrid", nd(sci, "Hybrid (RRF)")),
+        _macro("SciHybridP", _fmt_p(sci_p["Hybrid (RRF)"], True).replace("*", "")),
+        _macro("NFbm", nd(nf, "BM25")),
+        _macro("NFdense", nd(nf, "Dense")),
+        _macro("NFhybrid", nd(nf, "Hybrid (RRF)")),
+        _macro("NFhybridP", _fmt_p(nf_p["Hybrid (RRF)"], True).replace("*", "")),
+    ]
+    if mini:
+        import numpy as np
+
+        bge = sci["per_query_ndcg"]["Dense"]
+        ml = mini["per_query_ndcg"]["Dense"]
+        gain = np.mean(bge) - np.mean(ml)
+        macros += [
+            _macro("SciDenseMini", nd(mini, "Dense")),
+            _macro("SciEmbGain", f"{gain:+.3f}"),
+            _macro("SciEmbP", _fmt_p(prt(bge, ml), True).replace("*", "")),
+        ]
+    if corr_sci:
+        cq = {r["system"]: r for r in corr_sci["cost_quality"]["systems"]}
+        macros += [
+            _macro("SciCorrTau", f"{corr_sci['best_tau']:.2f}"),
+            _macro("RerankMs", f"{cq['Rerank (cross-enc)']['latency_ms']:.0f}"),
+            _macro("CorrMs", f"{cq['Corrective PRF']['latency_ms']:.0f}"),
+            _macro("BaseMs", f"{cq['Adaptive']['latency_ms']:.0f}"),
+        ]
+        best = next(
+            (s for s in corr_sci["tau_sweep"] if abs(s["tau"] - corr_sci["best_tau"]) < 1e-9), None
+        )
+        if best and best["triggered_n"]:
+            macros += [
+                _macro("SciCorrFire", f"{best['trigger_rate'] * 100:.0f}\\%"),
+                _macro("SciCorrDelta", f"{best['triggered_delta']:+.3f}"),
+                _macro("SciCorrP", _fmt_p(best["triggered_p"], False).replace("*", "")),
+            ]
+    if faith:
+        m = faith["methods"]
+        macros += [
+            _macro("FaithClaims", str(faith["num_claims"])),
+            _macro("FaithBaseRate", f"{faith['gold_base_rate']:.2f}"),
+            _macro("FaithNliAuroc", f"{m['nli']['roc_auc']:.3f}"),
+            _macro("FaithNliPr", f"{m['nli']['pr_auc']:.3f}"),
+            _macro("FaithLexAuroc", f"{m['lexical_overlap']['roc_auc']:.3f}"),
+        ]
+        if "cross_encoder" in m:
+            macros.append(_macro("FaithCeAuroc", f"{m['cross_encoder']['roc_auc']:.3f}"))
+    return macros
+
+
+def write_paper_bundle(paper_dir: Path) -> None:
+    sci = _load("scifact_test.json")
+    nf = _load("nfcorpus_test.json")
+    if not sci or not nf:
+        raise SystemExit("missing scifact_test.json / nfcorpus_test.json; run `make eval` first")
+    mini = _load("scifact_minilm.json")
+    corr_sci = _load("corrective_scifact.json")
+    faith = _load("faithfulness_dev.json")
+
     (paper_dir / "tables").mkdir(parents=True, exist_ok=True)
     (paper_dir / "figures").mkdir(parents=True, exist_ok=True)
-    (paper_dir / "tables" / "ablation.tex").write_text(latex_table(res) + "\n")
-    plot_ablation(res, paper_dir / "figures" / "ablation.png")
-
-    sysd = res["systems"]
-    names = list(sysd)
-
-    def mean(name: str, metric: str) -> str:
-        return f"{sysd[name]['means'][metric]:.3f}"
-
-    best = max(sysd, key=lambda n: sysd[n]["means"]["nDCG@10"])
-    dense_p = sysd["Dense (MiniLM)"].get("p_vs_final")
-    macros = [
-        _macro("DatasetName", res["dataset"]),
-        _macro("NumQueries", str(res["num_queries"])),
-        _macro("CorpusSize", str(res["corpus_size"])),
-        _macro("BMNDCG", mean("BM25", "nDCG@10")),
-        _macro("DenseNDCG", mean("Dense (MiniLM)", "nDCG@10")),
-        _macro("HybridNDCG", mean("Hybrid-RRF", "nDCG@10")),
-        _macro("FullNDCG", mean(names[-1], "nDCG@10")),
-        _macro("FullRten", mean(names[-1], "R@10")),
-        _macro("FullName", names[-1].replace("&", "\\&")),
-        _macro("BestName", best.replace("&", "\\&")),
-        _macro("BestNDCG", mean(best, "nDCG@10")),
-        _macro("BMRtwenty", mean("BM25", "R@20")),
-        _macro("DenseRtwenty", mean("Dense (MiniLM)", "R@20")),
-        _macro("HybridRtwenty", mean("Hybrid-RRF", "R@20")),
-        _macro("DenseP", f"{dense_p:.3f}" if dense_p is not None else "n/a"),
-    ]
+    (paper_dir / "tables" / "scifact.tex").write_text(ablation_table(sci) + "\n")
+    (paper_dir / "tables" / "nfcorpus.tex").write_text(ablation_table(nf) + "\n")
+    if corr_sci:
+        (paper_dir / "tables" / "cost_quality.tex").write_text(cost_quality_table(corr_sci) + "\n")
     if faith:
-        v = faith["nli_verifier"]
-        macros += [
-            _macro("FaithFone", f"{v['rationale_f1']:.3f}"),
-            _macro("FaithPrec", f"{v['rationale_precision']:.3f}"),
-            _macro("FaithRecall", f"{v['rationale_recall']:.3f}"),
-            _macro("FaithAcc", f"{v['label_accuracy']:.3f}"),
-            _macro("FaithTau", str(faith["tuned_threshold"])),
-            _macro("NumClaims", str(faith["num_claims"])),
-        ]
-    (paper_dir / "generated.tex").write_text("\n".join(macros) + "\n")
+        (paper_dir / "tables" / "faithfulness.tex").write_text(faithfulness_table(faith) + "\n")
+    plot_ablation(sci, nf, paper_dir / "figures" / "ablation.png")
+    (paper_dir / "generated.tex").write_text(
+        "\n".join(build_macros(sci, nf, mini, corr_sci, faith)) + "\n"
+    )
+    print(f"wrote paper bundle to {paper_dir}")
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Render eval tables and figures")
-    p.add_argument("results")
-    p.add_argument("--outdir", default="benchmarks/results")
-    p.add_argument("--paper", default=None, help="paper dir to populate")
-    p.add_argument("--faith", default=None, help="faithfulness results json")
+    p = argparse.ArgumentParser(description="Render eval tables, figure, and macros")
+    p.add_argument("--paper", default="paper", help="paper directory to populate")
     args = p.parse_args()
-
-    res = _load(args.results)
-    outdir = Path(args.outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-    stem = Path(args.results).stem
-
-    (outdir / f"{stem}_table.md").write_text(markdown_table(res) + "\n")
-    (outdir / f"{stem}_table.tex").write_text(latex_table(res) + "\n")
-    plot_ablation(res, outdir / f"{stem}_ablation.png")
-
-    if args.paper:
-        faith = _load(args.faith) if args.faith else None
-        write_paper_bundle(res, Path(args.paper), faith=faith)
-
-    print(markdown_table(res))
-    print(f"\nWrote tables + figure to {outdir}")
+    write_paper_bundle(Path(args.paper))
 
 
 if __name__ == "__main__":
