@@ -1,9 +1,17 @@
-"""Faithfulness: NLI rationale selection on SciFact gold evidence."""
+"""Evidence-sentence detection: NLI vs lexical and cross-encoder baselines.
+
+For each SciFact claim and its cited abstract, every abstract sentence is a
+candidate; gold rationale sentences are positives. We score candidates with a
+zero-shot NLI cross-encoder (relatedness = 1 - P(neutral)) and compare against
+lexical overlap and a relevance cross-encoder, as threshold-free detection
+(ROC-AUC, PR-AUC) plus F1 at a tuned threshold.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,17 +19,26 @@ from typing import Any
 import numpy as np
 
 from nexusrag.agents.grounding import GroundingVerifier
+from nexusrag.eval.metrics import pr_auc, roc_auc
+from nexusrag.retrieval.stopwords import STOP_WORDS
 
 RAW_DIR = Path("data/scifact_raw/data")
 VENDORED = Path(__file__).resolve().parents[3] / "benchmarks" / "datasets" / "scifact_claims_sample"
 RESULTS_DIR = Path("benchmarks/results")
-THRESHOLD_GRID = [round(x, 2) for x in np.arange(0.30, 0.91, 0.05)]
 SCIFACT_URL = "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz"
-DEFAULT_TAU = 0.5
+THRESHOLD_GRID = [round(x, 2) for x in np.arange(0.30, 0.96, 0.05)]
+
+
+@dataclass
+class Claim:
+    id: int
+    text: str
+    label: str
+    gold: set[tuple[str, int]]
+    candidates: list[tuple[str, int, str]]
 
 
 def ensure_raw() -> bool:
-    """Download the SciFact release if absent."""
     if (RAW_DIR / "corpus.jsonl").exists():
         return True
     import tarfile
@@ -30,22 +47,12 @@ def ensure_raw() -> bool:
     RAW_DIR.parent.mkdir(parents=True, exist_ok=True)
     archive = RAW_DIR.parent / "data.tar.gz"
     try:
-        print("Downloading SciFact release...")
         urllib.request.urlretrieve(SCIFACT_URL, archive)
         with tarfile.open(archive) as tar:
             tar.extractall(RAW_DIR.parent)
     except Exception:
         return False
     return (RAW_DIR / "corpus.jsonl").exists()
-
-
-@dataclass
-class Claim:
-    id: int
-    text: str
-    label: str  # SUPPORT / CONTRADICT
-    gold: set[tuple[str, int]]  # (doc_id, sentence_idx)
-    candidates: list[tuple[str, int, str]]  # (doc_id, idx, sentence)
 
 
 def _read_corpus(path: Path) -> dict[str, list[str]]:
@@ -73,134 +80,123 @@ def _read_claims(path: Path, corpus: dict[str, list[str]]) -> list[Claim]:
                     for s in g["sentences"]:
                         gold.add((str(doc_id), int(s)))
             label = "CONTRADICT" if "CONTRADICT" in labels else "SUPPORT"
-            candidates: list[tuple[str, int, str]] = []
-            for doc_id in evidence:
-                for i, sent in enumerate(corpus.get(str(doc_id), [])):
-                    candidates.append((str(doc_id), i, sent))
+            candidates = [
+                (str(doc_id), i, sent)
+                for doc_id in evidence
+                for i, sent in enumerate(corpus.get(str(doc_id), []))
+            ]
             if candidates:
-                claims.append(
-                    Claim(
-                        id=row["id"],
-                        text=row["claim"],
-                        label=label,
-                        gold=gold,
-                        candidates=candidates,
-                    )
-                )
+                claims.append(Claim(row["id"], row["claim"], label, gold, candidates))
     return claims
 
 
 def load_claims(split: str, prefer_vendored: bool = False) -> list[Claim]:
-    use_vendored = prefer_vendored or not ensure_raw()
-    base = VENDORED if use_vendored else RAW_DIR
+    base = VENDORED if (prefer_vendored or not ensure_raw()) else RAW_DIR
     corpus = _read_corpus(base / "corpus.jsonl")
     return _read_claims(base / f"claims_{split}.jsonl", corpus)
 
 
-def _score_claims(verifier: GroundingVerifier, claims: list[Claim]) -> list[dict[str, Any]]:
-    """Run NLI once per candidate sentence."""
-    rows: list[dict[str, Any]] = []
+def _tokens(text: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9]+", text.lower()) if t not in STOP_WORDS and len(t) > 1}
+
+
+def lexical_overlap(claim: str, sentence: str) -> float:
+    c, s = _tokens(claim), _tokens(sentence)
+    return len(c & s) / len(c | s) if c and s else 0.0
+
+
+def _nli_relatedness(verifier: GroundingVerifier, claims: list[Claim]) -> list[list[float]]:
+    out = []
     for c in claims:
-        pairs = [(sent, c.text) for (_, _, sent) in c.candidates]
-        probs = verifier.class_probs(pairs)
+        probs = verifier.class_probs([(sent, c.text) for (_, _, sent) in c.candidates])
         entail = probs[:, min(verifier.entail_idx, probs.shape[1] - 1)]
         contra = probs[:, min(verifier.contra_idx, probs.shape[1] - 1)]
-        for j, (doc_id, idx, _) in enumerate(c.candidates):
-            rows.append(
-                {
-                    "claim_id": c.id,
-                    "evidence_strength": float(max(entail[j], contra[j])),
-                    "entail": float(entail[j]),
-                    "contra": float(contra[j]),
-                    "is_gold": (doc_id, idx) in c.gold,
-                }
-            )
-    return rows
+        out.append([float(e + co) for e, co in zip(entail, contra, strict=True)])
+    return out
 
 
-def _prf(rows: list[dict[str, Any]], tau: float) -> tuple[float, float, float]:
-    tp = sum(1 for r in rows if r["evidence_strength"] >= tau and r["is_gold"])
-    fp = sum(1 for r in rows if r["evidence_strength"] >= tau and not r["is_gold"])
-    fn = sum(1 for r in rows if r["evidence_strength"] < tau and r["is_gold"])
+def _f1_at(scores: list[float], labels: list[int], tau: float) -> float:
+    tp = sum(1 for s, y in zip(scores, labels, strict=True) if s >= tau and y)
+    fp = sum(1 for s, y in zip(scores, labels, strict=True) if s >= tau and not y)
+    fn = sum(1 for s, y in zip(scores, labels, strict=True) if s < tau and y)
     p = tp / (tp + fp) if tp + fp else 0.0
     r = tp / (tp + fn) if tp + fn else 0.0
-    f1 = 2 * p * r / (p + r) if p + r else 0.0
-    return p, r, f1
+    return 2 * p * r / (p + r) if p + r else 0.0
 
 
-def _label_accuracy(claims: list[Claim], rows: list[dict[str, Any]], tau: float) -> float:
-    by_claim: dict[int, list[dict[str, Any]]] = {}
-    for r in rows:
-        by_claim.setdefault(r["claim_id"], []).append(r)
-    correct = 0
-    for c in claims:
-        picked = [r for r in by_claim.get(c.id, []) if r["evidence_strength"] >= tau]
-        if not picked:
-            pred = "NOINFO"
-        else:
-            pred = (
-                "SUPPORT"
-                if sum(r["entail"] for r in picked) >= sum(r["contra"] for r in picked)
-                else "CONTRADICT"
-            )
-        if pred == c.label:
-            correct += 1
-    return correct / len(claims) if claims else 0.0
+def _detection(scores: list[float], labels: list[int]) -> dict[str, float]:
+    best_tau = max(THRESHOLD_GRID, key=lambda t: _f1_at(scores, labels, t))
+    return {
+        "roc_auc": roc_auc(scores, labels),
+        "pr_auc": pr_auc(scores, labels),
+        "f1": _f1_at(scores, labels, best_tau),
+        "f1_tau": best_tau,
+    }
 
 
-def evaluate(prefer_vendored: bool = False, model_name: str | None = None) -> dict[str, Any]:
-    verifier = GroundingVerifier(model_name=model_name) if model_name else GroundingVerifier()
-
+def evaluate(
+    prefer_vendored: bool = False,
+    model_name: str | None = None,
+    with_reranker: bool = True,
+) -> dict[str, Any]:
     dev = load_claims("dev", prefer_vendored=prefer_vendored)
-    try:
-        train = load_claims("train", prefer_vendored=prefer_vendored)[:120]
-        train_rows = _score_claims(verifier, train)
-        tau = max(THRESHOLD_GRID, key=lambda t: _prf(train_rows, t)[2])
-    except FileNotFoundError:
-        print(f"No held-out train split; using default tau={DEFAULT_TAU}")
-        tau = DEFAULT_TAU
+    verifier = (
+        GroundingVerifier(model_name=model_name, device="cpu")
+        if model_name
+        else GroundingVerifier(device="cpu")
+    )
 
-    dev_rows = _score_claims(verifier, dev)
-    p, r, f1 = _prf(dev_rows, tau)
-    acc = _label_accuracy(dev, dev_rows, tau)
+    nli = _nli_relatedness(verifier, dev)
+    labels: list[int] = []
+    nli_flat: list[float] = []
+    lex_flat: list[float] = []
+    for ci, c in enumerate(dev):
+        for j, (doc, idx, sent) in enumerate(c.candidates):
+            labels.append(1 if (doc, idx) in c.gold else 0)
+            nli_flat.append(nli[ci][j])
+            lex_flat.append(lexical_overlap(c.text, sent))
 
+    methods = {
+        "nli": _detection(nli_flat, labels),
+        "lexical_overlap": _detection(lex_flat, labels),
+    }
+
+    if with_reranker:
+        from nexusrag.retrieval import Reranker
+
+        rr = Reranker(device="cpu")
+        ce_flat: list[float] = []
+        for c in dev:
+            scores = rr.model.predict([(c.text, sent) for (_, _, sent) in c.candidates])
+            ce_flat.extend(float(s) for s in np.asarray(scores).reshape(-1))
+        methods["cross_encoder"] = _detection(ce_flat, labels)
+
+    base_rate = sum(labels) / len(labels) if labels else 0.0
     return {
         "dataset": "scifact-claims",
         "split": "sample" if prefer_vendored else "dev",
         "num_claims": len(dev),
-        "num_candidate_sentences": len(dev_rows),
-        "tuned_threshold": tau,
-        "model": verifier.model_name,
-        "nli_verifier": {
-            "rationale_precision": p,
-            "rationale_recall": r,
-            "rationale_f1": f1,
-            "label_accuracy": acc,
-        },
-        "citation_index_baseline": {
-            "rationale_precision": 0.0,
-            "rationale_recall": 0.0,
-            "rationale_f1": 0.0,
-            "note": "checks citation numbers only; cannot localize evidence sentences",
-        },
+        "num_candidates": len(labels),
+        "gold_base_rate": base_rate,
+        "nli_model": verifier.model_name,
+        "methods": methods,
     }
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="SciFact faithfulness evaluation")
+    p = argparse.ArgumentParser(description="SciFact evidence-detection evaluation")
     p.add_argument("--sample", action="store_true")
     p.add_argument("--model", default=None)
+    p.add_argument("--no-reranker", action="store_true")
     p.add_argument("--out", default=None)
     args = p.parse_args()
 
-    res = evaluate(prefer_vendored=args.sample, model_name=args.model)
-    v = res["nli_verifier"]
-    print(f"claims={res['num_claims']}  tau={res['tuned_threshold']}")
-    print(
-        f"NLI rationale  P={v['rationale_precision']:.3f} R={v['rationale_recall']:.3f} F1={v['rationale_f1']:.3f}"
+    res = evaluate(
+        prefer_vendored=args.sample, model_name=args.model, with_reranker=not args.no_reranker
     )
-    print(f"NLI label accuracy={v['label_accuracy']:.3f}")
-    print("citation-index baseline F1=0.000 (no grounding signal)")
+    print(f"claims={res['num_claims']}  candidates={res['num_candidates']}  base_rate={res['gold_base_rate']:.3f}")
+    for name, m in res["methods"].items():
+        print(f"{name:16s} AUROC={m['roc_auc']:.3f}  PR-AUC={m['pr_auc']:.3f}  F1={m['f1']:.3f}")
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     tag = "sample" if args.sample else "dev"
