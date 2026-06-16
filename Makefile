@@ -53,7 +53,7 @@ paper:
 	cd paper && tectonic main.tex
 
 run:
-	$(PYTHON) -m uvicorn nexusrag.api:app --reload --host 0.0.0.0 --port 8000
+	$(PYTHON) -m uvicorn nexusrag.api:app --reload --port 8000
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

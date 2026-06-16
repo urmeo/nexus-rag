@@ -88,7 +88,7 @@ class APISettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="API_")
 
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8000
     cors_origins: list[str] = ["http://localhost:8000", "http://127.0.0.1:8000"]
 
