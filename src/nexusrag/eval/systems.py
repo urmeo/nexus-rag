@@ -59,7 +59,7 @@ def build_systems(
         reranker = Reranker(device="cpu")
 
         def with_rerank(q: str, k: int) -> list[str]:
-            cands = adaptive.retrieve(q, top_k=depth(k), depth=depth(k))
+            cands = corrective.retrieve(q, top_k=depth(k), depth=depth(k))
             return _ids(reranker.rerank(q, cands, top_k=k))
 
         systems["+ Rerank (cross-enc)"] = with_rerank
