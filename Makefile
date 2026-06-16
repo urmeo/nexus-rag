@@ -1,4 +1,4 @@
-.PHONY: install install-dev test test-unit test-integration test-cov lint format type-check eval eval-sample faithfulness paper run clean help docker-build docker-up docker-down docker-logs
+.PHONY: install install-dev test test-unit test-integration test-cov lint format type-check eval eval-sample corrective faithfulness generation paper run clean help docker-build docker-up docker-down docker-logs
 
 PYTHON := python3
 PIP := $(PYTHON) -m pip
@@ -33,11 +33,14 @@ type-check:
 
 eval:
 	$(PYTHON) -m nexusrag.eval.run --dataset scifact --split test
-	$(PYTHON) -m nexusrag.eval.report benchmarks/results/scifact_test.json
+	$(PYTHON) -m nexusrag.eval.run --dataset nfcorpus --split test
 
 eval-sample:
 	$(PYTHON) -m nexusrag.eval.run --sample
-	$(PYTHON) -m nexusrag.eval.report benchmarks/results/scifact_sample.json
+
+corrective:
+	$(PYTHON) -m nexusrag.eval.corrective --dataset scifact --split test
+	$(PYTHON) -m nexusrag.eval.corrective --dataset nfcorpus --split test
 
 faithfulness:
 	$(PYTHON) -m nexusrag.eval.faithfulness
@@ -45,9 +48,8 @@ faithfulness:
 generation:
 	$(PYTHON) -m nexusrag.eval.generation
 
-paper: eval
-	$(PYTHON) -m nexusrag.eval.report benchmarks/results/scifact_test.json \
-		--paper paper --faith benchmarks/results/faithfulness_dev.json
+paper:
+	$(PYTHON) -m nexusrag.eval.report --paper paper
 	cd paper && tectonic main.tex
 
 run:
@@ -87,8 +89,10 @@ help:
 	@echo "  format         Format code"
 	@echo "  type-check     Run type checking"
 	@echo "  run            Start FastAPI server + web UI"
-	@echo "  eval           Run the SciFact retrieval ablation"
-	@echo "  faithfulness   Run the NLI grounding evaluation"
+	@echo "  eval           Run the SciFact + NFCorpus retrieval ablation"
+	@echo "  eval-sample    Run the offline vendored subset (no download)"
+	@echo "  corrective     Corrective-loop trigger and cost/quality analysis"
+	@echo "  faithfulness   Run the evidence-detection evaluation"
 	@echo "  paper          Regenerate tables/figures and build the PDF"
 	@echo "  clean          Remove build artifacts"
 	@echo "  docker-build   Build Docker image"
