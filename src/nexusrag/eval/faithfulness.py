@@ -47,9 +47,9 @@ def ensure_raw() -> bool:
     RAW_DIR.parent.mkdir(parents=True, exist_ok=True)
     archive = RAW_DIR.parent / "data.tar.gz"
     try:
-        urllib.request.urlretrieve(SCIFACT_URL, archive)
+        urllib.request.urlretrieve(SCIFACT_URL, archive)  # fixed https URL
         with tarfile.open(archive) as tar:
-            tar.extractall(RAW_DIR.parent)
+            tar.extractall(RAW_DIR.parent, filter="data")  # block path traversal
     except Exception:
         return False
     return (RAW_DIR / "corpus.jsonl").exists()
