@@ -194,7 +194,9 @@ def main() -> None:
     res = evaluate(
         prefer_vendored=args.sample, model_name=args.model, with_reranker=not args.no_reranker
     )
-    print(f"claims={res['num_claims']}  candidates={res['num_candidates']}  base_rate={res['gold_base_rate']:.3f}")
+    print(
+        f"claims={res['num_claims']}  candidates={res['num_candidates']}  base_rate={res['gold_base_rate']:.3f}"
+    )
     for name, m in res["methods"].items():
         print(f"{name:16s} AUROC={m['roc_auc']:.3f}  PR-AUC={m['pr_auc']:.3f}  F1={m['f1']:.3f}")
 

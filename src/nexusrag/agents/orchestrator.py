@@ -63,9 +63,7 @@ class Orchestrator:
         question = self.analyzer.rewrite_vague_query(question)
 
         results, corrected = self.retriever.retrieve_traced(question, top_k=self.top_k)
-        trace.append(
-            ReasoningStep("retrieval", f"{len(results)} chunks, corrected={corrected}")
-        )
+        trace.append(ReasoningStep("retrieval", f"{len(results)} chunks, corrected={corrected}"))
 
         doc_names = self._document_names(results)
         synthesis = self.synthesizer.synthesize(
@@ -77,9 +75,7 @@ class Orchestrator:
 
         faithfulness: float | None = None
         if self.grounding_verifier is not None and synthesis.sources:
-            report = self.grounding_verifier.verify(
-                verification.verified_answer, synthesis.sources
-            )
+            report = self.grounding_verifier.verify(verification.verified_answer, synthesis.sources)
             faithfulness = report.faithfulness
             if report.unsupported:
                 warnings.append(f"{len(report.unsupported)} sentence(s) not grounded in sources")
@@ -108,9 +104,7 @@ class Orchestrator:
         )
 
     @staticmethod
-    def _confidence(
-        sources: list[Source], cited: list[int], faithfulness: float | None
-    ) -> float:
+    def _confidence(sources: list[Source], cited: list[int], faithfulness: float | None) -> float:
         if faithfulness is not None:
             return round(faithfulness, 3)
         if not sources:

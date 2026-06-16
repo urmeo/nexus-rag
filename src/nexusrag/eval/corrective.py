@@ -109,12 +109,14 @@ def _cost_quality(
     with_reranker: bool = True,
 ) -> dict[str, Any]:
     rows = []
+    sample = qids[:120]
+    sub_qrels = {q: ds.qrels[q] for q in sample}
 
     def timed(name: str, fn: Any) -> None:
         t0 = time.perf_counter()
-        run = {q: fn(ds.queries[q]) for q in qids}
-        ms = (time.perf_counter() - t0) / len(qids) * 1000
-        scores = M.per_query(run, ds.qrels)
+        run = {q: fn(ds.queries[q]) for q in sample}
+        ms = (time.perf_counter() - t0) / len(sample) * 1000
+        scores = M.per_query(run, sub_qrels)
         ndcg = float(np.mean([s["nDCG@10"] for s in scores.values()]))
         r20 = float(np.mean([s["R@20"] for s in scores.values()]))
         rows.append({"system": name, "ndcg": ndcg, "r20": r20, "latency_ms": ms})
@@ -131,7 +133,7 @@ def _cost_quality(
                 reranker.rerank(q, adaptive.retrieve(q, top_k=depth, depth=depth), top_k=depth)
             ),
         )
-    return {"systems": rows}
+    return {"systems": rows, "timed_queries": len(sample)}
 
 
 def main() -> None:

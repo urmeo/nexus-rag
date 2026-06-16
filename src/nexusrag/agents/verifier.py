@@ -28,7 +28,9 @@ class AnswerVerifier:
 
         warnings: list[str] = []
         if invalid:
-            warnings.append(f"removed {len(invalid)} out-of-range citation(s): {sorted(set(invalid))}")
+            warnings.append(
+                f"removed {len(invalid)} out-of-range citation(s): {sorted(set(invalid))}"
+            )
         if not found:
             warnings.append("answer cites no sources")
 

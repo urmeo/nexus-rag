@@ -67,13 +67,19 @@ def cost_quality_table(corr: dict[str, Any]) -> str:
         "\\midrule",
     ]
     for r in rows:
-        lines.append(f"{r['system']} & {r['ndcg']:.3f} & {r['r20']:.3f} & {r['latency_ms']:.0f} \\\\")
+        lines.append(
+            f"{r['system']} & {r['ndcg']:.3f} & {r['r20']:.3f} & {r['latency_ms']:.0f} \\\\"
+        )
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
 
 def faithfulness_table(faith: dict[str, Any]) -> str:
-    label = {"nli": "NLI (DeBERTa)", "lexical_overlap": "Lexical overlap", "cross_encoder": "Cross-encoder"}
+    label = {
+        "nli": "NLI (DeBERTa)",
+        "lexical_overlap": "Lexical overlap",
+        "cross_encoder": "Cross-encoder",
+    }
     m = faith["methods"]
     cols = ["roc_auc", "pr_auc", "f1"]
     colmax = {c: max(m[k][c] for k in m) for c in cols}

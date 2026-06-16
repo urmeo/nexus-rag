@@ -274,4 +274,3 @@ class Synthesizer:
             formatted_parts.append(source_block)
 
         return "\n".join(formatted_parts)
-

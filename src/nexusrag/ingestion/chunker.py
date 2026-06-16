@@ -340,9 +340,7 @@ class HierarchicalChunker:
                     max(0, start_idx - self.context_chars) : start_idx
                 ].strip()
             if end_idx < len(full_text):
-                chunk.context_after = full_text[
-                    end_idx : end_idx + self.context_chars
-                ].strip()
+                chunk.context_after = full_text[end_idx : end_idx + self.context_chars].strip()
 
     def _create_chunk(
         self,
