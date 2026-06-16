@@ -157,7 +157,6 @@ def build_macros(
         _macro("SciHybrid", nd(sci, "Hybrid (RRF)")),
         _macro("SciHybridP", _fmt_p(sci_p["Hybrid (RRF)"], True).replace("*", "")),
         _macro("NFbm", nd(nf, "BM25")),
-        _macro("NFdense", nd(nf, "Dense")),
         _macro("NFhybrid", nd(nf, "Hybrid (RRF)")),
         _macro("NFhybridP", _fmt_p(nf_p["Hybrid (RRF)"], True).replace("*", "")),
     ]
@@ -194,7 +193,6 @@ def build_macros(
             _macro("FaithClaims", str(faith["num_claims"])),
             _macro("FaithBaseRate", f"{faith['gold_base_rate']:.2f}"),
             _macro("FaithNliAuroc", f"{m['nli']['roc_auc']:.3f}"),
-            _macro("FaithNliPr", f"{m['nli']['pr_auc']:.3f}"),
             _macro("FaithLexAuroc", f"{m['lexical_overlap']['roc_auc']:.3f}"),
         ]
         if "cross_encoder" in m:
