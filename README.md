@@ -1,67 +1,67 @@
 # NexusRAG
 
-Ask questions across your research papers and get answers with citations you can trust. NexusRAG runs entirely on your machine, grounds every answer in the source text, and ships with a benchmark that measures how well it actually retrieves and verifies — not just a demo.
+Ask questions across your research papers and get answers with citations you can check. NexusRAG runs entirely on your machine and ships with a reproducible benchmark, so every retrieval claim is measured against ground truth rather than asserted.
 
 ![NexusRAG interface](screenshots/nexusrag-ui.png)
 
-Most local RAG tools include a retriever and a "verifier" but never report numbers, and the verifier usually only checks that a citation is well-formed. NexusRAG measures retrieval and faithfulness on real benchmarks, and the verifier checks whether each sentence is genuinely entailed by its source.
+Most local RAG tools bundle a hybrid retriever, a reranker, and a "verifier," but never report numbers — so it is impossible to know which parts actually help. NexusRAG is built around the measurement: a strictly-additive ablation on two BEIR benchmarks with bootstrap confidence intervals and paired randomization tests, plus a faithfulness verifier evaluated as a real evidence detector.
 
-## What it does
+## What the benchmark shows
 
-- Combines dense (MiniLM) and keyword (BM25) retrieval, fused and reranked, so it finds the right passage whether the query is technical or descriptive.
-- Verifies each answer sentence against its sources with a natural-language-inference model, and re-retrieves when the grounding is weak.
-- Links every claim to the exact passage and page it came from.
-- Keeps documents, embeddings, and generation on your machine — no API keys, no data leaving the laptop.
+Retrieval quality on SciFact (300 claims, 5,183 abstracts) and NFCorpus (323 queries, 3,633 documents), CPU-only, exact search.
 
-## Results
+| System | SciFact nDCG@10 | NFCorpus nDCG@10 |
+|--------|-----------------|------------------|
+| BM25 | 0.666 | 0.311 |
+| Dense (MiniLM, the usual default) | 0.648 | 0.319 |
+| Dense (BGE-small) | **0.708** | 0.340 |
+| Hybrid (RRF) | 0.704 | **0.353** |
+| + Corrective PRF | 0.703 | 0.349 |
 
-Retrieval quality on SciFact (300 claims, 5,183 documents). Each step adds one component.
-
-![Retrieval ablation with 95% confidence intervals](benchmarks/results/scifact_test_ablation.png)
-
-| System | nDCG@10 | Recall@20 |
-|--------|---------|-----------|
-| BM25 | 0.666 | 0.821 |
-| Dense (MiniLM) | 0.648 | 0.844 |
-| Hybrid (RRF) | 0.670 | 0.875 |
-| Full pipeline | 0.685 | 0.870 |
-
-The full pipeline significantly beats dense-only retrieval (paired randomization test, p = 0.031), and the same ordering holds on a second benchmark, NFCorpus. The faithfulness check locates gold evidence sentences at F1 0.370, where a citation-format check scores zero. Every number is generated from committed results and reproducible with one command; the full write-up is in [paper/main.pdf](paper/main.pdf).
+The single biggest lever is the embedding model: swapping the common `all-MiniLM-L6-v2` for `bge-small-en-v1.5` moves dense retrieval from *below* BM25 to clearly above it (+0.060 nDCG@10 on SciFact, paired randomization p < 0.001). Reciprocal-rank fusion then beats BM25 on both corpora (SciFact p = 0.002, NFCorpus p = 0.0001) and is the best single system on NFCorpus. The confidence-gated corrective loop re-retrieves only on low-confidence queries; it is roughly neutral on nDCG here but far cheaper than a cross-encoder reranker — see the cost/quality table in [paper/main.pdf](paper/main.pdf). All numbers are generated from committed results.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    D[Documents] --> C[Chunk] --> E[Embeddings + BM25]
-    Q[Question] --> R[Hybrid retrieval]
+    D[Documents] --> C[Chunk] --> E[BGE embeddings + BM25]
+    Q[Question] --> R[RRF fusion]
     E --> R
-    R --> S[Answer with citations]
-    S --> V{Grounded?}
-    V -- yes --> A[Final answer]
-    V -- no --> R
+    R --> G{Confident?}
+    G -- yes --> S[Answer with citations]
+    G -- no --> P[Expand + re-retrieve] --> S
+    S --> V[Grounding check]
 ```
 
-Documents are parsed, chunked, embedded into LanceDB, and indexed for BM25. A query is answered by fusing dense and lexical results, reranking them, generating an answer with a local model, and checking that answer against its sources before it is returned.
-
-## Tech stack
-
-| Area | Tools |
-|------|-------|
-| Language | Python 3.11, typed with mypy (strict) |
-| Retrieval & ML | sentence-transformers (MiniLM), rank-bm25, cross-encoder reranker, DeBERTa NLI, LanceDB |
-| Serving | FastAPI, Uvicorn, Ollama |
-| Evaluation | SciFact, NFCorpus (BEIR), bootstrap CIs, paired significance tests |
-| Quality | pytest (266 tests), ruff, mypy, GitHub Actions, Docker |
+Documents are parsed, chunked, embedded into LanceDB, and indexed for BM25. A query fuses dense and lexical results with reciprocal rank fusion; if the top dense score is weak, a pseudo-relevance-feedback pass expands the query and re-retrieves. A local model answers using only the retrieved passages, with inline citations, and an NLI model checks that each answer sentence is entailed by its sources.
 
 ## Getting started
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e .
-make run
+pip install -e ".[eval]"
+make run            # web UI at http://localhost:8000 (needs a local Ollama for generation)
 ```
 
-Reproduce the benchmark offline on CPU: `make eval-sample`.
+Reproduce the retrieval benchmark on CPU (downloads SciFact/NFCorpus and three small models on first run, then runs offline):
+
+```bash
+make eval           # SciFact + NFCorpus ablation
+make faithfulness   # evidence-detection evaluation
+make paper          # regenerate tables, figures, and the PDF
+```
+
+`make eval-sample` runs a small vendored subset with no dataset download.
+
+## Tech stack
+
+| Area | Tools |
+|------|-------|
+| Language | Python 3.11+, typed, mypy strict |
+| Retrieval | sentence-transformers (BGE-small), rank-bm25, RRF, cross-encoder reranker, DeBERTa NLI, LanceDB |
+| Serving | FastAPI, Uvicorn, Ollama |
+| Evaluation | SciFact, NFCorpus (BEIR), bootstrap CIs, paired randomization tests, Holm correction |
+| Quality | pytest, ruff, mypy, GitHub Actions, Docker |
 
 ## License
 
