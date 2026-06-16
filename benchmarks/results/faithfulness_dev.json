@@ -2,19 +2,27 @@
   "dataset": "scifact-claims",
   "split": "dev",
   "num_claims": 188,
-  "num_candidate_sentences": 2031,
-  "tuned_threshold": 0.6,
-  "model": "cross-encoder/nli-deberta-v3-small",
-  "nli_verifier": {
-    "rationale_precision": 0.3486682808716707,
-    "rationale_recall": 0.39344262295081966,
-    "rationale_f1": 0.3697047496790757,
-    "label_accuracy": 0.526595744680851
-  },
-  "citation_index_baseline": {
-    "rationale_precision": 0.0,
-    "rationale_recall": 0.0,
-    "rationale_f1": 0.0,
-    "note": "checks citation numbers only; cannot localize evidence sentences"
+  "num_candidates": 2031,
+  "gold_base_rate": 0.18020679468242246,
+  "nli_model": "cross-encoder/nli-deberta-v3-small",
+  "methods": {
+    "nli": {
+      "roc_auc": 0.6883604916391801,
+      "pr_auc": 0.331125130463293,
+      "f1": 0.38679245283018876,
+      "f1_tau": 0.35
+    },
+    "lexical_overlap": {
+      "roc_auc": 0.6858916293342523,
+      "pr_auc": 0.37081432964062805,
+      "f1": 0.11224489795918367,
+      "f1_tau": 0.3
+    },
+    "cross_encoder": {
+      "roc_auc": 0.7553799701340685,
+      "pr_auc": 0.4761645540276175,
+      "f1": 0.4764468371467026,
+      "f1_tau": 0.9
+    }
   }
 }

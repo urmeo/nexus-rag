@@ -1,0 +1,104 @@
+{
+  "dataset": "scifact",
+  "split": "test",
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "num_queries": 300,
+  "base_system": "+ Adaptive weights",
+  "base_ndcg": 0.703165265539515,
+  "tau_sweep": [
+    {
+      "tau": 0.4,
+      "ndcg": 0.703165265539515,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.45,
+      "ndcg": 0.703165265539515,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.5,
+      "ndcg": 0.703165265539515,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.55,
+      "ndcg": 0.703165265539515,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.6,
+      "ndcg": 0.703165265539515,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.65,
+      "ndcg": 0.7000372865783312,
+      "trigger_rate": 0.006666666666666667,
+      "triggered_n": 2,
+      "triggered_base_ndcg": 1.0,
+      "triggered_corr_ndcg": 0.5308031558224253,
+      "triggered_delta": -0.4691968441775747,
+      "triggered_p": 0.4881511848815118
+    },
+    {
+      "tau": 0.7,
+      "ndcg": 0.6971261457221984,
+      "trigger_rate": 0.06,
+      "triggered_n": 18,
+      "triggered_base_ndcg": 0.5335299551034386,
+      "triggered_corr_ndcg": 0.43287795814816077,
+      "triggered_delta": -0.10065199695527782,
+      "triggered_p": 0.11028897110288971
+    }
+  ],
+  "best_tau": 0.4,
+  "cost_quality": {
+    "systems": [
+      {
+        "system": "Adaptive",
+        "ndcg": 0.7341307254647401,
+        "r20": 0.8997222222222222,
+        "latency_ms": 27.501203816670266
+      },
+      {
+        "system": "Corrective PRF",
+        "ndcg": 0.7341307254647401,
+        "r20": 0.8997222222222222,
+        "latency_ms": 43.043016666706535
+      },
+      {
+        "system": "Rerank (cross-enc)",
+        "ndcg": 0.7024046030039479,
+        "r20": 0.8858333333333334,
+        "latency_ms": 2393.018731941629
+      }
+    ],
+    "timed_queries": 120
+  }
+}
