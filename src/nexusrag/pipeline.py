@@ -1,5 +1,6 @@
 """Main NexusRAG pipeline integrating all components."""
 
+import contextlib
 import gc
 import logging
 import threading
@@ -8,11 +9,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+from numpy.typing import NDArray
+
 from nexusrag.config import Settings, get_settings
 from nexusrag.generation import LLMClient, Orchestrator, RAGResponse, ReasoningStep
 from nexusrag.ingestion import (
+    Chunk,
     DocumentParser,
     Embedder,
+    ParsedDocument,
     SemanticChunker,
 )
 from nexusrag.retrieval import (
@@ -162,6 +168,24 @@ class NexusRAG:
             )
         return self._orchestrator
 
+    def _persist(
+        self, document: ParsedDocument, chunks: list[Chunk], embeddings: NDArray[np.float32]
+    ) -> None:
+        """Write document + chunks to all stores; roll back on partial failure."""
+        self.document_store.add(document)
+        try:
+            self.vector_store.add(chunks, embeddings)
+            self.bm25.add_incremental(chunks)
+            self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
+        except Exception:
+            with contextlib.suppress(Exception):
+                self.bm25.remove({c.id for c in chunks})
+            with contextlib.suppress(Exception):
+                self.vector_store.delete_by_document(document.id)
+            with contextlib.suppress(Exception):
+                self.document_store.delete(document.id)
+            raise
+
     def ingest(self, file_path: str | Path) -> IngestResult:
         path = Path(file_path)
 
@@ -192,9 +216,7 @@ class NexusRAG:
                 [c.content for c in chunks],
                 batch_size=self.settings.embedding.batch_size,
             )
-            self.document_store.add(document)
-            self.vector_store.add(chunks, embeddings)
-            self.bm25.add_incremental(chunks)
+            self._persist(document, chunks, embeddings)
             gc.collect()
 
             return IngestResult(
@@ -249,14 +271,7 @@ class NexusRAG:
                 show_progress=False,
             )
 
-            self.document_store.add(document)
-            self.vector_store.add(chunks, embeddings)
-            self.bm25.add_incremental(chunks)
-
-            # Update document index with chunk count
-            self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
-
-            # Memory cleanup after ingestion
+            self._persist(document, chunks, embeddings)
             gc.collect()
 
             return IngestResult(
