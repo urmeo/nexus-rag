@@ -142,6 +142,24 @@ class TestSettings:
         assert settings.llm.model == "from-env-file"
 
 
+class TestConfigPrecedence:
+    """Config is environment-variable driven; configs/default.yaml is a reference."""
+
+    def test_env_var_overrides_default(self, monkeypatch):
+        from nexusrag.config import Settings
+
+        monkeypatch.setenv("LLM_MODEL", "env-wins")
+        assert Settings().llm.model == "env-wins"
+
+    def test_yaml_is_not_a_runtime_source(self, monkeypatch):
+        # default.yaml is documentation only: settings come from env + code
+        # defaults, never from the YAML file, so there is no precedence ambiguity.
+        from nexusrag.config import Settings
+
+        monkeypatch.delenv("LLM_MODEL", raising=False)
+        assert Settings().llm.model == "llama3.2:3b"  # the code default, not YAML
+
+
 class TestYAMLLoading:
     def test_yaml_file_exists(self):
         config_path = Path("configs/default.yaml")

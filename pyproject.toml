@@ -19,7 +19,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
@@ -134,13 +133,6 @@ module = [
     "magic",
 ]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = [
-    "nexusrag.storage.vector_store",
-    "nexusrag.retrieval.sparse",
-]
-disable_error_code = ["import-untyped"]
 
 [tool.coverage.run]
 source = ["src/nexusrag"]

@@ -154,3 +154,31 @@ class TestAppConfig:
         monkeypatch.setattr(api, "get_settings", lambda: _settings(api_key="", docs_enabled=True))
         client = TestClient(api.create_app())
         assert client.get("/docs").status_code == 200
+
+
+class TestIdSanitizer:
+    """Proves the SECURITY.md claims: traversal blocked, allowlist is linear-time."""
+
+    def test_path_traversal_and_injection_rejected(self) -> None:
+        from nexusrag.storage.vector_store import _sanitize_id
+
+        for bad in ["../../etc/passwd", "a/b", "a\\b", "id; DROP TABLE x", "a' OR '1'='1", "a b"]:
+            with pytest.raises(ValueError):
+                _sanitize_id(bad)
+
+    def test_safe_ids_accepted(self) -> None:
+        from nexusrag.storage.vector_store import _sanitize_id
+
+        for ok in ["doc_123", "chunk-abc", "AaZz09_-"]:
+            assert _sanitize_id(ok) == ok
+
+    def test_allowlist_regex_is_linear_time(self) -> None:
+        # A pathological input must not cause catastrophic backtracking (ReDoS).
+        import time
+
+        from nexusrag.storage.vector_store import SAFE_ID_PATTERN
+
+        adversarial = "a" * 200_000 + "!"  # long valid run then a rejecting char
+        start = time.perf_counter()
+        assert SAFE_ID_PATTERN.match(adversarial) is None
+        assert time.perf_counter() - start < 0.1  # linear, well under a budget
