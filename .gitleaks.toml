@@ -1,0 +1,19 @@
+title = "NexusRAG gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore documented placeholders and public benchmark data"
+paths = [
+  '''\.env\.example''',
+  '''\.gitleaks\.toml''',
+  '''benchmarks/.*''',
+  '''paper/.*''',
+]
+regexTarget = "line"
+regexes = [
+  '''(?i)changeme''',
+  '''(?i)your[-_]?(api[-_]?key|token|secret)''',
+  '''NEXUSRAG_API_KEY=\s*$''',
+]

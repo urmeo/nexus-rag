@@ -13,5 +13,13 @@ htmlcov/
 build/
 dist/
 data/
+*.lance
+*.tar.gz
+.env.*
+benchmarks/
+paper/
+notebooks/
+tests/
+screenshots/
 *.pyc
 *.pyo

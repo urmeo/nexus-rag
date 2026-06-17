@@ -1,8 +1,11 @@
 services:
   ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
+    # Pin the runtime image (override with OLLAMA_VERSION). Avoid :latest for
+    # reproducibility. For the strongest pin, use an image digest (@sha256:...).
+    image: ollama/ollama:${OLLAMA_VERSION:-0.5.1}
+    # No host port: Ollama is reachable only on the internal compose network.
+    expose:
+      - "11434"
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
@@ -16,22 +19,38 @@ services:
       - |
         ollama serve &
         until curl -sf http://localhost:11434/; do sleep 1; done
-        ollama pull llama3.2:3b
+        # Pin the model tag (override with LLAMA_MODEL). For a digest pin use
+        # e.g. LLAMA_MODEL=llama3.2:3b@sha256:<digest>.
+        ollama pull ${LLAMA_MODEL:-llama3.2:3b}
         wait
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 8g
 
   app:
     build: .
+    # Bind to the host loopback only; expose publicly behind a reverse proxy
+    # with NEXUSRAG_API_KEY set. 0.0.0.0 in the container is inside the network.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+      # Set NEXUSRAG_API_KEY in your shell/.env to require an X-API-Key header.
+      - NEXUSRAG_API_KEY=${NEXUSRAG_API_KEY:-}
     volumes:
       - ./data:/app/data
     depends_on:
       ollama:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4g
 
 volumes:
   ollama_data:
