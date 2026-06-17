@@ -408,7 +408,7 @@ async def get_metrics() -> MetricsResponse:
             avg_query_time_ms=round(stats_data["avg_query_time_ms"], 1),
             total_documents=total_documents,
             total_chunks=total_chunks,
-            version="0.1.0",
+            version="0.1.1",
         )
     except Exception:
         logger.exception("Failed to get metrics")

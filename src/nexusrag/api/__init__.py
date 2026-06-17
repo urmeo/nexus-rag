@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="NexusRAG",
         description="Local hybrid retrieval and faithfulness evaluation for scientific papers",
-        version="0.1.0",
+        version="0.1.1",
         docs_url="/docs" if docs_on else None,
         redoc_url="/redoc" if docs_on else None,
         openapi_url="/openapi.json" if docs_on else None,
