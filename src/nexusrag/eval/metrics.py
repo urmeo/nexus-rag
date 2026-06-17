@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-Qrels = Mapping[str, set[str]]
+# Relevance for one query: either a binary set of relevant doc ids, or a graded
+# {doc_id: relevance grade} mapping. For both, membership and len() see the
+# relevant docs, so the binary metrics work unchanged; only nDCG reads grades.
+Relevance = Collection[str]
+Qrels = Mapping[str, Relevance]
 Run = Mapping[str, Sequence[str]]
-MetricFn = Callable[[Sequence[str], set[str]], float]
+MetricFn = Callable[[Sequence[str], Relevance], float]
 
 
-def precision_at_k(ranked: Sequence[str], relevant: set[str], k: int) -> float:
+def precision_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
     if k <= 0:
         return 0.0
     top = ranked[:k]
@@ -21,7 +25,7 @@ def precision_at_k(ranked: Sequence[str], relevant: set[str], k: int) -> float:
     return hits / k
 
 
-def recall_at_k(ranked: Sequence[str], relevant: set[str], k: int) -> float:
+def recall_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
     if not relevant:
         return 0.0
     top = ranked[:k]
@@ -29,18 +33,18 @@ def recall_at_k(ranked: Sequence[str], relevant: set[str], k: int) -> float:
     return hits / len(relevant)
 
 
-def hit_at_k(ranked: Sequence[str], relevant: set[str], k: int) -> float:
+def hit_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
     return 1.0 if any(d in relevant for d in ranked[:k]) else 0.0
 
 
-def reciprocal_rank(ranked: Sequence[str], relevant: set[str]) -> float:
+def reciprocal_rank(ranked: Sequence[str], relevant: Relevance) -> float:
     for i, d in enumerate(ranked, start=1):
         if d in relevant:
             return 1.0 / i
     return 0.0
 
 
-def average_precision(ranked: Sequence[str], relevant: set[str]) -> float:
+def average_precision(ranked: Sequence[str], relevant: Relevance) -> float:
     if not relevant:
         return 0.0
     hits = 0
@@ -52,14 +56,26 @@ def average_precision(ranked: Sequence[str], relevant: set[str]) -> float:
     return score / len(relevant)
 
 
-def ndcg_at_k(ranked: Sequence[str], relevant: set[str], k: int) -> float:
-    # binary gains
+def ndcg_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
+    """nDCG@k with graded gains (2**rel - 1), the BEIR/pytrec_eval convention.
+
+    Graded qrels (e.g. NFCorpus, with grades 1 and 2) are scored against their
+    real relevance levels; binary qrels are scored as gain 1, recovering the
+    plain binary nDCG so datasets like SciFact are unaffected.
+    """
+    if isinstance(relevant, Mapping):
+        grades: dict[str, float] = {str(d): float(g) for d, g in relevant.items()}
+    else:
+        grades = dict.fromkeys(relevant, 1.0)
+
     dcg = 0.0
     for i, d in enumerate(ranked[:k], start=1):
-        if d in relevant:
-            dcg += 1.0 / math.log2(i + 1)
-    ideal_hits = min(len(relevant), k)
-    idcg = sum(1.0 / math.log2(i + 1) for i in range(1, ideal_hits + 1))
+        gain = grades.get(d, 0.0)
+        if gain > 0:
+            dcg += (2.0**gain - 1.0) / math.log2(i + 1)
+
+    ideal = sorted(grades.values(), reverse=True)[:k]
+    idcg = sum((2.0**g - 1.0) / math.log2(i + 1) for i, g in enumerate(ideal, start=1) if g > 0)
     return dcg / idcg if idcg > 0 else 0.0
 
 

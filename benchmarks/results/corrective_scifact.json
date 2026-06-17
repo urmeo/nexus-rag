@@ -1,6 +1,8 @@
 {
   "dataset": "scifact",
   "split": "test",
+  "tune_split": "train",
+  "tune_queries": 250,
   "embedding_model": "BAAI/bge-small-en-v1.5",
   "num_queries": 300,
   "base_system": "+ Adaptive weights",
@@ -77,26 +79,100 @@
       "triggered_p": 0.11028897110288971
     }
   ],
+  "tune_sweep": [
+    {
+      "tau": 0.4,
+      "ndcg": 0.7328966931690332,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.45,
+      "ndcg": 0.7328966931690332,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.5,
+      "ndcg": 0.7328966931690332,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.55,
+      "ndcg": 0.7328966931690332,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.6,
+      "ndcg": 0.7328966931690332,
+      "trigger_rate": 0.0,
+      "triggered_n": 0,
+      "triggered_base_ndcg": null,
+      "triggered_corr_ndcg": null,
+      "triggered_delta": null,
+      "triggered_p": null
+    },
+    {
+      "tau": 0.65,
+      "ndcg": 0.7328966931690332,
+      "trigger_rate": 0.004,
+      "triggered_n": 1,
+      "triggered_base_ndcg": 1.0,
+      "triggered_corr_ndcg": 1.0,
+      "triggered_delta": 0.0,
+      "triggered_p": 1.0
+    },
+    {
+      "tau": 0.7,
+      "ndcg": 0.7328966931690332,
+      "trigger_rate": 0.044,
+      "triggered_n": 11,
+      "triggered_base_ndcg": 0.5834375907957157,
+      "triggered_corr_ndcg": 0.5834375907957157,
+      "triggered_delta": 0.0,
+      "triggered_p": 1.0
+    }
+  ],
   "best_tau": 0.4,
+  "best_tau_selected_on": "train",
+  "test_ndcg_at_best_tau": 0.703165265539515,
   "cost_quality": {
     "systems": [
       {
         "system": "Adaptive",
         "ndcg": 0.7341307254647401,
         "r20": 0.8997222222222222,
-        "latency_ms": 27.501203816670266
+        "latency_ms": 20.22111632499749
       },
       {
         "system": "Corrective PRF",
         "ndcg": 0.7341307254647401,
         "r20": 0.8997222222222222,
-        "latency_ms": 43.043016666706535
+        "latency_ms": 29.9916982666673
       },
       {
         "system": "Rerank (cross-enc)",
         "ndcg": 0.7024046030039479,
         "r20": 0.8858333333333334,
-        "latency_ms": 2393.018731941629
+        "latency_ms": 1358.656672566667
       }
     ],
     "timed_queries": 120

@@ -12,13 +12,13 @@ Retrieval quality on SciFact (300 claims, 5,183 abstracts) and NFCorpus (323 que
 
 | System | SciFact nDCG@10 | NFCorpus nDCG@10 |
 |--------|-----------------|------------------|
-| BM25 | 0.666 | 0.311 |
+| BM25 | 0.666 | 0.312 |
 | Dense (MiniLM, the usual default) | 0.648 | 0.319 |
-| Dense (BGE-small) | **0.708** | 0.340 |
-| Hybrid (RRF) | 0.704 | **0.353** |
-| + Corrective PRF | 0.703 | 0.349 |
+| Dense (BGE-small) | **0.708** | 0.342 |
+| Hybrid (RRF) | 0.704 | **0.352** |
+| + Corrective PRF | 0.703 | 0.346 |
 
-The single biggest lever is the embedding model: swapping the common `all-MiniLM-L6-v2` for `bge-small-en-v1.5` moves dense retrieval from *below* BM25 to clearly above it (+0.060 nDCG@10 on SciFact, paired randomization p < 0.001). Reciprocal-rank fusion then beats BM25 on both corpora (SciFact p = 0.002, NFCorpus p = 0.0001) and is the best single system on NFCorpus. The confidence-gated corrective loop re-retrieves only on low-confidence queries; it is roughly neutral on nDCG here but far cheaper than a cross-encoder reranker — see the cost/quality table in [paper/main.pdf](paper/main.pdf). All numbers are generated from committed results.
+The single biggest lever is the embedding model: swapping the common `all-MiniLM-L6-v2` for `bge-small-en-v1.5` moves dense retrieval from *below* BM25 to clearly above it (+0.060 nDCG@10 on SciFact, paired randomization p < 0.001). Reciprocal-rank fusion then beats BM25 on both corpora (SciFact p = 0.002, NFCorpus p = 0.0001) and is the best single system on NFCorpus. The confidence-gated corrective loop re-retrieves only on low-confidence queries; it is roughly neutral on nDCG here but far cheaper than a cross-encoder reranker — see the cost/quality table in [paper/main.pdf](paper/main.pdf). nDCG@10 uses graded relevance (the BEIR/`pytrec_eval` convention), the corrective threshold is selected on a held-out split, and all numbers are generated from committed results.
 
 ## How it works
 

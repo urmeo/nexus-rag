@@ -27,7 +27,7 @@ class IRDataset:
     name: str
     corpus: dict[str, dict[str, str]]
     queries: dict[str, str]
-    qrels: dict[str, set[str]]
+    qrels: dict[str, dict[str, int]]  # query_id -> {doc_id: relevance grade}
 
     def doc_text(self, doc_id: str) -> str:
         d = self.corpus[doc_id]
@@ -53,11 +53,13 @@ def load_vendored(name: str) -> IRDataset:
         for line in f:
             row = json.loads(line)
             queries[str(row["_id"])] = row["text"]
-    qrels: dict[str, set[str]] = {}
+    qrels: dict[str, dict[str, int]] = {}
     with open(base / "qrels.jsonl") as f:
         for line in f:
             row = json.loads(line)
-            qrels.setdefault(str(row["query-id"]), set()).add(str(row["corpus-id"]))
+            qrels.setdefault(str(row["query-id"]), {})[str(row["corpus-id"])] = int(
+                row.get("score", 1)
+            )
     return IRDataset(name=name, corpus=corpus, queries=queries, qrels=qrels)
 
 
@@ -75,10 +77,11 @@ def load_beir(name: str, split: str = "test", cache_dir: str | None = None) -> I
     }
     all_queries = {str(r["_id"]): r["text"] for r in queries_ds}
 
-    qrels: dict[str, set[str]] = {}
+    qrels: dict[str, dict[str, int]] = {}
     for r in qrels_ds:
-        if int(r["score"]) > 0:
-            qrels.setdefault(str(r["query-id"]), set()).add(str(r["corpus-id"]))
+        score = int(r["score"])
+        if score > 0:
+            qrels.setdefault(str(r["query-id"]), {})[str(r["corpus-id"])] = score
 
     queries = {qid: all_queries[qid] for qid in qrels if qid in all_queries}
     return IRDataset(name=name, corpus=corpus, queries=queries, qrels=qrels)
@@ -109,7 +112,7 @@ def write_sample(ds: IRDataset, max_queries: int = 50, distractors: int = 600) -
     qids = list(ds.queries)[:max_queries]
     keep_docs: set[str] = set()
     for qid in qids:
-        keep_docs |= ds.qrels.get(qid, set())
+        keep_docs |= set(ds.qrels.get(qid, {}))
 
     extra = [d for d in ds.corpus if d not in keep_docs][:distractors]
     keep_docs |= set(extra)
@@ -123,6 +126,8 @@ def write_sample(ds: IRDataset, max_queries: int = 50, distractors: int = 600) -
             f.write(json.dumps({"_id": qid, "text": ds.queries[qid]}) + "\n")
     with open(base / "qrels.jsonl", "w") as f:
         for qid in qids:
-            for doc_id in ds.qrels.get(qid, set()):
-                f.write(json.dumps({"query-id": qid, "corpus-id": doc_id, "score": 1}) + "\n")
+            for doc_id, score in ds.qrels.get(qid, {}).items():
+                f.write(
+                    json.dumps({"query-id": qid, "corpus-id": doc_id, "score": score}) + "\n"
+                )
     return base
