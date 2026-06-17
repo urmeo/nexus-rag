@@ -21,8 +21,7 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
-    # Hide /docs, /redoc and the OpenAPI schema in production (key set) or when
-    # explicitly disabled, so the API surface is not advertised unauthenticated.
+    # hide docs/openapi in production (api key set) or when disabled
     docs_on = settings.api.docs_enabled and not settings.api.api_key
 
     app = FastAPI(

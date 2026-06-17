@@ -29,8 +29,7 @@ class EmbeddingSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="EMBEDDING_")
 
     model: str = Field(default="BAAI/bge-small-en-v1.5")
-    # Pin the HuggingFace revision for reproducibility / supply-chain safety.
-    # Matches the default model; set empty (or a matching SHA) if you change it.
+    # pinned HF revision (supply-chain); matches the default model
     revision: str = Field(default="5c38ec7c405ec4b44b94cc5a9bb96e735b38267a")
     device: Literal["cpu", "cuda", "mps"] = "cpu"
     batch_size: int = 32
