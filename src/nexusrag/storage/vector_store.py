@@ -114,7 +114,10 @@ class VectorStore:
     ) -> list[SearchResult]:
         import json
 
-        query = self.table.search(query_embedding.tolist()).limit(top_k)
+        # Cosine distance (1 - cosine similarity); without this LanceDB defaults
+        # to L2, so the score below would not be a similarity and the corrective
+        # loop's confidence gate would compare against the wrong scale.
+        query = self.table.search(query_embedding.tolist()).metric("cosine").limit(top_k)
 
         if filter_expr:
             query = query.where(filter_expr)
@@ -129,7 +132,7 @@ class VectorStore:
                     document_id=row["document_id"],
                     metadata=json.loads(row["metadata"]),
                 ),
-                score=1.0 - row["_distance"],
+                score=1.0 - row["_distance"],  # cosine similarity in [-1, 1]
             )
             for row in results
         ]
