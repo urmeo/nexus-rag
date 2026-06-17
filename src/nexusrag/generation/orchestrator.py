@@ -1,5 +1,6 @@
 """RAG orchestrator: retrieve, synthesize, verify, ground."""
 
+import json
 import logging
 import time
 from collections.abc import Generator, Sequence
@@ -95,13 +96,45 @@ class Orchestrator:
         )
 
     def query_streaming(self, question: str) -> Generator[str, None, None]:
+        # Stream tokens, then run the same verification as query() on the
+        # accumulated answer. The transport is a plain string generator, so we
+        # surface the result as a final SSE-style line ("data: {...}\n\n") that
+        # a frontend can detect and safely ignore, and we also log warnings
+        # server-side. The public signature is unchanged.
         analyzed = self.analyzer.analyze(question)
         question = self.analyzer.rewrite_vague_query(question)
         results = self.retriever.retrieve(question, top_k=self.top_k)
         doc_names = self._document_names(results)
-        yield from self.synthesizer.synthesize_streaming(
+
+        chunks: list[str] = []
+        for token in self.synthesizer.synthesize_streaming(
             question, results, doc_names=doc_names, query_type=analyzed.query_type
-        )
+        ):
+            chunks.append(token)
+            yield token
+
+        answer = "".join(chunks)
+        sources = self.synthesizer._build_sources(results, doc_names)[: self.synthesizer.max_sources]
+        verification = self.verifier.verify(answer, sources)
+        warnings = list(verification.warnings)
+
+        faithfulness: float | None = None
+        if self.grounding_verifier is not None and sources:
+            report = self.grounding_verifier.verify(verification.verified_answer, sources)
+            faithfulness = report.faithfulness
+            if report.unsupported:
+                warnings.append(f"{len(report.unsupported)} sentence(s) not grounded in sources")
+
+        for w in warnings:
+            logger.warning("streaming verification: %s", w)
+
+        event = {
+            "event": "verification",
+            "citations_valid": verification.citations_valid,
+            "faithfulness": faithfulness,
+            "warnings": warnings,
+        }
+        yield f"\ndata: {json.dumps(event)}\n\n"
 
     @staticmethod
     def _confidence(sources: list[Source], cited: list[int], faithfulness: float | None) -> float:

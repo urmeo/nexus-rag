@@ -1,10 +1,15 @@
 """LLM client for Ollama API."""
 
 import json
+import time
 from collections.abc import Generator
 from dataclasses import dataclass
 
 import httpx
+
+
+class LLMError(RuntimeError):
+    """Raised when the LLM backend fails after retries."""
 
 
 @dataclass
@@ -25,10 +30,14 @@ class LLMClient:
         model: str = "llama3.2:3b",
         base_url: str = "http://localhost:11434",
         timeout: float = 120.0,
+        max_retries: int = 2,
+        backoff: float = 0.5,
     ):
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.max_retries = max_retries
+        self.backoff = backoff
         self._client: httpx.Client | None = None
 
     @property
@@ -40,6 +49,31 @@ class LLMClient:
             )
         return self._client
 
+    def _where(self) -> str:
+        """Context string for error messages."""
+        return f"model={self.model} base_url={self.base_url}"
+
+    def _post(self, path: str, payload: dict[str, object]) -> httpx.Response:
+        """POST with retry on transient errors and 5xx; no retry on 4xx."""
+        last_exc: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = self.client.post(path, json=payload)
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.RequestError) as exc:
+                last_exc = exc
+            else:
+                if response.status_code < 500:
+                    response.raise_for_status()
+                    return response
+                last_exc = httpx.HTTPStatusError(
+                    f"server error {response.status_code}",
+                    request=response.request,
+                    response=response,
+                )
+            if attempt < self.max_retries:
+                time.sleep(self.backoff * (2**attempt))
+        raise LLMError(f"LLM request to {path} failed ({self._where()}): {last_exc}") from last_exc
+
     def generate(
         self,
         prompt: str,
@@ -48,7 +82,7 @@ class LLMClient:
         max_tokens: int = 2048,
         stop: list[str] | None = None,
     ) -> str:
-        payload = {
+        payload: dict[str, object] = {
             "model": self.model,
             "prompt": prompt,
             "stream": False,
@@ -65,9 +99,7 @@ class LLMClient:
         if stop:
             payload["options"]["stop"] = stop  # type: ignore[index]
 
-        response = self.client.post("/api/generate", json=payload)
-        response.raise_for_status()
-
+        response = self._post("/api/generate", payload)
         return str(response.json()["response"])
 
     def stream(
@@ -77,7 +109,7 @@ class LLMClient:
         temperature: float = 0.1,
         max_tokens: int = 2048,
     ) -> Generator[str, None, None]:
-        payload = {
+        payload: dict[str, object] = {
             "model": self.model,
             "prompt": prompt,
             "stream": True,
@@ -90,15 +122,22 @@ class LLMClient:
         if system:
             payload["system"] = system
 
-        with self.client.stream("POST", "/api/generate", json=payload) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if line:
-                    data = json.loads(line)
-                    if "response" in data:
-                        yield data["response"]
-                    if data.get("done", False):
-                        break
+        # Retrying a partially-consumed stream is unsafe, so we only
+        # classify and wrap connection/timeout errors as LLMError.
+        try:
+            with self.client.stream("POST", "/api/generate", json=payload) as response:
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if line:
+                        data = json.loads(line)
+                        if "response" in data:
+                            yield data["response"]
+                        if data.get("done", False):
+                            break
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.RequestError) as exc:
+            raise LLMError(f"LLM stream failed ({self._where()}): {exc}") from exc
+        except httpx.HTTPStatusError as exc:
+            raise LLMError(f"LLM stream failed ({self._where()}): {exc}") from exc
 
     def chat(
         self,
@@ -106,7 +145,7 @@ class LLMClient:
         temperature: float = 0.1,
         max_tokens: int = 2048,
     ) -> str:
-        payload = {
+        payload: dict[str, object] = {
             "model": self.model,
             "messages": messages,
             "stream": False,
@@ -116,9 +155,7 @@ class LLMClient:
             },
         }
 
-        response = self.client.post("/api/chat", json=payload)
-        response.raise_for_status()
-
+        response = self._post("/api/chat", payload)
         return str(response.json()["message"]["content"])
 
     def is_available(self) -> bool:
