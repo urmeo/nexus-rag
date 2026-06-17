@@ -6,7 +6,7 @@ Please report security issues **privately**, not in public issues:
 
 - Preferred: GitHub → repository **Security** tab → **Report a vulnerability**
   (private Security Advisory).
-- Or email **urme.emma@gmail.com** with steps to reproduce and impact.
+- Or email **urme.bose1@gmail.com** with steps to reproduce and impact.
 
 We aim to acknowledge reports within **5 business days** and to ship a fix or
 mitigation for confirmed high-severity issues within **30 days**. Please do not
