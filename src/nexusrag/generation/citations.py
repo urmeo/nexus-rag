@@ -13,6 +13,9 @@ def extract_citations(text: str) -> list[int]:
 
 
 def strip_citations(text: str, keep: set[int]) -> str:
-    """Drop any [n] whose number is not in ``keep`` and tidy whitespace."""
+    """Drop any [n] not in ``keep`` and tidy spaces, preserving line structure."""
     cleaned = _CITATION.sub(lambda m: m.group(0) if int(m.group(1)) in keep else "", text)
-    return re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = re.sub(r"[ \t]+", " ", cleaned)
+    cleaned = re.sub(r" *\n", "\n", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()

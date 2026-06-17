@@ -231,3 +231,28 @@ class TestLLMRetry:
         )
         assert client.generate("hi") == "ok"
         assert fake.posts == 2
+
+
+class TestStripCitations:
+    def test_preserves_line_structure(self) -> None:
+        from nexusrag.generation.citations import strip_citations
+
+        text = "Main finding [1].\n\nDetails:\n1. First [2]\n2. Second [3]"
+        out = strip_citations(text, {1, 2, 3})
+        assert "\n" in out  # newlines must survive, not collapse to one line
+        assert out.count("\n") >= 2
+
+    def test_drops_out_of_range(self) -> None:
+        from nexusrag.generation.citations import strip_citations
+
+        out = strip_citations("a [1] b [9].", {1})
+        assert "[9]" not in out and "[1]" in out
+
+
+class TestBuildSourcesIndex:
+    def test_no_index_gaps_with_duplicates(self) -> None:
+        syn = Synthesizer(StubLLM("x"))
+        dup = _result(1, "alpha")
+        results = [dup, dup, _result(2, "beta")]  # duplicate chunk id repeated
+        sources = syn._build_sources(results, {})
+        assert [s.index for s in sources] == [1, 2]  # contiguous, no gap

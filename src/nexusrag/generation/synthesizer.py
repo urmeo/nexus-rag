@@ -188,18 +188,20 @@ class Synthesizer:
         sources: list[Source] = []
         seen_chunks = set()
 
-        for i, result in enumerate(results, start=1):
+        for result in results:
             # Skip duplicates
             if result.chunk.id in seen_chunks:
                 continue
             seen_chunks.add(result.chunk.id)
 
+            # number by final position so citation indices have no gaps
+            index = len(sources) + 1
             chunk = result.chunk
             metadata = chunk.metadata
             doc_id = chunk.document_id
 
             # Get document name - multiple fallbacks
-            doc_name = self._get_document_name(chunk, doc_id, doc_names, i)
+            doc_name = self._get_document_name(chunk, doc_id, doc_names, index)
 
             # Use full_context (with surrounding text) when available
             full_ctx = ""
@@ -210,7 +212,7 @@ class Synthesizer:
 
             sources.append(
                 Source(
-                    index=i,
+                    index=index,
                     chunk_id=chunk.id,
                     document_id=doc_id,
                     content=chunk.content,
