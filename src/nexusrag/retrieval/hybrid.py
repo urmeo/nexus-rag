@@ -100,9 +100,9 @@ class AdaptiveHybridRetriever(HybridRetriever):
         lexical = len(words) <= 4 or any(_looks_technical(w) for w in words)
         semantic = len(words) >= 12
         if lexical and not semantic:
-            return self.dense_weight - self.shift, self.sparse_weight + self.shift
+            return max(0.0, self.dense_weight - self.shift), self.sparse_weight + self.shift
         if semantic and not lexical:
-            return self.dense_weight + self.shift, self.sparse_weight - self.shift
+            return self.dense_weight + self.shift, max(0.0, self.sparse_weight - self.shift)
         return self.dense_weight, self.sparse_weight
 
 

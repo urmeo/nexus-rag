@@ -67,9 +67,9 @@ def load_vendored(name: str) -> IRDataset:
     with open(base / "qrels.jsonl") as f:
         for line in f:
             row = json.loads(line)
-            qrels.setdefault(str(row["query-id"]), {})[str(row["corpus-id"])] = int(
-                row.get("score", 1)
-            )
+            score = int(row.get("score", 1))
+            if score > 0:  # match load_beir; non-relevant judgements are not relevant
+                qrels.setdefault(str(row["query-id"]), {})[str(row["corpus-id"])] = score
     return IRDataset(name=name, corpus=corpus, queries=queries, qrels=qrels)
 
 

@@ -44,6 +44,8 @@ class SpladeRetriever:
     def _encode(self, texts: list[str]) -> sparse.csr_matrix:
         import torch
 
+        if not texts:
+            return sparse.csr_matrix((0, 0))
         self._load()
         blocks = []
         for i in range(0, len(texts), self.batch_size):

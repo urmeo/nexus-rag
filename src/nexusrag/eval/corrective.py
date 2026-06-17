@@ -91,6 +91,8 @@ def evaluate(
 ) -> dict[str, Any]:
     ds = D.load(dataset, split=split)
     qids = [q for q in ds.queries if ds.qrels.get(q)]
+    if not qids:
+        raise ValueError(f"no judged queries for {dataset}/{split}")
     chunks = corpus_to_chunks({d: ds.doc_text(d) for d in ds.corpus})
 
     embedder = Embedder(model_name=embedding_model, device="cpu")
@@ -108,6 +110,8 @@ def evaluate(
     tune_split = tune_split or TUNE_SPLITS.get(dataset, "train")
     ds_tune = D.load(dataset, split=tune_split)
     tune_qids = [q for q in ds_tune.queries if ds_tune.qrels.get(q)][:TUNE_LIMIT]
+    if not tune_qids:
+        raise ValueError(f"no judged queries in tune split {dataset}/{tune_split}")
     tune_base = base_ndcg_for(ds_tune.queries, ds_tune.qrels, tune_qids)
     tune_sweep = _sweep_tau(
         adaptive, ds_tune.queries, ds_tune.qrels, tune_qids, tune_base, taus, depth

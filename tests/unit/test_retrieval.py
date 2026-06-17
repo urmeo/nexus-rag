@@ -121,3 +121,11 @@ class TestHybridRetriever:
         dense.retrieve.return_value = []
         sparse.retrieve.return_value = []
         assert HybridRetriever(dense, sparse).retrieve("q", top_k=5) == []
+
+
+class TestSpladeEmptyCorpus:
+    def test_empty_corpus_does_not_crash(self):
+        from nexusrag.retrieval.splade import SpladeRetriever
+
+        r = SpladeRetriever([])  # sparse.vstack([]) used to crash here
+        assert r.retrieve("query") == []
