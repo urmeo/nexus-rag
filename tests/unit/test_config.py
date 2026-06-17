@@ -87,7 +87,7 @@ class TestSettings:
 
         api = APISettings()
 
-        assert api.host == "0.0.0.0"
+        assert api.host == "127.0.0.1"
         assert api.port == 8000
 
     def test_ingestion_settings_values(self):
