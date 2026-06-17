@@ -69,7 +69,7 @@ Scope is deliberately narrow: two abstract-level BEIR datasets (the 300-query Sc
 | Retrieval | sentence-transformers (BGE-small), rank-bm25, RRF (k=60), cross-encoder reranker, DeBERTa NLI, LanceDB (cosine, exact) |
 | Serving | FastAPI, Uvicorn, Ollama (`llama3.2:3b`, pinned) |
 | Evaluation | SciFact, NFCorpus (BEIR, revisions pinned), bootstrap CIs, paired randomization + delta CIs, Holm correction |
-| Quality | pytest (249 tests, 62% coverage), ruff, mypy (strict), GitHub Actions CI, gitleaks, pip-audit, Docker |
+| Quality | pytest (259 tests, 63% coverage), ruff, mypy (strict), GitHub Actions CI, gitleaks, pip-audit, Docker |
 
 ## License
 
