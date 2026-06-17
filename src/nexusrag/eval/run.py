@@ -73,12 +73,28 @@ def evaluate(
         p = M.paired_randomization_test(per_query_ndcg[ref], per_query_ndcg[name], seed=seed)
         results[name]["p_vs_final"] = p
 
+    # paired delta + p vs BM25; a CI excluding 0 is the bar for a real win
+    if "BM25" in per_query_ndcg:
+        base = per_query_ndcg["BM25"]
+        for name in systems:
+            if name == "BM25":
+                results[name]["delta_vs_bm25"] = None
+                results[name]["p_vs_bm25"] = None
+                continue
+            d, lo, hi = M.paired_delta_ci(per_query_ndcg[name], base, seed=seed)
+            results[name]["delta_vs_bm25"] = {"mean": d, "lo": lo, "hi": hi}
+            results[name]["p_vs_bm25"] = M.paired_randomization_test(
+                per_query_ndcg[name], base, seed=seed
+            )
+
     return {
         "dataset": dataset,
         "split": "sample" if use_sample else split,
+        "dataset_revision": ds.revision,
         "num_queries": len(qids),
         "corpus_size": len(ds.corpus),
         "depth": depth,
+        "rrf_k": 60,
         "embedding_model": embedding_model,
         "reranker": include_rerank,
         "reference_system": ref,

@@ -198,6 +198,28 @@ def bootstrap_ci(
     return float(arr.mean()), lo, hi
 
 
+def paired_delta_ci(
+    a: Sequence[float], b: Sequence[float], n_boot: int = 10000, ci: float = 0.95, seed: int = 0
+) -> tuple[float, float, float]:
+    """Bootstrap CI for the paired mean difference mean(a) - mean(b).
+
+    Resamples queries (rows), not systems, so it answers "does a beat b?" with
+    the per-query pairing intact. A CI that excludes 0 is the honest bar for
+    claiming one system beats another.
+    """
+    x = np.asarray(a, dtype=np.float64)
+    y = np.asarray(b, dtype=np.float64)
+    if x.size != y.size or x.size == 0:
+        return 0.0, 0.0, 0.0
+    diff = x - y
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, diff.size, size=(n_boot, diff.size))
+    boot = diff[idx].mean(axis=1)
+    lo = float(np.percentile(boot, (1 - ci) / 2 * 100))
+    hi = float(np.percentile(boot, (1 + ci) / 2 * 100))
+    return float(diff.mean()), lo, hi
+
+
 def paired_randomization_test(
     a: Sequence[float], b: Sequence[float], n_perm: int = 10000, seed: int = 0
 ) -> float:

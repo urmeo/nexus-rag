@@ -19,6 +19,15 @@ BEIR_REPOS = {
     "touche2020": "BeIR/webis-touche2020",
 }
 
+# Pinned dataset git revisions, so reported numbers reference a fixed snapshot
+# (BEIR mirrors can change). Keys are "<name>" (corpus+queries) and "<name>-qrels".
+DATASET_REVISIONS = {
+    "scifact": "b3b5335604bf5ee3c4447671af975ea25143d4f5",
+    "scifact-qrels": "2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029",
+    "nfcorpus": "b5026a0e96e8a7ac4f95f482a596389289d46269",
+    "nfcorpus-qrels": "a451b3b26d3ae1358f259c1a3a4dd61fcea35a65",
+}
+
 
 @dataclass
 class IRDataset:
@@ -28,6 +37,7 @@ class IRDataset:
     corpus: dict[str, dict[str, str]]
     queries: dict[str, str]
     qrels: dict[str, dict[str, int]]  # query_id -> {doc_id: relevance grade}
+    revision: str | None = None
 
     def doc_text(self, doc_id: str) -> str:
         d = self.corpus[doc_id]
@@ -68,9 +78,11 @@ def load_beir(name: str, split: str = "test", cache_dir: str | None = None) -> I
     from datasets import load_dataset
 
     repo = BEIR_REPOS[name]
-    corpus_ds = load_dataset(repo, "corpus", cache_dir=cache_dir)["corpus"]
-    queries_ds = load_dataset(repo, "queries", cache_dir=cache_dir)["queries"]
-    qrels_ds = load_dataset(f"{repo}-qrels", cache_dir=cache_dir)[split]
+    rev = DATASET_REVISIONS.get(name)
+    qrev = DATASET_REVISIONS.get(f"{name}-qrels")
+    corpus_ds = load_dataset(repo, "corpus", cache_dir=cache_dir, revision=rev)["corpus"]
+    queries_ds = load_dataset(repo, "queries", cache_dir=cache_dir, revision=rev)["queries"]
+    qrels_ds = load_dataset(f"{repo}-qrels", cache_dir=cache_dir, revision=qrev)[split]
 
     corpus = {
         str(r["_id"]): {"title": r.get("title", ""), "text": r.get("text", "")} for r in corpus_ds
@@ -84,7 +96,7 @@ def load_beir(name: str, split: str = "test", cache_dir: str | None = None) -> I
             qrels.setdefault(str(r["query-id"]), {})[str(r["corpus-id"])] = score
 
     queries = {qid: all_queries[qid] for qid in qrels if qid in all_queries}
-    return IRDataset(name=name, corpus=corpus, queries=queries, qrels=qrels)
+    return IRDataset(name=name, corpus=corpus, queries=queries, qrels=qrels, revision=rev)
 
 
 def load(

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from nexusrag.eval.metrics import holm_correction
+from nexusrag.eval.metrics import paired_delta_ci as pdci
 from nexusrag.eval.metrics import paired_randomization_test as prt
 
 RESULTS = Path("benchmarks/results")
@@ -148,20 +149,32 @@ def build_macros(
     def nd(res: dict[str, Any], sysname: str) -> str:
         return f"{res['systems'][sysname]['means']['nDCG@10']:.3f}"
 
+    def delta(res: dict[str, Any], sysname: str) -> tuple[float, float, float]:
+        pq = res["per_query_ndcg"]
+        return pdci(pq[sysname], pq["BM25"])
+
     sci_p = _p_vs_baseline(sci)
     nf_p = _p_vs_baseline(nf)
+    sci_hd = delta(sci, "Hybrid (RRF)")
+    nf_hd = delta(nf, "Hybrid (RRF)")
     macros = [
         _macro("NumQueries", str(sci["num_queries"])),
         _macro("CorpusSize", str(sci["corpus_size"])),
         _macro("NFqueries", str(nf["num_queries"])),
         _macro("NFcorpus", str(nf["corpus_size"])),
+        _macro("RRFk", str(sci.get("rrf_k", 60))),
+        _macro("EvalSeed", str(sci.get("seed", 0))),
         _macro("SciBM", nd(sci, "BM25")),
         _macro("SciDense", nd(sci, "Dense")),
         _macro("SciHybrid", nd(sci, "Hybrid (RRF)")),
         _macro("SciHybridP", _fmt_p(sci_p["Hybrid (RRF)"], True).replace("*", "")),
+        _macro("SciHybridDelta", f"{sci_hd[0]:+.3f}"),
+        _macro("SciHybridDeltaCI", f"[{sci_hd[1]:+.3f}, {sci_hd[2]:+.3f}]"),
         _macro("NFbm", nd(nf, "BM25")),
         _macro("NFhybrid", nd(nf, "Hybrid (RRF)")),
         _macro("NFhybridP", _fmt_p(nf_p["Hybrid (RRF)"], True).replace("*", "")),
+        _macro("NFhybridDelta", f"{nf_hd[0]:+.3f}"),
+        _macro("NFhybridDeltaCI", f"[{nf_hd[1]:+.3f}, {nf_hd[2]:+.3f}]"),
     ]
     if mini:
         import numpy as np
