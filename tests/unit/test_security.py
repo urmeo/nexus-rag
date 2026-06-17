@@ -28,20 +28,20 @@ class TestApiKey:
         assert await security.require_api_key(None) is None
 
     async def test_missing_key_rejected(self, monkeypatch) -> None:
-        monkeypatch.setattr(security, "get_settings", lambda: _settings(api_key="s3cret"))
+        monkeypatch.setattr(security, "get_settings", lambda: _settings(api_key="test-only-key"))
         with pytest.raises(HTTPException) as exc:
             await security.require_api_key(None)
         assert exc.value.status_code == 401
 
     async def test_wrong_key_rejected(self, monkeypatch) -> None:
-        monkeypatch.setattr(security, "get_settings", lambda: _settings(api_key="s3cret"))
+        monkeypatch.setattr(security, "get_settings", lambda: _settings(api_key="test-only-key"))
         with pytest.raises(HTTPException) as exc:
             await security.require_api_key("nope")
         assert exc.value.status_code == 401
 
     async def test_correct_key_accepted(self, monkeypatch) -> None:
-        monkeypatch.setattr(security, "get_settings", lambda: _settings(api_key="s3cret"))
-        assert await security.require_api_key("s3cret") is None
+        monkeypatch.setattr(security, "get_settings", lambda: _settings(api_key="test-only-key"))
+        assert await security.require_api_key("test-only-key") is None
 
 
 class TestRateLimiter:
