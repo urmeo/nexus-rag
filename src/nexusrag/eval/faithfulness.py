@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-from nexusrag.eval.metrics import ece, pr_auc, risk_coverage_auc, roc_auc
+from nexusrag.eval.metrics import pr_auc, roc_auc
 from nexusrag.generation.grounding import GroundingVerifier
 from nexusrag.retrieval.stopwords import STOP_WORDS
 
@@ -124,57 +124,82 @@ def _f1_at(scores: list[float], labels: list[int], tau: float) -> float:
     return 2 * p * r / (p + r) if p + r else 0.0
 
 
-def _detection(scores: list[float], labels: list[int]) -> dict[str, float]:
-    best_tau = max(THRESHOLD_GRID, key=lambda t: _f1_at(scores, labels, t))
+def _score_methods(
+    claims: list[Claim], verifier: GroundingVerifier, with_reranker: bool
+) -> tuple[dict[str, list[float]], list[int], list[int]]:
+    nli = _nli_relatedness(verifier, claims)
+    labels: list[int] = []
+    out: dict[str, list[float]] = {"nli": [], "lexical_overlap": []}
+    claim_idx: list[int] = []
+    for ci, c in enumerate(claims):
+        for j, (doc, idx, sent) in enumerate(c.candidates):
+            labels.append(1 if (doc, idx) in c.gold else 0)
+            out["nli"].append(nli[ci][j])
+            out["lexical_overlap"].append(lexical_overlap(c.text, sent))
+            claim_idx.append(ci)
+    if with_reranker:
+        from nexusrag.retrieval import Reranker
+
+        rr = Reranker(device="cpu")
+        ce: list[float] = []
+        for c in claims:
+            scores = rr.model.predict([(c.text, sent) for (_, _, sent) in c.candidates])
+            ce.extend(float(s) for s in np.asarray(scores).reshape(-1))
+        out["cross_encoder"] = ce
+    return out, labels, claim_idx
+
+
+def _bootstrap_auroc(
+    scores: list[float], labels: list[int], claim_idx: list[int], n_boot: int = 2000, seed: int = 0
+) -> tuple[float, float]:
     s = np.asarray(scores)
     y = np.asarray(labels)
-    correct = ((s >= best_tau).astype(int) == y).astype(int)
-    return {
-        "roc_auc": roc_auc(scores, labels),
-        "pr_auc": pr_auc(scores, labels),
-        "f1": _f1_at(scores, labels, best_tau),
-        "f1_tau": best_tau,
-        "aurc": risk_coverage_auc(np.abs(s - best_tau), correct),
-        "ece": ece(scores, labels),
-    }
+    idx = np.asarray(claim_idx)
+    members = {c: np.where(idx == c)[0] for c in np.unique(idx)}
+    rng = np.random.default_rng(seed)
+    keys = list(members)
+    vals = []
+    for _ in range(n_boot):
+        pick = np.concatenate([members[c] for c in rng.choice(keys, len(keys), replace=True)])
+        a = roc_auc(s[pick], y[pick])
+        if a == a:  # skip NaN resamples
+            vals.append(a)
+    return float(np.percentile(vals, 2.5)), float(np.percentile(vals, 97.5))
 
 
 def evaluate(
     prefer_vendored: bool = False,
     model_name: str | None = None,
     with_reranker: bool = True,
+    seed: int = 0,
 ) -> dict[str, Any]:
     dev = load_claims("dev", prefer_vendored=prefer_vendored)
+    train = load_claims("train", prefer_vendored=prefer_vendored)[:120]
     verifier = (
         GroundingVerifier(model_name=model_name, device="cpu")
         if model_name
         else GroundingVerifier(device="cpu")
     )
 
-    nli = _nli_relatedness(verifier, dev)
-    labels: list[int] = []
-    nli_flat: list[float] = []
-    lex_flat: list[float] = []
-    for ci, c in enumerate(dev):
-        for j, (doc, idx, sent) in enumerate(c.candidates):
-            labels.append(1 if (doc, idx) in c.gold else 0)
-            nli_flat.append(nli[ci][j])
-            lex_flat.append(lexical_overlap(c.text, sent))
+    dev_s, labels, claim_idx = _score_methods(dev, verifier, with_reranker)
+    train_s, train_y, _ = _score_methods(train, verifier, with_reranker)
 
-    methods = {
-        "nli": _detection(nli_flat, labels),
-        "lexical_overlap": _detection(lex_flat, labels),
-    }
+    methods: dict[str, Any] = {}
+    for name, scores in dev_s.items():
+        tau = max(THRESHOLD_GRID, key=lambda t: _f1_at(train_s[name], train_y, t))
+        lo, hi = _bootstrap_auroc(scores, labels, claim_idx, seed=seed)
+        methods[name] = {
+            "roc_auc": roc_auc(scores, labels),
+            "roc_auc_ci": [lo, hi],
+            "pr_auc": pr_auc(scores, labels),
+            "f1": _f1_at(scores, labels, tau),
+            "f1_tau": tau,  # tuned on train split
+        }
 
-    if with_reranker:
-        from nexusrag.retrieval import Reranker
-
-        rr = Reranker(device="cpu")
-        ce_flat: list[float] = []
-        for c in dev:
-            scores = rr.model.predict([(c.text, sent) for (_, _, sent) in c.candidates])
-            ce_flat.extend(float(s) for s in np.asarray(scores).reshape(-1))
-        methods["cross_encoder"] = _detection(ce_flat, labels)
+    gap = None
+    if "cross_encoder" in dev_s:
+        d = roc_auc(dev_s["cross_encoder"], labels) - roc_auc(dev_s["nli"], labels)
+        gap = round(d, 3)
 
     base_rate = sum(labels) / len(labels) if labels else 0.0
     return {
@@ -183,6 +208,8 @@ def evaluate(
         "num_claims": len(dev),
         "num_candidates": len(labels),
         "gold_base_rate": base_rate,
+        "threshold_tuned_on": "train",
+        "ce_minus_nli_auroc": gap,
         "nli_model": verifier.model_name,
         "methods": methods,
     }

@@ -32,9 +32,12 @@ class TestClaims:
         assert F.lexical_overlap("kinase inhibits tumor", "tumor kinase growth") == 0.5
         assert F.lexical_overlap("abc def", "xyz wuv") == 0.0
 
-    def test_detection_separates_gold(self) -> None:
-        m = F._detection([0.9, 0.8, 0.2, 0.1], [1, 1, 0, 0])
-        assert m["roc_auc"] == 1.0 and m["f1"] == 1.0
+    def test_f1_at_perfect_separation(self) -> None:
+        assert F._f1_at([0.9, 0.8, 0.2, 0.1], [1, 1, 0, 0], 0.5) == 1.0
+
+    def test_bootstrap_auroc_brackets_perfect(self) -> None:
+        lo, hi = F._bootstrap_auroc([0.9, 0.8, 0.2, 0.1], [1, 1, 0, 0], [0, 0, 1, 1], n_boot=200)
+        assert 0.5 <= lo <= 1.0 and hi == 1.0
 
 
 class TestSentenceSplit:
