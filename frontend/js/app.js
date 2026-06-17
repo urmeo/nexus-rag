@@ -401,7 +401,11 @@ async function sendMessage() {
                 updateSourcesPanel(data.sources);
             }
         } else {
-            addErrorMessage(data.detail || 'An error occurred processing your question.');
+            const d = data.detail;
+            const msg = Array.isArray(d)
+                ? d.map(e => (e && e.msg) ? e.msg : String(e)).join('; ')
+                : (d || 'An error occurred processing your question.');
+            addErrorMessage(msg);
         }
     } catch (e) {
         typingEl.remove();
@@ -494,11 +498,11 @@ function formatResponse(text, sources) {
     // Format bullet points
     html = html.replace(/^[\-•]\s+(.+)$/gm, '<li>$1</li>');
 
+    // Format numbered lists (before wrapping, so these items get wrapped too)
+    html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+
     // Wrap consecutive list items in ul
     html = html.replace(/(<li>.*?<\/li>\s*)+/gs, match => `<ul>${match}</ul>`);
-
-    // Format numbered lists
-    html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
 
     // Format citations [1], [2], etc. - make them clickable
     html = html.replace(/\[(\d+)\]/g, (match, num) => {
