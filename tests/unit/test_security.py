@@ -43,6 +43,13 @@ class TestApiKey:
         monkeypatch.setattr(security, "get_settings", lambda: _settings(api_key="test-only-key"))
         assert await security.require_api_key("test-only-key") is None
 
+    async def test_non_ascii_key_rejected_not_crash(self, monkeypatch) -> None:
+        # non-ASCII must 401, not raise TypeError -> 500 (hmac.compare_digest)
+        monkeypatch.setattr(security, "get_settings", lambda: _settings(api_key="test-only-key"))
+        with pytest.raises(HTTPException) as exc:
+            await security.require_api_key("sécrét-ключ-🔑")
+        assert exc.value.status_code == 401
+
 
 class TestRateLimiter:
     def test_limit_strings_track_settings(self, monkeypatch) -> None:

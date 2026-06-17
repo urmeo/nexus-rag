@@ -16,6 +16,7 @@ from nexusrag.api.security import (
     upload_limit,
     validate_upload,
 )
+from nexusrag.config import get_settings
 from nexusrag.pipeline import get_nexusrag
 from nexusrag.utils.filenames import resolve_display_name
 
@@ -178,6 +179,8 @@ async def ingest_document(
             detail=f"Unsupported file type: {ext}. Supported: PDF, DOCX, TXT, MD",
         )
 
+    max_mb = get_settings().api.max_upload_mb
+    max_bytes = max_mb * 1024 * 1024
     try:
         # Streaming size check: read in chunks to avoid loading huge files into memory
         chunks: list[bytes] = []
@@ -187,9 +190,9 @@ async def ingest_document(
             if not chunk:
                 break
             total_size += len(chunk)
-            if total_size > MAX_FILE_SIZE_BYTES:
+            if total_size > max_bytes:
                 raise HTTPException(
-                    status_code=413, detail=f"File too large. Maximum size: {MAX_FILE_SIZE_MB}MB"
+                    status_code=413, detail=f"File too large. Maximum size: {max_mb}MB"
                 )
             chunks.append(chunk)
         content = b"".join(chunks)

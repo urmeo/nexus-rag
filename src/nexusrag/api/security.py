@@ -74,7 +74,10 @@ async def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
     expected = get_settings().api.api_key
     if not expected:
         return
-    if not x_api_key or not hmac.compare_digest(x_api_key, expected):
+    # compare as bytes; hmac.compare_digest rejects non-ASCII str (would 500)
+    if not x_api_key or not hmac.compare_digest(
+        x_api_key.encode("utf-8"), expected.encode("utf-8")
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",
@@ -127,6 +130,14 @@ def _sniff_mime(ext: str, data: bytes) -> None:
     if _MAGIC is None:
         return
     detected = str(_MAGIC.from_buffer(data)).lower()  # type: ignore[attr-defined]
+    # text formats: any text/* is fine (libmagic reports text/x-c, text/html, ...)
+    if ext in (".txt", ".md"):
+        if detected.startswith("text/") or detected == "inode/x-empty":
+            return
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Sniffed type {detected} is not text",
+        )
     allowed = SNIFFED_MIME.get(ext)
     if allowed and detected not in allowed:
         raise HTTPException(
