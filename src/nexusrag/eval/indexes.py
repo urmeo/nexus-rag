@@ -19,6 +19,9 @@ class ExactDenseRetriever:
     """Brute-force cosine search over precomputed embeddings, for reproducible eval."""
 
     def __init__(self, embedder: Embedder, chunks: list[Chunk], batch_size: int = 64):
+        # dot product equals cosine only for unit vectors; enforce the contract
+        if not embedder.normalize:
+            raise ValueError("ExactDenseRetriever needs a normalized embedder for cosine scoring")
         self.embedder = embedder
         self.chunks = chunks
         self.matrix = embedder.embed(

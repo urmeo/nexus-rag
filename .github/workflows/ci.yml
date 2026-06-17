@@ -33,7 +33,10 @@ jobs:
       - name: Install pip-audit
         run: python -m pip install pip-audit
       - name: Audit pinned runtime dependencies
-        run: pip-audit -r requirements-runtime.lock --strict
+        # CVE-2025-3000: unpatched torch.jit.script advisory (transitive via
+        # sentence-transformers). NexusRAG never calls torch.jit.script and no
+        # fixed torch release exists yet; Dependabot will surface a bump.
+        run: pip-audit -r requirements-runtime.lock --strict --ignore-vuln CVE-2025-3000
 
   quality:
     name: lint, type-check, test
@@ -61,6 +64,13 @@ jobs:
 
       - name: Test
         run: pytest tests/ -q
+
+      - name: README test count in sync
+        run: |
+          claimed=$(grep -oE '[0-9]+ tests' README.md | head -1 | grep -oE '[0-9]+')
+          actual=$(pytest tests/ --co -q 2>/dev/null | grep -oE '[0-9]+ tests collected' | grep -oE '[0-9]+')
+          echo "README claims $claimed, collected $actual"
+          test "$claimed" = "$actual"
 
   eval-smoke:
     name: eval smoke (offline sample)

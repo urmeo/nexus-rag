@@ -66,3 +66,11 @@ NexusRAG is **local-first** and keeps your data on your machine.
 - `gitleaks` runs in CI on every push/PR and as a local pre-commit hook
   (`.gitleaks.toml`, `.pre-commit-config.yaml`).
 - The full commit history has been scanned; no secrets are present.
+- `pip-audit` runs in CI against the hash-pinned runtime lock.
+
+## Known advisories
+
+- **CVE-2025-3000** (`torch`, transitive via `sentence-transformers`): memory
+  corruption in `torch.jit.script`. NexusRAG never calls `torch.jit.script`, and
+  no fixed `torch` release exists yet, so it is accepted and ignored in the CI
+  audit; Dependabot will surface a bump when available.
