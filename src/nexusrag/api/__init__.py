@@ -6,8 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from nexusrag.api.routes import router
+from nexusrag.api.security import limiter
 from nexusrag.config import get_settings
 
 # Frontend directory
@@ -18,13 +21,24 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
+    # Hide /docs, /redoc and the OpenAPI schema in production (key set) or when
+    # explicitly disabled, so the API surface is not advertised unauthenticated.
+    docs_on = settings.api.docs_enabled and not settings.api.api_key
+
     app = FastAPI(
         title="NexusRAG",
         description="Local hybrid retrieval and faithfulness evaluation for scientific papers",
         version="0.1.0",
+        docs_url="/docs" if docs_on else None,
+        redoc_url="/redoc" if docs_on else None,
+        openapi_url="/openapi.json" if docs_on else None,
     )
 
-    # CORS — disable credentials when using wildcard origins
+    # Per-IP rate limiting (slowapi).
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+    # CORS — never wildcard-with-credentials; disable credentials under wildcard.
     origins = settings.api.cors_origins
     allow_creds = "*" not in origins
     app.add_middleware(

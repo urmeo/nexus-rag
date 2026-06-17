@@ -9,6 +9,16 @@ import numpy as np
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _disable_rate_limits() -> Generator[None, None, None]:
+    """Disable the slowapi limiter so route tests are not throttled."""
+    from nexusrag.api.security import limiter
+
+    limiter.enabled = False
+    yield
+    limiter.enabled = True
+
+
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
     """Provide a temporary directory for test artifacts."""

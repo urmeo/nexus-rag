@@ -39,6 +39,8 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "PyYAML>=6.0.2",
     "rank-bm25>=0.2.2",
+    "slowapi>=0.1.9",
+    "python-magic>=0.4.27",
 ]
 
 [project.optional-dependencies]
@@ -91,6 +93,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ARG001", "ARG002"]
+# slowapi's @limiter.limit requires a `request: Request` route param it reads reflectively.
+"src/nexusrag/api/routes.py" = ["ARG001"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["nexusrag"]
@@ -125,6 +129,9 @@ module = [
     "transformers.*",
     "scipy",
     "scipy.*",
+    "slowapi",
+    "slowapi.*",
+    "magic",
 ]
 ignore_missing_imports = true
 

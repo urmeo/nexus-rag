@@ -29,6 +29,9 @@ class EmbeddingSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="EMBEDDING_")
 
     model: str = Field(default="BAAI/bge-small-en-v1.5")
+    # Pin the HuggingFace revision for reproducibility / supply-chain safety.
+    # Matches the default model; set empty (or a matching SHA) if you change it.
+    revision: str = Field(default="5c38ec7c405ec4b44b94cc5a9bb96e735b38267a")
     device: Literal["cpu", "cuda", "mps"] = "cpu"
     batch_size: int = 32
 
@@ -89,6 +92,21 @@ class APISettings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
     cors_origins: list[str] = ["http://localhost:8000", "http://127.0.0.1:8000"]
+
+    # When set, every /api route requires the X-API-Key header. Empty keeps the
+    # local-first UX open; any network-exposed deployment MUST set this.
+    api_key: str = Field(default="", validation_alias="NEXUSRAG_API_KEY")
+
+    # Per-client (IP) sliding-window rate limits.
+    query_rate_per_minute: int = 60
+    upload_rate_per_minute: int = 10
+
+    # Upload guards: max raw bytes and max decompressed bytes (zip-bomb cap).
+    max_upload_mb: int = 50
+    max_uncompressed_mb: int = 200
+
+    # Interactive API docs (/docs, /redoc). Auto-disabled when api_key is set.
+    docs_enabled: bool = True
 
 
 class Settings(BaseSettings):

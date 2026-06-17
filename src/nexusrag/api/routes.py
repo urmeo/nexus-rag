@@ -5,16 +5,24 @@ import logging
 import time
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, field_validator
 
 from nexusrag.api.metrics import get_metrics_collector
+from nexusrag.api.security import (
+    limiter,
+    query_limit,
+    require_api_key,
+    upload_limit,
+    validate_upload,
+)
 from nexusrag.pipeline import get_nexusrag
 from nexusrag.utils.filenames import resolve_display_name
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api")
+# Default-deny API-key auth on every /api route when a key is configured.
+router = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
 
 # Security limits
 MAX_FILE_SIZE_MB = 50
@@ -141,7 +149,9 @@ async def health_check() -> HealthResponse:
 
 
 @router.post("/ingest", response_model=UploadResponse)
+@limiter.limit(upload_limit)
 async def ingest_document(
+    request: Request,
     file: Annotated[UploadFile, File(description="Document to upload")],
 ) -> UploadResponse:
     """
@@ -187,6 +197,9 @@ async def ingest_document(
         if len(content) == 0:
             raise HTTPException(status_code=400, detail="File is empty")
 
+        # Content-type, magic-byte and zip-bomb checks beyond the extension.
+        validate_upload(ext, content, file.content_type)
+
         rag = get_nexusrag()
         result = await asyncio.to_thread(rag.ingest_bytes, content, filename, ext)
 
@@ -210,7 +223,8 @@ async def ingest_document(
 
 
 @router.post("/query", response_model=QueryResponse)
-async def query_documents(request: QueryRequest) -> QueryResponse:
+@limiter.limit(query_limit)
+async def query_documents(request: Request, payload: QueryRequest) -> QueryResponse:
     """
     Query the knowledge base.
 
@@ -220,7 +234,7 @@ async def query_documents(request: QueryRequest) -> QueryResponse:
     try:
         rag = get_nexusrag()
         t0 = time.monotonic()
-        response = await asyncio.to_thread(rag.query, request.question)
+        response = await asyncio.to_thread(rag.query, payload.question)
         elapsed_ms = (time.monotonic() - t0) * 1000
         get_metrics_collector().record_query(elapsed_ms)
 

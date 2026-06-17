@@ -110,7 +110,7 @@ class TestEmbedder:
             # Access model property triggers loading
             _ = embedder.model
 
-            mock_cls.assert_called_once_with("test-model", device=None)
+            mock_cls.assert_called_once_with("test-model", device=None, revision=None)
 
     def test_device_configuration(self):
         with patch("sentence_transformers.SentenceTransformer") as mock_cls:
@@ -119,7 +119,7 @@ class TestEmbedder:
 
             _ = embedder.model
 
-            mock_cls.assert_called_once_with("test-model", device="cuda")
+            mock_cls.assert_called_once_with("test-model", device="cuda", revision=None)
 
     def test_similarity_normalized(self, mock_sentence_transformer):
         embedder = Embedder(model_name="test-model", normalize=True)

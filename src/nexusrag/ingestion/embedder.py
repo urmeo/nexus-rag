@@ -29,11 +29,13 @@ class Embedder:
         normalize: bool = True,
         query_prefix: str | None = None,
         doc_prefix: str | None = None,
+        revision: str | None = None,
     ):
         self.model_name = model_name
         self.normalize = normalize
         self._model: SentenceTransformer | None = None
         self._device = device
+        self.revision = revision or None
         qp, dp = default_prefixes(model_name)
         self.query_prefix = qp if query_prefix is None else query_prefix
         self.doc_prefix = dp if doc_prefix is None else doc_prefix
@@ -43,7 +45,9 @@ class Embedder:
         if self._model is None:
             from sentence_transformers import SentenceTransformer
 
-            self._model = SentenceTransformer(self.model_name, device=self._device)
+            self._model = SentenceTransformer(
+                self.model_name, device=self._device, revision=self.revision
+            )
         return self._model
 
     @property

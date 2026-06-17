@@ -1,6 +1,7 @@
 """Tests for the API routes."""
 
 import io
+import zipfile
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,6 +25,18 @@ from nexusrag.api.routes import (
 )
 from nexusrag.generation import RAGResponse, Source
 from nexusrag.pipeline import IngestResult, NexusRAG, SystemStats
+
+
+def _docx_bytes() -> bytes:
+    """A minimal real .docx (zip) so magic-byte validation accepts it."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("[Content_Types].xml", "<?xml version='1.0'?><Types/>")
+    return buf.getvalue()
+
+
+PDF_BYTES = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\ntest content"
+DOCX_BYTES = _docx_bytes()
 
 
 @pytest.fixture
@@ -158,7 +171,7 @@ class TestIngestDocument:
             files={
                 "file": (
                     "test.docx",
-                    io.BytesIO(b"docx content"),
+                    io.BytesIO(DOCX_BYTES),
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 )
             },
@@ -245,8 +258,8 @@ class TestIngestDocument:
             success=True,
         )
 
-        # Create content exactly at limit
-        content_at_limit = b"x" * MAX_FILE_SIZE_BYTES
+        # Create content exactly at limit, with a valid PDF signature
+        content_at_limit = b"%PDF-1.4\n" + b"x" * (MAX_FILE_SIZE_BYTES - 9)
 
         response = client.post(
             "/api/ingest",
@@ -319,7 +332,7 @@ class TestIngestDocument:
 
         response = client.post(
             "/api/ingest",
-            files={"file": ("test.pdf", io.BytesIO(b"content"), "application/pdf")},
+            files={"file": ("test.pdf", io.BytesIO(PDF_BYTES), "application/pdf")},
         )
 
         data = response.json()
@@ -771,7 +784,7 @@ class TestIntegration:
 
         ingest_response = client.post(
             "/api/ingest",
-            files={"file": ("research.pdf", io.BytesIO(b"PDF content"), "application/pdf")},
+            files={"file": ("research.pdf", io.BytesIO(PDF_BYTES), "application/pdf")},
         )
         assert ingest_response.status_code == 200
 

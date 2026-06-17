@@ -93,6 +93,7 @@ class NexusRAG:
             self._embedder = Embedder(
                 model_name=self.settings.embedding.model,
                 device=self.settings.embedding.device,
+                revision=self.settings.embedding.revision,
             )
         return self._embedder
 
