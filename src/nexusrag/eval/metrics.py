@@ -6,7 +6,7 @@ import math
 from collections.abc import Callable, Mapping, Sequence
 
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 Qrels = Mapping[str, set[str]]
 Run = Mapping[str, Sequence[str]]
@@ -139,7 +139,7 @@ def pr_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
     return float(np.sum((recall - prev) * precision))
 
 
-def risk_coverage_auc(confidence: Sequence[float], correct: Sequence[int]) -> float:
+def risk_coverage_auc(confidence: ArrayLike, correct: ArrayLike) -> float:
     """Area under the risk-coverage curve (lower is better)."""
     conf = np.asarray(confidence, dtype=np.float64)
     err = 1 - np.asarray(correct, dtype=np.float64)
@@ -151,7 +151,7 @@ def risk_coverage_auc(confidence: Sequence[float], correct: Sequence[int]) -> fl
     return float(risk.mean())
 
 
-def ece(probs: Sequence[float], labels: Sequence[int], n_bins: int = 10) -> float:
+def ece(probs: ArrayLike, labels: ArrayLike, n_bins: int = 10) -> float:
     """Expected calibration error over equal-width probability bins."""
     p = np.asarray(probs, dtype=np.float64)
     y = np.asarray(labels, dtype=np.float64)
