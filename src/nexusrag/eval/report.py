@@ -86,7 +86,7 @@ def faithfulness_table(faith: dict[str, Any]) -> str:
     lines = [
         "\\begin{tabular}{lrrr}",
         "\\toprule",
-        "Scorer & ROC-AUC & PR-AUC & F1 \\\\",
+        "Scorer & ROC-AUC [95\\% CI] & PR-AUC & F1 \\\\",
         "\\midrule",
     ]
     for key in ("lexical_overlap", "cross_encoder", "nli"):
@@ -98,6 +98,9 @@ def faithfulness_table(faith: dict[str, Any]) -> str:
             txt = f"{v:.3f}"
             if abs(v - colmax[c]) < 1e-9:
                 txt = f"\\textbf{{{txt}}}"
+            if c == "roc_auc":
+                clo, chi = m[key]["roc_auc_ci"]
+                txt += f" [{clo:.2f}, {chi:.2f}]"
             cells.append(txt)
         lines.append(f"{label.get(key, key)} & " + " & ".join(cells) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
@@ -189,14 +192,19 @@ def build_macros(
         ]
     if faith:
         m = faith["methods"]
+        lo, hi = m["nli"]["roc_auc_ci"]
         macros += [
             _macro("FaithClaims", str(faith["num_claims"])),
             _macro("FaithBaseRate", f"{faith['gold_base_rate']:.2f}"),
             _macro("FaithNliAuroc", f"{m['nli']['roc_auc']:.3f}"),
+            _macro("FaithNliAurocLo", f"{lo:.3f}"),
+            _macro("FaithNliAurocHi", f"{hi:.3f}"),
             _macro("FaithLexAuroc", f"{m['lexical_overlap']['roc_auc']:.3f}"),
         ]
         if "cross_encoder" in m:
             macros.append(_macro("FaithCeAuroc", f"{m['cross_encoder']['roc_auc']:.3f}"))
+        if faith.get("ce_minus_nli_auroc") is not None:
+            macros.append(_macro("FaithCeMinusNli", f"{faith['ce_minus_nli_auroc']:+.3f}"))
     return macros
 
 
