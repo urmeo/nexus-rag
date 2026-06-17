@@ -63,8 +63,6 @@ class SelfCorrectionSettings(BaseSettings):
     confidence_tau: float = 0.55
     feedback_docs: int = 5
     feedback_terms: int = 10
-    max_iterations: int = 1
-    relevance_threshold: float = 0.4
 
     grounding_enabled: bool = False
     grounding_model: str = "cross-encoder/nli-deberta-v3-small"

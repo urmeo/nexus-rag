@@ -196,8 +196,8 @@ class TestYAMLLoading:
 
         correction = config["self_correction"]
         assert "enabled" in correction
-        assert "max_iterations" in correction
-        assert "relevance_threshold" in correction
+        assert "confidence_tau" in correction
+        assert "feedback_docs" in correction
 
 
 class TestConfigValidation:

@@ -36,8 +36,6 @@ self_correction:
   confidence_tau: 0.55       # re-retrieve when top dense score is below this
   feedback_docs: 5           # documents used for query expansion
   feedback_terms: 10         # expansion terms added
-  max_iterations: 1
-  relevance_threshold: 0.4
   grounding_enabled: false   # NLI faithfulness check (opt-in)
   grounding_model: cross-encoder/nli-deberta-v3-small
   grounding_threshold: 0.5
