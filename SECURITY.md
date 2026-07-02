@@ -73,4 +73,5 @@ NexusRAG is **local-first** and keeps your data on your machine.
 - **CVE-2025-3000** (`torch`, transitive via `sentence-transformers`): memory
   corruption in `torch.jit.script`. NexusRAG never calls `torch.jit.script`, and
   no fixed `torch` release exists yet, so it is accepted and ignored in the CI
-  audit; Dependabot will surface a bump when available.
+  audit. The pinned lockfiles are re-audited by `pip-audit` on every CI run, and
+  the ignore is revisited when a fixed `torch` release ships.

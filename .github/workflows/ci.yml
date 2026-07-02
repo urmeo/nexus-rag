@@ -35,7 +35,7 @@ jobs:
       - name: Audit pinned runtime dependencies
         # CVE-2025-3000: unpatched torch.jit.script advisory (transitive via
         # sentence-transformers). NexusRAG never calls torch.jit.script and no
-        # fixed torch release exists yet; Dependabot will surface a bump.
+        # fixed torch release exists yet; the ignore is revisited when one ships.
         run: pip-audit -r requirements-runtime.lock --strict --ignore-vuln CVE-2025-3000
 
   quality:
