@@ -105,7 +105,6 @@ asyncio_default_fixture_loop_scope = "function"
 addopts = "-v --tb=short"
 
 [tool.mypy]
-python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
