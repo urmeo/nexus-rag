@@ -226,9 +226,7 @@ class TestLLMRetry:
         assert fake.posts == 1
 
     def test_retries_on_5xx(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        client, fake = _client_with(
-            [_Resp(503, {}), _Resp(200, {"response": "ok"})], monkeypatch
-        )
+        client, fake = _client_with([_Resp(503, {}), _Resp(200, {"response": "ok"})], monkeypatch)
         assert client.generate("hi") == "ok"
         assert fake.posts == 2
 

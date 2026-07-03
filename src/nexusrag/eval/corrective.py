@@ -101,7 +101,9 @@ def evaluate(
     bm25.add(chunks)
     adaptive = AdaptiveHybridRetriever(dense, bm25, 0.5, 0.5)
 
-    def base_ndcg_for(qs: dict[str, str], rels: dict[str, dict[str, int]], ids: list[str]) -> dict[str, float]:
+    def base_ndcg_for(
+        qs: dict[str, str], rels: dict[str, dict[str, int]], ids: list[str]
+    ) -> dict[str, float]:
         base = {q: _ids(adaptive.retrieve(qs[q], top_k=depth, depth=depth)) for q in ids}
         return {q: NDCG(base[q], rels[q]) for q in ids}
 

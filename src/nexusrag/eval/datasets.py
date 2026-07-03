@@ -139,7 +139,5 @@ def write_sample(ds: IRDataset, max_queries: int = 50, distractors: int = 600) -
     with open(base / "qrels.jsonl", "w") as f:
         for qid in qids:
             for doc_id, score in ds.qrels.get(qid, {}).items():
-                f.write(
-                    json.dumps({"query-id": qid, "corpus-id": doc_id, "score": score}) + "\n"
-                )
+                f.write(json.dumps({"query-id": qid, "corpus-id": doc_id, "score": score}) + "\n")
     return base

@@ -56,25 +56,29 @@ def export_retrieval_csv(result: dict[str, Any], name: str) -> Path:
 
 def run_all(sample: bool = False) -> None:
     print("[1/6] SciFact retrieval ablation (BGE-small)")
-    sci = run_retrieval(dataset="scifact", split="test", use_sample=sample,
-                        embedding_model=BGE, seed=SEED)
+    sci = run_retrieval(
+        dataset="scifact", split="test", use_sample=sample, embedding_model=BGE, seed=SEED
+    )
     _write_json(sci, "scifact_test.json")
     export_retrieval_csv(sci, "scifact_test_per_query.csv")
 
     print("[2/6] NFCorpus retrieval ablation (BGE-small)")
-    nf = run_retrieval(dataset="nfcorpus", split="test", use_sample=sample,
-                       embedding_model=BGE, seed=SEED)
+    nf = run_retrieval(
+        dataset="nfcorpus", split="test", use_sample=sample, embedding_model=BGE, seed=SEED
+    )
     _write_json(nf, "nfcorpus_test.json")
     export_retrieval_csv(nf, "nfcorpus_test_per_query.csv")
 
     print("[3/6] SciFact retrieval baseline (MiniLM)")
-    sci_m = run_retrieval(dataset="scifact", split="test", use_sample=sample,
-                          embedding_model=MINILM, seed=SEED)
+    sci_m = run_retrieval(
+        dataset="scifact", split="test", use_sample=sample, embedding_model=MINILM, seed=SEED
+    )
     _write_json(sci_m, "scifact_minilm.json")
 
     print("[4/6] NFCorpus retrieval baseline (MiniLM)")
-    nf_m = run_retrieval(dataset="nfcorpus", split="test", use_sample=sample,
-                         embedding_model=MINILM, seed=SEED)
+    nf_m = run_retrieval(
+        dataset="nfcorpus", split="test", use_sample=sample, embedding_model=MINILM, seed=SEED
+    )
     _write_json(nf_m, "nfcorpus_minilm.json")
 
     print("[5/6] Corrective-loop tau selection (SciFact)")
@@ -90,8 +94,11 @@ def run_all(sample: bool = False) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Regenerate all committed README benchmark numbers")
-    p.add_argument("--sample", action="store_true",
-                   help="use the vendored offline subset (fast smoke, not the headline numbers)")
+    p.add_argument(
+        "--sample",
+        action="store_true",
+        help="use the vendored offline subset (fast smoke, not the headline numbers)",
+    )
     args = p.parse_args()
     run_all(sample=args.sample)
 

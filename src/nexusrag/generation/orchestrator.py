@@ -114,7 +114,9 @@ class Orchestrator:
             yield token
 
         answer = "".join(chunks)
-        sources = self.synthesizer._build_sources(results, doc_names)[: self.synthesizer.max_sources]
+        sources = self.synthesizer._build_sources(results, doc_names)[
+            : self.synthesizer.max_sources
+        ]
         verification = self.verifier.verify(answer, sources)
         warnings = list(verification.warnings)
 

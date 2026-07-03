@@ -26,7 +26,9 @@ def test_search_scores_are_cosine_similarity(temp_dir) -> None:
     )
     store.add(chunks, vectors)
 
-    results = {r.chunk.id: r.score for r in store.search(np.array([1, 0, 0, 0], np.float32), top_k=3)}
+    results = {
+        r.chunk.id: r.score for r in store.search(np.array([1, 0, 0, 0], np.float32), top_k=3)
+    }
 
     assert results["a"] > 0.99
     assert results["b"] > 0.99  # same direction, larger magnitude -> still cosine 1.0
