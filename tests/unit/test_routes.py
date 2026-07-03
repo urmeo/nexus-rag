@@ -10,10 +10,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from nexusrag.api.routes import (
-    MAX_FILE_SIZE_BYTES,
-    MAX_FILE_SIZE_MB,
     MAX_FILENAME_LENGTH,
-    MAX_QUERY_LENGTH,
     DeleteResponse,
     DocumentListResponse,
     HealthResponse,
@@ -23,8 +20,14 @@ from nexusrag.api.routes import (
     UploadResponse,
     router,
 )
+from nexusrag.config import get_settings
 from nexusrag.generation import RAGResponse, Source
 from nexusrag.pipeline import IngestResult, NexusRAG, SystemStats
+
+# Limits under test come from Settings, same source the routes read.
+MAX_FILE_SIZE_MB = get_settings().api.max_upload_mb
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+MAX_QUERY_LENGTH = get_settings().retrieval.max_query_length
 
 
 def _docx_bytes() -> bytes:

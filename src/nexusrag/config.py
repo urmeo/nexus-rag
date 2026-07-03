@@ -53,7 +53,8 @@ class RetrievalSettings(BaseSettings):
     top_k: int = 8
     rerank_top_k: int = 4
     similarity_threshold: float = 0.2
-    max_query_length: int = 512
+    # Hard cap on accepted question length (chars), enforced at the API boundary.
+    max_query_length: int = 2000
 
 
 class SelfCorrectionSettings(BaseSettings):

@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from nexusrag import __version__
 from nexusrag.api.routes import router
 from nexusrag.api.security import limiter
 from nexusrag.config import get_settings
@@ -27,7 +28,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="NexusRAG",
         description="Local hybrid retrieval and faithfulness evaluation for scientific papers",
-        version="0.1.1",
+        version=__version__,
         docs_url="/docs" if docs_on else None,
         redoc_url="/redoc" if docs_on else None,
         openapi_url="/openapi.json" if docs_on else None,

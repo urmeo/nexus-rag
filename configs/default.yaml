@@ -29,7 +29,7 @@ retrieval:
   top_k: 8
   rerank_top_k: 4
   similarity_threshold: 0.2
-  max_query_length: 512
+  max_query_length: 2000
 
 self_correction:
   enabled: true
@@ -45,7 +45,7 @@ storage:
   table_name: chunks
 
 api:
-  host: ${API_HOST:0.0.0.0}
+  host: ${API_HOST:127.0.0.1}
   port: ${API_PORT:8000}
   cors_origins:
     - "http://localhost:8000"

@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, field_validator
 
+from nexusrag import __version__
 from nexusrag.api.metrics import get_metrics_collector
 from nexusrag.api.security import (
     limiter,
@@ -18,6 +19,7 @@ from nexusrag.api.security import (
 )
 from nexusrag.config import get_settings
 from nexusrag.pipeline import get_nexusrag
+from nexusrag.storage.document_store import MAX_ID_LENGTH
 from nexusrag.utils.filenames import resolve_display_name
 
 logger = logging.getLogger(__name__)
@@ -25,10 +27,7 @@ logger = logging.getLogger(__name__)
 # Default-deny API-key auth on every /api route when a key is configured.
 router = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
 
-# Security limits
-MAX_FILE_SIZE_MB = 50
-MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
-MAX_QUERY_LENGTH = 2000
+# Upload size and query length come from Settings (single source of truth).
 MAX_FILENAME_LENGTH = 255
 
 
@@ -44,8 +43,9 @@ class QueryRequest(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Question cannot be empty")
-        if len(v) > MAX_QUERY_LENGTH:
-            raise ValueError(f"Question too long (max {MAX_QUERY_LENGTH} characters)")
+        max_length = get_settings().retrieval.max_query_length
+        if len(v) > max_length:
+            raise ValueError(f"Question too long (max {max_length} characters)")
         return v
 
 
@@ -158,7 +158,7 @@ async def ingest_document(
     """
     Upload a document for ingestion.
 
-    Accepts PDF, DOCX, TXT, or MD files. Max size: 50MB.
+    Accepts PDF, DOCX, TXT, or MD files. Max size: `API_MAX_UPLOAD_MB` (default 50 MB).
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
@@ -347,7 +347,7 @@ async def get_status() -> StatusResponse:
 async def delete_document(document_id: str) -> DeleteResponse:
     """Delete a specific document."""
     # Basic validation of document_id format
-    if not document_id or len(document_id) > 64:
+    if not document_id or len(document_id) > MAX_ID_LENGTH:
         raise HTTPException(status_code=400, detail="Invalid document ID")
 
     try:
@@ -408,7 +408,7 @@ async def get_metrics() -> MetricsResponse:
             avg_query_time_ms=round(stats_data["avg_query_time_ms"], 1),
             total_documents=total_documents,
             total_chunks=total_chunks,
-            version="0.1.1",
+            version=__version__,
         )
     except Exception:
         logger.exception("Failed to get metrics")

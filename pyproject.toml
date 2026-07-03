@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexusrag"
-version = "1.0.1"
+dynamic = ["version"]
 description = "Local hybrid retrieval and faithfulness benchmark for scientific papers"
 readme = "README.md"
 license = {text = "MIT"}
@@ -67,6 +67,9 @@ nexusrag-report = "nexusrag.eval.report:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "nexusrag.__version__"}
 
 [tool.ruff]
 target-version = "py311"
