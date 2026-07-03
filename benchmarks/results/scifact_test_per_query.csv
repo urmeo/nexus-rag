@@ -1,0 +1,1501 @@
+query_index,system,ndcg_at_10
+0,BM25,0.000000
+1,BM25,1.000000
+2,BM25,1.000000
+3,BM25,1.000000
+4,BM25,0.630930
+5,BM25,0.500000
+6,BM25,0.500000
+7,BM25,1.000000
+8,BM25,0.921787
+9,BM25,0.441580
+10,BM25,0.000000
+11,BM25,1.000000
+12,BM25,1.000000
+13,BM25,0.000000
+14,BM25,1.000000
+15,BM25,0.500000
+16,BM25,0.630930
+17,BM25,1.000000
+18,BM25,1.000000
+19,BM25,0.000000
+20,BM25,0.630930
+21,BM25,1.000000
+22,BM25,1.000000
+23,BM25,0.264068
+24,BM25,1.000000
+25,BM25,0.356207
+26,BM25,1.000000
+27,BM25,1.000000
+28,BM25,1.000000
+29,BM25,1.000000
+30,BM25,1.000000
+31,BM25,0.000000
+32,BM25,0.315465
+33,BM25,1.000000
+34,BM25,0.386853
+35,BM25,1.000000
+36,BM25,1.000000
+37,BM25,0.000000
+38,BM25,0.430677
+39,BM25,0.000000
+40,BM25,0.000000
+41,BM25,0.000000
+42,BM25,0.000000
+43,BM25,1.000000
+44,BM25,1.000000
+45,BM25,1.000000
+46,BM25,0.000000
+47,BM25,1.000000
+48,BM25,0.000000
+49,BM25,1.000000
+50,BM25,0.000000
+51,BM25,1.000000
+52,BM25,1.000000
+53,BM25,0.000000
+54,BM25,0.301030
+55,BM25,0.430677
+56,BM25,1.000000
+57,BM25,1.000000
+58,BM25,0.630930
+59,BM25,1.000000
+60,BM25,1.000000
+61,BM25,0.430677
+62,BM25,1.000000
+63,BM25,0.817981
+64,BM25,0.000000
+65,BM25,0.000000
+66,BM25,0.500000
+67,BM25,0.000000
+68,BM25,0.000000
+69,BM25,1.000000
+70,BM25,1.000000
+71,BM25,1.000000
+72,BM25,1.000000
+73,BM25,1.000000
+74,BM25,0.000000
+75,BM25,1.000000
+76,BM25,1.000000
+77,BM25,0.000000
+78,BM25,0.500000
+79,BM25,0.000000
+80,BM25,1.000000
+81,BM25,0.244108
+82,BM25,0.000000
+83,BM25,1.000000
+84,BM25,1.000000
+85,BM25,1.000000
+86,BM25,1.000000
+87,BM25,1.000000
+88,BM25,1.000000
+89,BM25,1.000000
+90,BM25,0.500000
+91,BM25,1.000000
+92,BM25,0.000000
+93,BM25,1.000000
+94,BM25,0.356207
+95,BM25,0.459055
+96,BM25,0.000000
+97,BM25,1.000000
+98,BM25,1.000000
+99,BM25,0.000000
+100,BM25,1.000000
+101,BM25,1.000000
+102,BM25,1.000000
+103,BM25,1.000000
+104,BM25,1.000000
+105,BM25,1.000000
+106,BM25,1.000000
+107,BM25,0.708721
+108,BM25,1.000000
+109,BM25,0.301030
+110,BM25,0.430677
+111,BM25,0.630930
+112,BM25,1.000000
+113,BM25,0.630930
+114,BM25,0.356207
+115,BM25,1.000000
+116,BM25,1.000000
+117,BM25,1.000000
+118,BM25,1.000000
+119,BM25,1.000000
+120,BM25,0.630930
+121,BM25,1.000000
+122,BM25,1.000000
+123,BM25,1.000000
+124,BM25,0.000000
+125,BM25,0.000000
+126,BM25,1.000000
+127,BM25,0.630930
+128,BM25,0.218407
+129,BM25,0.630930
+130,BM25,0.630930
+131,BM25,1.000000
+132,BM25,0.469279
+133,BM25,1.000000
+134,BM25,1.000000
+135,BM25,1.000000
+136,BM25,1.000000
+137,BM25,1.000000
+138,BM25,0.430677
+139,BM25,0.630930
+140,BM25,0.356207
+141,BM25,0.430677
+142,BM25,0.000000
+143,BM25,1.000000
+144,BM25,1.000000
+145,BM25,0.650921
+146,BM25,1.000000
+147,BM25,1.000000
+148,BM25,0.218407
+149,BM25,1.000000
+150,BM25,1.000000
+151,BM25,0.000000
+152,BM25,0.306574
+153,BM25,1.000000
+154,BM25,0.500000
+155,BM25,1.000000
+156,BM25,1.000000
+157,BM25,1.000000
+158,BM25,0.333333
+159,BM25,0.630930
+160,BM25,0.000000
+161,BM25,0.000000
+162,BM25,1.000000
+163,BM25,0.000000
+164,BM25,0.630930
+165,BM25,0.630930
+166,BM25,1.000000
+167,BM25,0.386853
+168,BM25,0.000000
+169,BM25,0.630930
+170,BM25,0.630930
+171,BM25,1.000000
+172,BM25,1.000000
+173,BM25,1.000000
+174,BM25,1.000000
+175,BM25,1.000000
+176,BM25,0.000000
+177,BM25,1.000000
+178,BM25,0.000000
+179,BM25,1.000000
+180,BM25,1.000000
+181,BM25,0.000000
+182,BM25,1.000000
+183,BM25,0.000000
+184,BM25,1.000000
+185,BM25,1.000000
+186,BM25,0.630930
+187,BM25,1.000000
+188,BM25,1.000000
+189,BM25,1.000000
+190,BM25,1.000000
+191,BM25,0.000000
+192,BM25,1.000000
+193,BM25,1.000000
+194,BM25,0.356207
+195,BM25,0.218407
+196,BM25,0.000000
+197,BM25,1.000000
+198,BM25,0.356207
+199,BM25,1.000000
+200,BM25,0.333333
+201,BM25,1.000000
+202,BM25,0.000000
+203,BM25,1.000000
+204,BM25,1.000000
+205,BM25,0.000000
+206,BM25,0.000000
+207,BM25,1.000000
+208,BM25,0.386853
+209,BM25,1.000000
+210,BM25,1.000000
+211,BM25,0.913402
+212,BM25,0.333333
+213,BM25,1.000000
+214,BM25,0.264068
+215,BM25,0.301030
+216,BM25,0.000000
+217,BM25,0.500000
+218,BM25,0.301030
+219,BM25,0.790386
+220,BM25,0.630930
+221,BM25,1.000000
+222,BM25,1.000000
+223,BM25,1.000000
+224,BM25,1.000000
+225,BM25,1.000000
+226,BM25,1.000000
+227,BM25,1.000000
+228,BM25,0.630930
+229,BM25,1.000000
+230,BM25,1.000000
+231,BM25,0.630930
+232,BM25,0.500000
+233,BM25,0.000000
+234,BM25,0.000000
+235,BM25,1.000000
+236,BM25,0.315465
+237,BM25,1.000000
+238,BM25,1.000000
+239,BM25,0.630930
+240,BM25,0.605260
+241,BM25,0.630930
+242,BM25,1.000000
+243,BM25,1.000000
+244,BM25,0.630930
+245,BM25,1.000000
+246,BM25,0.315465
+247,BM25,1.000000
+248,BM25,0.500000
+249,BM25,1.000000
+250,BM25,0.000000
+251,BM25,0.630930
+252,BM25,0.000000
+253,BM25,0.500000
+254,BM25,0.630930
+255,BM25,1.000000
+256,BM25,0.000000
+257,BM25,1.000000
+258,BM25,1.000000
+259,BM25,1.000000
+260,BM25,1.000000
+261,BM25,0.000000
+262,BM25,0.000000
+263,BM25,1.000000
+264,BM25,0.386853
+265,BM25,0.000000
+266,BM25,1.000000
+267,BM25,0.000000
+268,BM25,1.000000
+269,BM25,1.000000
+270,BM25,1.000000
+271,BM25,1.000000
+272,BM25,1.000000
+273,BM25,0.630930
+274,BM25,0.000000
+275,BM25,0.102097
+276,BM25,1.000000
+277,BM25,1.000000
+278,BM25,1.000000
+279,BM25,0.000000
+280,BM25,1.000000
+281,BM25,1.000000
+282,BM25,1.000000
+283,BM25,1.000000
+284,BM25,0.000000
+285,BM25,0.000000
+286,BM25,0.630930
+287,BM25,1.000000
+288,BM25,1.000000
+289,BM25,1.000000
+290,BM25,0.500000
+291,BM25,0.630930
+292,BM25,1.000000
+293,BM25,0.919721
+294,BM25,0.653393
+295,BM25,0.000000
+296,BM25,1.000000
+297,BM25,1.000000
+298,BM25,1.000000
+299,BM25,0.630930
+0,Dense,0.000000
+1,Dense,1.000000
+2,Dense,1.000000
+3,Dense,1.000000
+4,Dense,0.500000
+5,Dense,0.630930
+6,Dense,0.630930
+7,Dense,0.386853
+8,Dense,0.967468
+9,Dense,0.448644
+10,Dense,0.301030
+11,Dense,1.000000
+12,Dense,1.000000
+13,Dense,1.000000
+14,Dense,1.000000
+15,Dense,0.301030
+16,Dense,0.000000
+17,Dense,1.000000
+18,Dense,1.000000
+19,Dense,0.000000
+20,Dense,0.630930
+21,Dense,1.000000
+22,Dense,1.000000
+23,Dense,0.218407
+24,Dense,1.000000
+25,Dense,1.000000
+26,Dense,1.000000
+27,Dense,1.000000
+28,Dense,1.000000
+29,Dense,1.000000
+30,Dense,1.000000
+31,Dense,0.000000
+32,Dense,0.000000
+33,Dense,1.000000
+34,Dense,0.630930
+35,Dense,0.630930
+36,Dense,0.630930
+37,Dense,0.000000
+38,Dense,1.000000
+39,Dense,0.430677
+40,Dense,0.386853
+41,Dense,0.000000
+42,Dense,0.315465
+43,Dense,1.000000
+44,Dense,1.000000
+45,Dense,1.000000
+46,Dense,0.000000
+47,Dense,1.000000
+48,Dense,0.000000
+49,Dense,1.000000
+50,Dense,0.000000
+51,Dense,1.000000
+52,Dense,1.000000
+53,Dense,1.000000
+54,Dense,0.630930
+55,Dense,1.000000
+56,Dense,1.000000
+57,Dense,1.000000
+58,Dense,1.000000
+59,Dense,1.000000
+60,Dense,1.000000
+61,Dense,0.000000
+62,Dense,1.000000
+63,Dense,0.838547
+64,Dense,1.000000
+65,Dense,1.000000
+66,Dense,0.000000
+67,Dense,0.356207
+68,Dense,0.356207
+69,Dense,1.000000
+70,Dense,1.000000
+71,Dense,1.000000
+72,Dense,1.000000
+73,Dense,1.000000
+74,Dense,0.000000
+75,Dense,1.000000
+76,Dense,1.000000
+77,Dense,0.289065
+78,Dense,1.000000
+79,Dense,0.000000
+80,Dense,1.000000
+81,Dense,0.786014
+82,Dense,0.000000
+83,Dense,1.000000
+84,Dense,0.630930
+85,Dense,1.000000
+86,Dense,1.000000
+87,Dense,0.630930
+88,Dense,1.000000
+89,Dense,1.000000
+90,Dense,0.000000
+91,Dense,0.000000
+92,Dense,1.000000
+93,Dense,1.000000
+94,Dense,1.000000
+95,Dense,0.943866
+96,Dense,1.000000
+97,Dense,1.000000
+98,Dense,1.000000
+99,Dense,0.630930
+100,Dense,0.877215
+101,Dense,1.000000
+102,Dense,1.000000
+103,Dense,1.000000
+104,Dense,1.000000
+105,Dense,1.000000
+106,Dense,1.000000
+107,Dense,0.982892
+108,Dense,1.000000
+109,Dense,0.430677
+110,Dense,0.430677
+111,Dense,0.000000
+112,Dense,1.000000
+113,Dense,0.333333
+114,Dense,0.315465
+115,Dense,1.000000
+116,Dense,1.000000
+117,Dense,1.000000
+118,Dense,1.000000
+119,Dense,1.000000
+120,Dense,0.630930
+121,Dense,1.000000
+122,Dense,1.000000
+123,Dense,0.500000
+124,Dense,0.500000
+125,Dense,0.386853
+126,Dense,1.000000
+127,Dense,1.000000
+128,Dense,0.218407
+129,Dense,1.000000
+130,Dense,1.000000
+131,Dense,1.000000
+132,Dense,0.636439
+133,Dense,1.000000
+134,Dense,0.000000
+135,Dense,0.333333
+136,Dense,0.630930
+137,Dense,0.386853
+138,Dense,0.630930
+139,Dense,0.000000
+140,Dense,0.000000
+141,Dense,0.000000
+142,Dense,0.000000
+143,Dense,1.000000
+144,Dense,1.000000
+145,Dense,1.000000
+146,Dense,1.000000
+147,Dense,1.000000
+148,Dense,0.448644
+149,Dense,0.630930
+150,Dense,1.000000
+151,Dense,0.630930
+152,Dense,0.591235
+153,Dense,1.000000
+154,Dense,1.000000
+155,Dense,1.000000
+156,Dense,1.000000
+157,Dense,1.000000
+158,Dense,0.430677
+159,Dense,1.000000
+160,Dense,0.000000
+161,Dense,0.000000
+162,Dense,1.000000
+163,Dense,0.000000
+164,Dense,1.000000
+165,Dense,1.000000
+166,Dense,1.000000
+167,Dense,0.264068
+168,Dense,0.000000
+169,Dense,1.000000
+170,Dense,0.430677
+171,Dense,1.000000
+172,Dense,1.000000
+173,Dense,0.500000
+174,Dense,1.000000
+175,Dense,1.000000
+176,Dense,0.000000
+177,Dense,0.386853
+178,Dense,0.000000
+179,Dense,1.000000
+180,Dense,0.630930
+181,Dense,1.000000
+182,Dense,1.000000
+183,Dense,0.000000
+184,Dense,1.000000
+185,Dense,1.000000
+186,Dense,0.500000
+187,Dense,1.000000
+188,Dense,1.000000
+189,Dense,1.000000
+190,Dense,1.000000
+191,Dense,0.630930
+192,Dense,1.000000
+193,Dense,1.000000
+194,Dense,1.000000
+195,Dense,0.613147
+196,Dense,0.356207
+197,Dense,1.000000
+198,Dense,0.289065
+199,Dense,1.000000
+200,Dense,0.386853
+201,Dense,1.000000
+202,Dense,0.000000
+203,Dense,0.630930
+204,Dense,1.000000
+205,Dense,1.000000
+206,Dense,0.356207
+207,Dense,1.000000
+208,Dense,0.500000
+209,Dense,1.000000
+210,Dense,1.000000
+211,Dense,1.000000
+212,Dense,0.500000
+213,Dense,1.000000
+214,Dense,0.000000
+215,Dense,0.386853
+216,Dense,1.000000
+217,Dense,1.000000
+218,Dense,0.630930
+219,Dense,0.797723
+220,Dense,1.000000
+221,Dense,1.000000
+222,Dense,0.500000
+223,Dense,0.000000
+224,Dense,0.289065
+225,Dense,0.500000
+226,Dense,0.000000
+227,Dense,0.630930
+228,Dense,1.000000
+229,Dense,1.000000
+230,Dense,0.395647
+231,Dense,1.000000
+232,Dense,1.000000
+233,Dense,0.000000
+234,Dense,0.000000
+235,Dense,1.000000
+236,Dense,1.000000
+237,Dense,1.000000
+238,Dense,1.000000
+239,Dense,0.356207
+240,Dense,0.831555
+241,Dense,1.000000
+242,Dense,1.000000
+243,Dense,1.000000
+244,Dense,0.500000
+245,Dense,1.000000
+246,Dense,0.500000
+247,Dense,1.000000
+248,Dense,0.000000
+249,Dense,1.000000
+250,Dense,0.386853
+251,Dense,1.000000
+252,Dense,0.315465
+253,Dense,1.000000
+254,Dense,0.430677
+255,Dense,0.630930
+256,Dense,0.500000
+257,Dense,1.000000
+258,Dense,1.000000
+259,Dense,1.000000
+260,Dense,1.000000
+261,Dense,0.000000
+262,Dense,0.000000
+263,Dense,1.000000
+264,Dense,0.000000
+265,Dense,0.000000
+266,Dense,1.000000
+267,Dense,0.000000
+268,Dense,0.630930
+269,Dense,1.000000
+270,Dense,0.356207
+271,Dense,1.000000
+272,Dense,0.630930
+273,Dense,0.630930
+274,Dense,0.386853
+275,Dense,0.441258
+276,Dense,1.000000
+277,Dense,1.000000
+278,Dense,1.000000
+279,Dense,0.000000
+280,Dense,1.000000
+281,Dense,1.000000
+282,Dense,1.000000
+283,Dense,1.000000
+284,Dense,0.000000
+285,Dense,0.000000
+286,Dense,1.000000
+287,Dense,1.000000
+288,Dense,1.000000
+289,Dense,1.000000
+290,Dense,1.000000
+291,Dense,1.000000
+292,Dense,1.000000
+293,Dense,1.000000
+294,Dense,0.961999
+295,Dense,0.000000
+296,Dense,1.000000
+297,Dense,1.000000
+298,Dense,0.630930
+299,Dense,1.000000
+0,Hybrid (RRF),0.000000
+1,Hybrid (RRF),1.000000
+2,Hybrid (RRF),1.000000
+3,Hybrid (RRF),1.000000
+4,Hybrid (RRF),0.500000
+5,Hybrid (RRF),0.630930
+6,Hybrid (RRF),0.630930
+7,Hybrid (RRF),0.630930
+8,Hybrid (RRF),0.967468
+9,Hybrid (RRF),0.441580
+10,Hybrid (RRF),0.000000
+11,Hybrid (RRF),1.000000
+12,Hybrid (RRF),1.000000
+13,Hybrid (RRF),0.289065
+14,Hybrid (RRF),1.000000
+15,Hybrid (RRF),0.430677
+16,Hybrid (RRF),0.301030
+17,Hybrid (RRF),1.000000
+18,Hybrid (RRF),1.000000
+19,Hybrid (RRF),0.000000
+20,Hybrid (RRF),1.000000
+21,Hybrid (RRF),1.000000
+22,Hybrid (RRF),1.000000
+23,Hybrid (RRF),0.306574
+24,Hybrid (RRF),1.000000
+25,Hybrid (RRF),1.000000
+26,Hybrid (RRF),1.000000
+27,Hybrid (RRF),1.000000
+28,Hybrid (RRF),1.000000
+29,Hybrid (RRF),1.000000
+30,Hybrid (RRF),1.000000
+31,Hybrid (RRF),0.000000
+32,Hybrid (RRF),0.000000
+33,Hybrid (RRF),1.000000
+34,Hybrid (RRF),0.500000
+35,Hybrid (RRF),1.000000
+36,Hybrid (RRF),0.630930
+37,Hybrid (RRF),0.000000
+38,Hybrid (RRF),0.630930
+39,Hybrid (RRF),0.315465
+40,Hybrid (RRF),0.289065
+41,Hybrid (RRF),0.000000
+42,Hybrid (RRF),0.000000
+43,Hybrid (RRF),1.000000
+44,Hybrid (RRF),1.000000
+45,Hybrid (RRF),1.000000
+46,Hybrid (RRF),0.000000
+47,Hybrid (RRF),1.000000
+48,Hybrid (RRF),0.000000
+49,Hybrid (RRF),1.000000
+50,Hybrid (RRF),0.301030
+51,Hybrid (RRF),1.000000
+52,Hybrid (RRF),1.000000
+53,Hybrid (RRF),0.000000
+54,Hybrid (RRF),1.000000
+55,Hybrid (RRF),0.500000
+56,Hybrid (RRF),1.000000
+57,Hybrid (RRF),1.000000
+58,Hybrid (RRF),1.000000
+59,Hybrid (RRF),1.000000
+60,Hybrid (RRF),1.000000
+61,Hybrid (RRF),0.315465
+62,Hybrid (RRF),1.000000
+63,Hybrid (RRF),0.838547
+64,Hybrid (RRF),0.000000
+65,Hybrid (RRF),0.000000
+66,Hybrid (RRF),0.301030
+67,Hybrid (RRF),0.356207
+68,Hybrid (RRF),0.289065
+69,Hybrid (RRF),1.000000
+70,Hybrid (RRF),1.000000
+71,Hybrid (RRF),1.000000
+72,Hybrid (RRF),1.000000
+73,Hybrid (RRF),1.000000
+74,Hybrid (RRF),0.000000
+75,Hybrid (RRF),1.000000
+76,Hybrid (RRF),1.000000
+77,Hybrid (RRF),0.000000
+78,Hybrid (RRF),1.000000
+79,Hybrid (RRF),0.000000
+80,Hybrid (RRF),1.000000
+81,Hybrid (RRF),0.843538
+82,Hybrid (RRF),0.000000
+83,Hybrid (RRF),1.000000
+84,Hybrid (RRF),0.630930
+85,Hybrid (RRF),1.000000
+86,Hybrid (RRF),1.000000
+87,Hybrid (RRF),0.630930
+88,Hybrid (RRF),1.000000
+89,Hybrid (RRF),1.000000
+90,Hybrid (RRF),0.301030
+91,Hybrid (RRF),0.289065
+92,Hybrid (RRF),0.289065
+93,Hybrid (RRF),1.000000
+94,Hybrid (RRF),1.000000
+95,Hybrid (RRF),0.655097
+96,Hybrid (RRF),0.500000
+97,Hybrid (RRF),1.000000
+98,Hybrid (RRF),1.000000
+99,Hybrid (RRF),0.500000
+100,Hybrid (RRF),0.919721
+101,Hybrid (RRF),1.000000
+102,Hybrid (RRF),1.000000
+103,Hybrid (RRF),1.000000
+104,Hybrid (RRF),1.000000
+105,Hybrid (RRF),1.000000
+106,Hybrid (RRF),1.000000
+107,Hybrid (RRF),0.736590
+108,Hybrid (RRF),1.000000
+109,Hybrid (RRF),0.430677
+110,Hybrid (RRF),0.630930
+111,Hybrid (RRF),1.000000
+112,Hybrid (RRF),1.000000
+113,Hybrid (RRF),1.000000
+114,Hybrid (RRF),0.356207
+115,Hybrid (RRF),1.000000
+116,Hybrid (RRF),1.000000
+117,Hybrid (RRF),1.000000
+118,Hybrid (RRF),1.000000
+119,Hybrid (RRF),1.000000
+120,Hybrid (RRF),0.630930
+121,Hybrid (RRF),1.000000
+122,Hybrid (RRF),1.000000
+123,Hybrid (RRF),0.630930
+124,Hybrid (RRF),0.000000
+125,Hybrid (RRF),0.000000
+126,Hybrid (RRF),1.000000
+127,Hybrid (RRF),1.000000
+128,Hybrid (RRF),0.218407
+129,Hybrid (RRF),1.000000
+130,Hybrid (RRF),1.000000
+131,Hybrid (RRF),1.000000
+132,Hybrid (RRF),0.610546
+133,Hybrid (RRF),1.000000
+134,Hybrid (RRF),0.500000
+135,Hybrid (RRF),0.430677
+136,Hybrid (RRF),0.630930
+137,Hybrid (RRF),0.630930
+138,Hybrid (RRF),0.630930
+139,Hybrid (RRF),0.000000
+140,Hybrid (RRF),0.333333
+141,Hybrid (RRF),0.386853
+142,Hybrid (RRF),0.000000
+143,Hybrid (RRF),1.000000
+144,Hybrid (RRF),1.000000
+145,Hybrid (RRF),1.000000
+146,Hybrid (RRF),1.000000
+147,Hybrid (RRF),1.000000
+148,Hybrid (RRF),0.306574
+149,Hybrid (RRF),1.000000
+150,Hybrid (RRF),1.000000
+151,Hybrid (RRF),0.386853
+152,Hybrid (RRF),0.693426
+153,Hybrid (RRF),1.000000
+154,Hybrid (RRF),1.000000
+155,Hybrid (RRF),1.000000
+156,Hybrid (RRF),1.000000
+157,Hybrid (RRF),1.000000
+158,Hybrid (RRF),0.386853
+159,Hybrid (RRF),1.000000
+160,Hybrid (RRF),0.000000
+161,Hybrid (RRF),0.000000
+162,Hybrid (RRF),1.000000
+163,Hybrid (RRF),0.000000
+164,Hybrid (RRF),1.000000
+165,Hybrid (RRF),1.000000
+166,Hybrid (RRF),1.000000
+167,Hybrid (RRF),0.000000
+168,Hybrid (RRF),0.289065
+169,Hybrid (RRF),1.000000
+170,Hybrid (RRF),0.630930
+171,Hybrid (RRF),1.000000
+172,Hybrid (RRF),1.000000
+173,Hybrid (RRF),1.000000
+174,Hybrid (RRF),1.000000
+175,Hybrid (RRF),1.000000
+176,Hybrid (RRF),0.000000
+177,Hybrid (RRF),0.630930
+178,Hybrid (RRF),0.000000
+179,Hybrid (RRF),1.000000
+180,Hybrid (RRF),0.630930
+181,Hybrid (RRF),0.430677
+182,Hybrid (RRF),1.000000
+183,Hybrid (RRF),0.000000
+184,Hybrid (RRF),1.000000
+185,Hybrid (RRF),1.000000
+186,Hybrid (RRF),0.630930
+187,Hybrid (RRF),1.000000
+188,Hybrid (RRF),1.000000
+189,Hybrid (RRF),1.000000
+190,Hybrid (RRF),1.000000
+191,Hybrid (RRF),0.000000
+192,Hybrid (RRF),1.000000
+193,Hybrid (RRF),1.000000
+194,Hybrid (RRF),0.630930
+195,Hybrid (RRF),0.386853
+196,Hybrid (RRF),0.356207
+197,Hybrid (RRF),1.000000
+198,Hybrid (RRF),0.356207
+199,Hybrid (RRF),1.000000
+200,Hybrid (RRF),0.356207
+201,Hybrid (RRF),1.000000
+202,Hybrid (RRF),0.000000
+203,Hybrid (RRF),0.630930
+204,Hybrid (RRF),1.000000
+205,Hybrid (RRF),0.630930
+206,Hybrid (RRF),0.000000
+207,Hybrid (RRF),1.000000
+208,Hybrid (RRF),0.500000
+209,Hybrid (RRF),1.000000
+210,Hybrid (RRF),1.000000
+211,Hybrid (RRF),0.967468
+212,Hybrid (RRF),0.386853
+213,Hybrid (RRF),1.000000
+214,Hybrid (RRF),0.264068
+215,Hybrid (RRF),0.430677
+216,Hybrid (RRF),0.386853
+217,Hybrid (RRF),0.630930
+218,Hybrid (RRF),0.500000
+219,Hybrid (RRF),0.817530
+220,Hybrid (RRF),1.000000
+221,Hybrid (RRF),1.000000
+222,Hybrid (RRF),1.000000
+223,Hybrid (RRF),1.000000
+224,Hybrid (RRF),0.430677
+225,Hybrid (RRF),0.630930
+226,Hybrid (RRF),0.289065
+227,Hybrid (RRF),1.000000
+228,Hybrid (RRF),1.000000
+229,Hybrid (RRF),1.000000
+230,Hybrid (RRF),0.919721
+231,Hybrid (RRF),1.000000
+232,Hybrid (RRF),0.630930
+233,Hybrid (RRF),0.386853
+234,Hybrid (RRF),0.000000
+235,Hybrid (RRF),1.000000
+236,Hybrid (RRF),1.000000
+237,Hybrid (RRF),1.000000
+238,Hybrid (RRF),1.000000
+239,Hybrid (RRF),0.630930
+240,Hybrid (RRF),0.693426
+241,Hybrid (RRF),1.000000
+242,Hybrid (RRF),1.000000
+243,Hybrid (RRF),1.000000
+244,Hybrid (RRF),0.500000
+245,Hybrid (RRF),1.000000
+246,Hybrid (RRF),0.430677
+247,Hybrid (RRF),1.000000
+248,Hybrid (RRF),0.430677
+249,Hybrid (RRF),1.000000
+250,Hybrid (RRF),0.000000
+251,Hybrid (RRF),1.000000
+252,Hybrid (RRF),0.000000
+253,Hybrid (RRF),1.000000
+254,Hybrid (RRF),0.630930
+255,Hybrid (RRF),0.630930
+256,Hybrid (RRF),0.000000
+257,Hybrid (RRF),1.000000
+258,Hybrid (RRF),1.000000
+259,Hybrid (RRF),1.000000
+260,Hybrid (RRF),1.000000
+261,Hybrid (RRF),0.000000
+262,Hybrid (RRF),0.000000
+263,Hybrid (RRF),1.000000
+264,Hybrid (RRF),0.356207
+265,Hybrid (RRF),0.000000
+266,Hybrid (RRF),1.000000
+267,Hybrid (RRF),0.000000
+268,Hybrid (RRF),0.630930
+269,Hybrid (RRF),1.000000
+270,Hybrid (RRF),0.500000
+271,Hybrid (RRF),1.000000
+272,Hybrid (RRF),1.000000
+273,Hybrid (RRF),0.630930
+274,Hybrid (RRF),0.000000
+275,Hybrid (RRF),0.282634
+276,Hybrid (RRF),1.000000
+277,Hybrid (RRF),1.000000
+278,Hybrid (RRF),1.000000
+279,Hybrid (RRF),0.000000
+280,Hybrid (RRF),1.000000
+281,Hybrid (RRF),1.000000
+282,Hybrid (RRF),1.000000
+283,Hybrid (RRF),1.000000
+284,Hybrid (RRF),0.000000
+285,Hybrid (RRF),0.000000
+286,Hybrid (RRF),1.000000
+287,Hybrid (RRF),1.000000
+288,Hybrid (RRF),1.000000
+289,Hybrid (RRF),1.000000
+290,Hybrid (RRF),0.630930
+291,Hybrid (RRF),1.000000
+292,Hybrid (RRF),1.000000
+293,Hybrid (RRF),1.000000
+294,Hybrid (RRF),0.848583
+295,Hybrid (RRF),0.000000
+296,Hybrid (RRF),1.000000
+297,Hybrid (RRF),1.000000
+298,Hybrid (RRF),1.000000
+299,Hybrid (RRF),1.000000
+0,+ Adaptive weights,0.000000
+1,+ Adaptive weights,1.000000
+2,+ Adaptive weights,1.000000
+3,+ Adaptive weights,1.000000
+4,+ Adaptive weights,0.630930
+5,+ Adaptive weights,0.630930
+6,+ Adaptive weights,0.630930
+7,+ Adaptive weights,1.000000
+8,+ Adaptive weights,0.967468
+9,+ Adaptive weights,0.441580
+10,+ Adaptive weights,0.000000
+11,+ Adaptive weights,1.000000
+12,+ Adaptive weights,1.000000
+13,+ Adaptive weights,0.289065
+14,+ Adaptive weights,1.000000
+15,+ Adaptive weights,0.430677
+16,+ Adaptive weights,0.356207
+17,+ Adaptive weights,1.000000
+18,+ Adaptive weights,1.000000
+19,+ Adaptive weights,0.000000
+20,+ Adaptive weights,0.630930
+21,+ Adaptive weights,1.000000
+22,+ Adaptive weights,1.000000
+23,+ Adaptive weights,0.306574
+24,+ Adaptive weights,1.000000
+25,+ Adaptive weights,1.000000
+26,+ Adaptive weights,1.000000
+27,+ Adaptive weights,1.000000
+28,+ Adaptive weights,1.000000
+29,+ Adaptive weights,1.000000
+30,+ Adaptive weights,1.000000
+31,+ Adaptive weights,0.000000
+32,+ Adaptive weights,0.000000
+33,+ Adaptive weights,1.000000
+34,+ Adaptive weights,0.500000
+35,+ Adaptive weights,1.000000
+36,+ Adaptive weights,0.630930
+37,+ Adaptive weights,0.000000
+38,+ Adaptive weights,0.630930
+39,+ Adaptive weights,0.356207
+40,+ Adaptive weights,0.356207
+41,+ Adaptive weights,0.000000
+42,+ Adaptive weights,0.000000
+43,+ Adaptive weights,1.000000
+44,+ Adaptive weights,1.000000
+45,+ Adaptive weights,1.000000
+46,+ Adaptive weights,0.000000
+47,+ Adaptive weights,1.000000
+48,+ Adaptive weights,0.000000
+49,+ Adaptive weights,1.000000
+50,+ Adaptive weights,0.301030
+51,+ Adaptive weights,1.000000
+52,+ Adaptive weights,1.000000
+53,+ Adaptive weights,0.000000
+54,+ Adaptive weights,1.000000
+55,+ Adaptive weights,1.000000
+56,+ Adaptive weights,1.000000
+57,+ Adaptive weights,1.000000
+58,+ Adaptive weights,0.630930
+59,+ Adaptive weights,1.000000
+60,+ Adaptive weights,1.000000
+61,+ Adaptive weights,0.315465
+62,+ Adaptive weights,1.000000
+63,+ Adaptive weights,0.838547
+64,+ Adaptive weights,0.315465
+65,+ Adaptive weights,0.315465
+66,+ Adaptive weights,0.301030
+67,+ Adaptive weights,0.356207
+68,+ Adaptive weights,0.000000
+69,+ Adaptive weights,1.000000
+70,+ Adaptive weights,1.000000
+71,+ Adaptive weights,1.000000
+72,+ Adaptive weights,1.000000
+73,+ Adaptive weights,1.000000
+74,+ Adaptive weights,0.000000
+75,+ Adaptive weights,1.000000
+76,+ Adaptive weights,1.000000
+77,+ Adaptive weights,0.000000
+78,+ Adaptive weights,1.000000
+79,+ Adaptive weights,0.000000
+80,+ Adaptive weights,1.000000
+81,+ Adaptive weights,0.843538
+82,+ Adaptive weights,0.000000
+83,+ Adaptive weights,1.000000
+84,+ Adaptive weights,1.000000
+85,+ Adaptive weights,1.000000
+86,+ Adaptive weights,1.000000
+87,+ Adaptive weights,0.630930
+88,+ Adaptive weights,1.000000
+89,+ Adaptive weights,1.000000
+90,+ Adaptive weights,0.301030
+91,+ Adaptive weights,0.289065
+92,+ Adaptive weights,0.000000
+93,+ Adaptive weights,1.000000
+94,+ Adaptive weights,1.000000
+95,+ Adaptive weights,0.715663
+96,+ Adaptive weights,0.500000
+97,+ Adaptive weights,1.000000
+98,+ Adaptive weights,1.000000
+99,+ Adaptive weights,0.500000
+100,+ Adaptive weights,0.877215
+101,+ Adaptive weights,1.000000
+102,+ Adaptive weights,1.000000
+103,+ Adaptive weights,1.000000
+104,+ Adaptive weights,1.000000
+105,+ Adaptive weights,1.000000
+106,+ Adaptive weights,1.000000
+107,+ Adaptive weights,0.736590
+108,+ Adaptive weights,1.000000
+109,+ Adaptive weights,0.430677
+110,+ Adaptive weights,0.630930
+111,+ Adaptive weights,1.000000
+112,+ Adaptive weights,1.000000
+113,+ Adaptive weights,0.630930
+114,+ Adaptive weights,0.356207
+115,+ Adaptive weights,1.000000
+116,+ Adaptive weights,1.000000
+117,+ Adaptive weights,1.000000
+118,+ Adaptive weights,1.000000
+119,+ Adaptive weights,1.000000
+120,+ Adaptive weights,0.630930
+121,+ Adaptive weights,1.000000
+122,+ Adaptive weights,1.000000
+123,+ Adaptive weights,0.500000
+124,+ Adaptive weights,0.000000
+125,+ Adaptive weights,0.000000
+126,+ Adaptive weights,1.000000
+127,+ Adaptive weights,1.000000
+128,+ Adaptive weights,0.218407
+129,+ Adaptive weights,1.000000
+130,+ Adaptive weights,1.000000
+131,+ Adaptive weights,1.000000
+132,+ Adaptive weights,0.610546
+133,+ Adaptive weights,1.000000
+134,+ Adaptive weights,0.430677
+135,+ Adaptive weights,0.430677
+136,+ Adaptive weights,0.630930
+137,+ Adaptive weights,0.630930
+138,+ Adaptive weights,0.630930
+139,+ Adaptive weights,0.000000
+140,+ Adaptive weights,0.289065
+141,+ Adaptive weights,0.386853
+142,+ Adaptive weights,0.000000
+143,+ Adaptive weights,1.000000
+144,+ Adaptive weights,1.000000
+145,+ Adaptive weights,1.000000
+146,+ Adaptive weights,1.000000
+147,+ Adaptive weights,1.000000
+148,+ Adaptive weights,0.218407
+149,+ Adaptive weights,1.000000
+150,+ Adaptive weights,1.000000
+151,+ Adaptive weights,0.386853
+152,+ Adaptive weights,0.693426
+153,+ Adaptive weights,1.000000
+154,+ Adaptive weights,0.630930
+155,+ Adaptive weights,1.000000
+156,+ Adaptive weights,1.000000
+157,+ Adaptive weights,1.000000
+158,+ Adaptive weights,0.386853
+159,+ Adaptive weights,1.000000
+160,+ Adaptive weights,0.000000
+161,+ Adaptive weights,0.000000
+162,+ Adaptive weights,1.000000
+163,+ Adaptive weights,0.000000
+164,+ Adaptive weights,1.000000
+165,+ Adaptive weights,1.000000
+166,+ Adaptive weights,1.000000
+167,+ Adaptive weights,0.000000
+168,+ Adaptive weights,0.289065
+169,+ Adaptive weights,1.000000
+170,+ Adaptive weights,0.630930
+171,+ Adaptive weights,1.000000
+172,+ Adaptive weights,1.000000
+173,+ Adaptive weights,1.000000
+174,+ Adaptive weights,1.000000
+175,+ Adaptive weights,1.000000
+176,+ Adaptive weights,0.000000
+177,+ Adaptive weights,0.630930
+178,+ Adaptive weights,0.000000
+179,+ Adaptive weights,1.000000
+180,+ Adaptive weights,1.000000
+181,+ Adaptive weights,0.430677
+182,+ Adaptive weights,1.000000
+183,+ Adaptive weights,0.000000
+184,+ Adaptive weights,1.000000
+185,+ Adaptive weights,1.000000
+186,+ Adaptive weights,0.630930
+187,+ Adaptive weights,1.000000
+188,+ Adaptive weights,1.000000
+189,+ Adaptive weights,1.000000
+190,+ Adaptive weights,1.000000
+191,+ Adaptive weights,0.000000
+192,+ Adaptive weights,1.000000
+193,+ Adaptive weights,1.000000
+194,+ Adaptive weights,0.386853
+195,+ Adaptive weights,0.306574
+196,+ Adaptive weights,0.289065
+197,+ Adaptive weights,1.000000
+198,+ Adaptive weights,0.356207
+199,+ Adaptive weights,1.000000
+200,+ Adaptive weights,0.356207
+201,+ Adaptive weights,1.000000
+202,+ Adaptive weights,0.000000
+203,+ Adaptive weights,1.000000
+204,+ Adaptive weights,1.000000
+205,+ Adaptive weights,0.630930
+206,+ Adaptive weights,0.000000
+207,+ Adaptive weights,1.000000
+208,+ Adaptive weights,0.500000
+209,+ Adaptive weights,1.000000
+210,+ Adaptive weights,1.000000
+211,+ Adaptive weights,0.967468
+212,+ Adaptive weights,0.500000
+213,+ Adaptive weights,1.000000
+214,+ Adaptive weights,0.237198
+215,+ Adaptive weights,0.430677
+216,+ Adaptive weights,0.386853
+217,+ Adaptive weights,0.630930
+218,+ Adaptive weights,0.500000
+219,+ Adaptive weights,0.817530
+220,+ Adaptive weights,1.000000
+221,+ Adaptive weights,1.000000
+222,+ Adaptive weights,1.000000
+223,+ Adaptive weights,1.000000
+224,+ Adaptive weights,0.630930
+225,+ Adaptive weights,0.500000
+226,+ Adaptive weights,0.289065
+227,+ Adaptive weights,1.000000
+228,+ Adaptive weights,1.000000
+229,+ Adaptive weights,1.000000
+230,+ Adaptive weights,1.000000
+231,+ Adaptive weights,0.630930
+232,+ Adaptive weights,0.630930
+233,+ Adaptive weights,0.386853
+234,+ Adaptive weights,0.000000
+235,+ Adaptive weights,1.000000
+236,+ Adaptive weights,1.000000
+237,+ Adaptive weights,1.000000
+238,+ Adaptive weights,1.000000
+239,+ Adaptive weights,0.630930
+240,+ Adaptive weights,0.693426
+241,+ Adaptive weights,0.630930
+242,+ Adaptive weights,1.000000
+243,+ Adaptive weights,1.000000
+244,+ Adaptive weights,0.500000
+245,+ Adaptive weights,1.000000
+246,+ Adaptive weights,0.430677
+247,+ Adaptive weights,1.000000
+248,+ Adaptive weights,0.500000
+249,+ Adaptive weights,1.000000
+250,+ Adaptive weights,0.000000
+251,+ Adaptive weights,1.000000
+252,+ Adaptive weights,0.000000
+253,+ Adaptive weights,1.000000
+254,+ Adaptive weights,0.630930
+255,+ Adaptive weights,0.630930
+256,+ Adaptive weights,0.000000
+257,+ Adaptive weights,1.000000
+258,+ Adaptive weights,1.000000
+259,+ Adaptive weights,1.000000
+260,+ Adaptive weights,1.000000
+261,+ Adaptive weights,0.000000
+262,+ Adaptive weights,0.000000
+263,+ Adaptive weights,1.000000
+264,+ Adaptive weights,0.356207
+265,+ Adaptive weights,0.000000
+266,+ Adaptive weights,1.000000
+267,+ Adaptive weights,0.000000
+268,+ Adaptive weights,1.000000
+269,+ Adaptive weights,1.000000
+270,+ Adaptive weights,0.630930
+271,+ Adaptive weights,1.000000
+272,+ Adaptive weights,1.000000
+273,+ Adaptive weights,0.630930
+274,+ Adaptive weights,0.000000
+275,+ Adaptive weights,0.282634
+276,+ Adaptive weights,1.000000
+277,+ Adaptive weights,1.000000
+278,+ Adaptive weights,1.000000
+279,+ Adaptive weights,0.000000
+280,+ Adaptive weights,1.000000
+281,+ Adaptive weights,1.000000
+282,+ Adaptive weights,1.000000
+283,+ Adaptive weights,1.000000
+284,+ Adaptive weights,0.000000
+285,+ Adaptive weights,0.000000
+286,+ Adaptive weights,1.000000
+287,+ Adaptive weights,1.000000
+288,+ Adaptive weights,1.000000
+289,+ Adaptive weights,1.000000
+290,+ Adaptive weights,0.630930
+291,+ Adaptive weights,1.000000
+292,+ Adaptive weights,1.000000
+293,+ Adaptive weights,1.000000
+294,+ Adaptive weights,0.848583
+295,+ Adaptive weights,0.000000
+296,+ Adaptive weights,1.000000
+297,+ Adaptive weights,1.000000
+298,+ Adaptive weights,1.000000
+299,+ Adaptive weights,0.630930
+0,+ Corrective PRF,0.000000
+1,+ Corrective PRF,1.000000
+2,+ Corrective PRF,1.000000
+3,+ Corrective PRF,1.000000
+4,+ Corrective PRF,0.630930
+5,+ Corrective PRF,0.630930
+6,+ Corrective PRF,0.630930
+7,+ Corrective PRF,1.000000
+8,+ Corrective PRF,0.967468
+9,+ Corrective PRF,0.441580
+10,+ Corrective PRF,0.000000
+11,+ Corrective PRF,1.000000
+12,+ Corrective PRF,1.000000
+13,+ Corrective PRF,0.289065
+14,+ Corrective PRF,1.000000
+15,+ Corrective PRF,0.430677
+16,+ Corrective PRF,0.356207
+17,+ Corrective PRF,1.000000
+18,+ Corrective PRF,1.000000
+19,+ Corrective PRF,0.000000
+20,+ Corrective PRF,0.630930
+21,+ Corrective PRF,1.000000
+22,+ Corrective PRF,1.000000
+23,+ Corrective PRF,0.306574
+24,+ Corrective PRF,1.000000
+25,+ Corrective PRF,1.000000
+26,+ Corrective PRF,1.000000
+27,+ Corrective PRF,1.000000
+28,+ Corrective PRF,1.000000
+29,+ Corrective PRF,1.000000
+30,+ Corrective PRF,1.000000
+31,+ Corrective PRF,0.000000
+32,+ Corrective PRF,0.000000
+33,+ Corrective PRF,1.000000
+34,+ Corrective PRF,0.500000
+35,+ Corrective PRF,1.000000
+36,+ Corrective PRF,0.630930
+37,+ Corrective PRF,0.000000
+38,+ Corrective PRF,0.630930
+39,+ Corrective PRF,0.356207
+40,+ Corrective PRF,0.356207
+41,+ Corrective PRF,0.000000
+42,+ Corrective PRF,0.000000
+43,+ Corrective PRF,1.000000
+44,+ Corrective PRF,1.000000
+45,+ Corrective PRF,1.000000
+46,+ Corrective PRF,0.000000
+47,+ Corrective PRF,1.000000
+48,+ Corrective PRF,0.000000
+49,+ Corrective PRF,1.000000
+50,+ Corrective PRF,0.301030
+51,+ Corrective PRF,1.000000
+52,+ Corrective PRF,1.000000
+53,+ Corrective PRF,0.000000
+54,+ Corrective PRF,1.000000
+55,+ Corrective PRF,1.000000
+56,+ Corrective PRF,1.000000
+57,+ Corrective PRF,1.000000
+58,+ Corrective PRF,0.630930
+59,+ Corrective PRF,1.000000
+60,+ Corrective PRF,1.000000
+61,+ Corrective PRF,0.315465
+62,+ Corrective PRF,1.000000
+63,+ Corrective PRF,0.838547
+64,+ Corrective PRF,0.315465
+65,+ Corrective PRF,0.315465
+66,+ Corrective PRF,0.301030
+67,+ Corrective PRF,0.356207
+68,+ Corrective PRF,0.000000
+69,+ Corrective PRF,1.000000
+70,+ Corrective PRF,1.000000
+71,+ Corrective PRF,1.000000
+72,+ Corrective PRF,1.000000
+73,+ Corrective PRF,1.000000
+74,+ Corrective PRF,0.000000
+75,+ Corrective PRF,1.000000
+76,+ Corrective PRF,1.000000
+77,+ Corrective PRF,0.000000
+78,+ Corrective PRF,1.000000
+79,+ Corrective PRF,0.000000
+80,+ Corrective PRF,1.000000
+81,+ Corrective PRF,0.843538
+82,+ Corrective PRF,0.000000
+83,+ Corrective PRF,1.000000
+84,+ Corrective PRF,1.000000
+85,+ Corrective PRF,1.000000
+86,+ Corrective PRF,1.000000
+87,+ Corrective PRF,0.630930
+88,+ Corrective PRF,1.000000
+89,+ Corrective PRF,1.000000
+90,+ Corrective PRF,0.301030
+91,+ Corrective PRF,0.289065
+92,+ Corrective PRF,0.000000
+93,+ Corrective PRF,1.000000
+94,+ Corrective PRF,1.000000
+95,+ Corrective PRF,0.715663
+96,+ Corrective PRF,0.500000
+97,+ Corrective PRF,1.000000
+98,+ Corrective PRF,1.000000
+99,+ Corrective PRF,0.500000
+100,+ Corrective PRF,0.877215
+101,+ Corrective PRF,1.000000
+102,+ Corrective PRF,1.000000
+103,+ Corrective PRF,1.000000
+104,+ Corrective PRF,1.000000
+105,+ Corrective PRF,1.000000
+106,+ Corrective PRF,1.000000
+107,+ Corrective PRF,0.736590
+108,+ Corrective PRF,1.000000
+109,+ Corrective PRF,0.430677
+110,+ Corrective PRF,0.630930
+111,+ Corrective PRF,1.000000
+112,+ Corrective PRF,1.000000
+113,+ Corrective PRF,0.630930
+114,+ Corrective PRF,0.356207
+115,+ Corrective PRF,1.000000
+116,+ Corrective PRF,1.000000
+117,+ Corrective PRF,1.000000
+118,+ Corrective PRF,1.000000
+119,+ Corrective PRF,1.000000
+120,+ Corrective PRF,0.630930
+121,+ Corrective PRF,1.000000
+122,+ Corrective PRF,1.000000
+123,+ Corrective PRF,0.500000
+124,+ Corrective PRF,0.000000
+125,+ Corrective PRF,0.000000
+126,+ Corrective PRF,1.000000
+127,+ Corrective PRF,1.000000
+128,+ Corrective PRF,0.218407
+129,+ Corrective PRF,1.000000
+130,+ Corrective PRF,1.000000
+131,+ Corrective PRF,1.000000
+132,+ Corrective PRF,0.610546
+133,+ Corrective PRF,1.000000
+134,+ Corrective PRF,0.430677
+135,+ Corrective PRF,0.430677
+136,+ Corrective PRF,0.630930
+137,+ Corrective PRF,0.630930
+138,+ Corrective PRF,0.630930
+139,+ Corrective PRF,0.000000
+140,+ Corrective PRF,0.289065
+141,+ Corrective PRF,0.386853
+142,+ Corrective PRF,0.000000
+143,+ Corrective PRF,1.000000
+144,+ Corrective PRF,1.000000
+145,+ Corrective PRF,1.000000
+146,+ Corrective PRF,1.000000
+147,+ Corrective PRF,1.000000
+148,+ Corrective PRF,0.218407
+149,+ Corrective PRF,1.000000
+150,+ Corrective PRF,1.000000
+151,+ Corrective PRF,0.386853
+152,+ Corrective PRF,0.693426
+153,+ Corrective PRF,1.000000
+154,+ Corrective PRF,0.630930
+155,+ Corrective PRF,1.000000
+156,+ Corrective PRF,1.000000
+157,+ Corrective PRF,1.000000
+158,+ Corrective PRF,0.386853
+159,+ Corrective PRF,1.000000
+160,+ Corrective PRF,0.000000
+161,+ Corrective PRF,0.000000
+162,+ Corrective PRF,1.000000
+163,+ Corrective PRF,0.000000
+164,+ Corrective PRF,1.000000
+165,+ Corrective PRF,1.000000
+166,+ Corrective PRF,1.000000
+167,+ Corrective PRF,0.000000
+168,+ Corrective PRF,0.289065
+169,+ Corrective PRF,1.000000
+170,+ Corrective PRF,0.630930
+171,+ Corrective PRF,1.000000
+172,+ Corrective PRF,1.000000
+173,+ Corrective PRF,1.000000
+174,+ Corrective PRF,1.000000
+175,+ Corrective PRF,1.000000
+176,+ Corrective PRF,0.000000
+177,+ Corrective PRF,0.630930
+178,+ Corrective PRF,0.000000
+179,+ Corrective PRF,1.000000
+180,+ Corrective PRF,1.000000
+181,+ Corrective PRF,0.430677
+182,+ Corrective PRF,1.000000
+183,+ Corrective PRF,0.000000
+184,+ Corrective PRF,1.000000
+185,+ Corrective PRF,1.000000
+186,+ Corrective PRF,0.630930
+187,+ Corrective PRF,1.000000
+188,+ Corrective PRF,1.000000
+189,+ Corrective PRF,1.000000
+190,+ Corrective PRF,1.000000
+191,+ Corrective PRF,0.000000
+192,+ Corrective PRF,1.000000
+193,+ Corrective PRF,1.000000
+194,+ Corrective PRF,0.386853
+195,+ Corrective PRF,0.306574
+196,+ Corrective PRF,0.289065
+197,+ Corrective PRF,1.000000
+198,+ Corrective PRF,0.356207
+199,+ Corrective PRF,1.000000
+200,+ Corrective PRF,0.356207
+201,+ Corrective PRF,1.000000
+202,+ Corrective PRF,0.000000
+203,+ Corrective PRF,1.000000
+204,+ Corrective PRF,1.000000
+205,+ Corrective PRF,0.630930
+206,+ Corrective PRF,0.000000
+207,+ Corrective PRF,1.000000
+208,+ Corrective PRF,0.500000
+209,+ Corrective PRF,1.000000
+210,+ Corrective PRF,1.000000
+211,+ Corrective PRF,0.967468
+212,+ Corrective PRF,0.500000
+213,+ Corrective PRF,1.000000
+214,+ Corrective PRF,0.237198
+215,+ Corrective PRF,0.430677
+216,+ Corrective PRF,0.386853
+217,+ Corrective PRF,0.630930
+218,+ Corrective PRF,0.500000
+219,+ Corrective PRF,0.817530
+220,+ Corrective PRF,1.000000
+221,+ Corrective PRF,1.000000
+222,+ Corrective PRF,1.000000
+223,+ Corrective PRF,1.000000
+224,+ Corrective PRF,0.630930
+225,+ Corrective PRF,0.500000
+226,+ Corrective PRF,0.289065
+227,+ Corrective PRF,1.000000
+228,+ Corrective PRF,1.000000
+229,+ Corrective PRF,1.000000
+230,+ Corrective PRF,1.000000
+231,+ Corrective PRF,0.630930
+232,+ Corrective PRF,0.630930
+233,+ Corrective PRF,0.386853
+234,+ Corrective PRF,0.000000
+235,+ Corrective PRF,1.000000
+236,+ Corrective PRF,1.000000
+237,+ Corrective PRF,1.000000
+238,+ Corrective PRF,1.000000
+239,+ Corrective PRF,0.630930
+240,+ Corrective PRF,0.693426
+241,+ Corrective PRF,0.630930
+242,+ Corrective PRF,1.000000
+243,+ Corrective PRF,1.000000
+244,+ Corrective PRF,0.500000
+245,+ Corrective PRF,1.000000
+246,+ Corrective PRF,0.430677
+247,+ Corrective PRF,1.000000
+248,+ Corrective PRF,0.500000
+249,+ Corrective PRF,1.000000
+250,+ Corrective PRF,0.000000
+251,+ Corrective PRF,1.000000
+252,+ Corrective PRF,0.000000
+253,+ Corrective PRF,1.000000
+254,+ Corrective PRF,0.630930
+255,+ Corrective PRF,0.630930
+256,+ Corrective PRF,0.000000
+257,+ Corrective PRF,1.000000
+258,+ Corrective PRF,1.000000
+259,+ Corrective PRF,1.000000
+260,+ Corrective PRF,1.000000
+261,+ Corrective PRF,0.000000
+262,+ Corrective PRF,0.000000
+263,+ Corrective PRF,1.000000
+264,+ Corrective PRF,0.356207
+265,+ Corrective PRF,0.000000
+266,+ Corrective PRF,1.000000
+267,+ Corrective PRF,0.000000
+268,+ Corrective PRF,1.000000
+269,+ Corrective PRF,1.000000
+270,+ Corrective PRF,0.630930
+271,+ Corrective PRF,1.000000
+272,+ Corrective PRF,1.000000
+273,+ Corrective PRF,0.630930
+274,+ Corrective PRF,0.000000
+275,+ Corrective PRF,0.282634
+276,+ Corrective PRF,1.000000
+277,+ Corrective PRF,1.000000
+278,+ Corrective PRF,1.000000
+279,+ Corrective PRF,0.000000
+280,+ Corrective PRF,1.000000
+281,+ Corrective PRF,1.000000
+282,+ Corrective PRF,1.000000
+283,+ Corrective PRF,1.000000
+284,+ Corrective PRF,0.000000
+285,+ Corrective PRF,0.000000
+286,+ Corrective PRF,1.000000
+287,+ Corrective PRF,1.000000
+288,+ Corrective PRF,1.000000
+289,+ Corrective PRF,1.000000
+290,+ Corrective PRF,0.630930
+291,+ Corrective PRF,1.000000
+292,+ Corrective PRF,1.000000
+293,+ Corrective PRF,1.000000
+294,+ Corrective PRF,0.848583
+295,+ Corrective PRF,0.000000
+296,+ Corrective PRF,1.000000
+297,+ Corrective PRF,1.000000
+298,+ Corrective PRF,1.000000
+299,+ Corrective PRF,0.630930
