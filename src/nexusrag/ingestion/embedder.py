@@ -50,6 +50,11 @@ class Embedder:
             )
         return self._model
 
+    def unload(self) -> None:
+        """Release the underlying model; it lazy-loads again on next use."""
+        self._model = None
+        gc.collect()
+
     @property
     def dimension(self) -> int:
         get_dim = getattr(self.model, "get_embedding_dimension", None) or (

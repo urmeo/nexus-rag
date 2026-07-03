@@ -36,7 +36,7 @@ flowchart LR
     R --> G{Confident?}
     G -- yes --> S[Answer with citations]
     G -- no --> P[Expand + re-retrieve] --> S
-    S --> V[Grounding check]
+    S --> CC[Citation check] --> V[Grounding check]
 ```
 
 Documents are parsed, chunked, embedded into LanceDB, and indexed for BM25. A query fuses dense and lexical results with reciprocal rank fusion; if the top dense score is weak, a pseudo-relevance-feedback pass expands the query and re-retrieves. A local model answers using only the retrieved passages, with inline citations, and an NLI model checks that each answer sentence is entailed by its sources.
@@ -105,8 +105,8 @@ Scope is deliberately narrow: two abstract-level BEIR datasets (the 300-query Sc
 | Retrieval | sentence-transformers (BGE-small), rank-bm25, RRF (k=60), cross-encoder reranker, DeBERTa NLI, LanceDB (cosine, exact) |
 | Serving | FastAPI, Uvicorn, Ollama (`llama3.2:3b`, pinned) |
 | Evaluation | SciFact, NFCorpus (BEIR, revisions pinned), bootstrap CIs, paired randomization + delta CIs, Holm correction |
-| Quality | pytest (267 tests, 61% branch coverage), ruff, mypy (strict), GitHub Actions CI, gitleaks, pip-audit, Docker |
+| Quality | pytest (279 tests, 62% branch coverage), ruff, mypy (strict), GitHub Actions CI, gitleaks, pip-audit, Docker |
 
 ## License
 
-[MIT](LICENSE)
+The code is [MIT](LICENSE). The models it downloads keep their own licenses — notably the default generator (`llama3.2:3b`) is under the Llama 3.2 Community License, which is not OSI-approved and carries an acceptable-use policy. [PROVENANCE.md](PROVENANCE.md) lists the exact license of every model and corpus.

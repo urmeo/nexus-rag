@@ -439,7 +439,7 @@ class NexusRAG:
         Models will be lazy-loaded again when needed.
         """
         if self._embedder is not None:
-            self._embedder._model = None
+            self._embedder.unload()
             self._embedder = None
 
         if self._orchestrator is not None:

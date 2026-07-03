@@ -45,11 +45,13 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=allow_creds,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        # Only what the API actually serves and reads.
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Content-Type", "X-API-Key"],
     )
 
-    # Lightweight health probe (no pipeline init, for Docker/k8s)
+    # Liveness only (Docker/k8s): must never init the pipeline or block on
+    # models. Readiness with the full schema lives at /api/health.
     @app.get("/health")
     async def health_probe() -> dict[str, str]:
         return {"status": "ok"}

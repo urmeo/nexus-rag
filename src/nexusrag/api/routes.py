@@ -5,7 +5,7 @@ import logging
 import time
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, field_validator
 
 from nexusrag import __version__
@@ -133,7 +133,11 @@ class MetricsResponse(BaseModel):
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
-    """Health check endpoint for frontend connection status."""
+    """Readiness: pipeline, model, and corpus status.
+
+    Distinct from the app-level `/health` liveness probe, which never
+    touches the pipeline and returns only `{"status": "ok"}`.
+    """
     try:
         rag = get_nexusrag()
         stats = await asyncio.to_thread(rag.get_stats)
@@ -290,15 +294,22 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
 
 
 @router.get("/documents", response_model=DocumentListResponse)
-async def list_documents() -> DocumentListResponse:
-    """List all ingested documents."""
+async def list_documents(
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> DocumentListResponse:
+    """List ingested documents, paginated.
+
+    `total_documents` always reports the full corpus size, so clients can
+    page with `offset` until the list is exhausted.
+    """
     try:
         rag = get_nexusrag()
         docs = await asyncio.to_thread(rag.list_documents)
         stats = await asyncio.to_thread(rag.get_stats)
 
         doc_list = []
-        for doc in docs:
+        for doc in docs[offset : offset + limit]:
             filename = resolve_display_name(doc)
 
             doc_list.append(

@@ -157,3 +157,25 @@ class TestPdfEdgeCases:
 
         with pytest.raises(DocumentParseError, match="scanned"):
             DocumentParser().parse(pdf_path)
+
+
+class TestDuplicateNormalization:
+    def test_whitespace_only_edits_keep_same_id(self, temp_dir):
+        parser = DocumentParser()
+        doc = temp_dir / "doc.txt"
+        doc.write_text("Alpha beta. Gamma delta.")
+        original_id = parser.parse(doc).id
+
+        doc.write_text("Alpha beta.\n\nGamma  delta. ")
+
+        assert parser.parse(doc).id == original_id
+
+    def test_content_edits_change_id(self, temp_dir):
+        parser = DocumentParser()
+        doc = temp_dir / "doc.txt"
+        doc.write_text("Alpha beta. Gamma delta.")
+        original_id = parser.parse(doc).id
+
+        doc.write_text("Alpha beta. Gamma delta. Epsilon.")
+
+        assert parser.parse(doc).id != original_id

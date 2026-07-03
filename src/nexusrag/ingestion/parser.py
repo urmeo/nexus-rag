@@ -240,8 +240,10 @@ class DocumentParser:
         return text.strip()
 
     def _generate_id(self, path: Path, content: str) -> str:
-        """Stable id from name + length + head of content."""
-        hash_input = f"{path.name}:{len(content)}:{content[:500]}"
+        """Stable id from name + normalized content, so whitespace-only
+        edits do not slip past duplicate detection as a "new" document."""
+        normalized = re.sub(r"\s+", " ", content).strip()
+        hash_input = f"{path.name}:{len(normalized)}:{normalized[:500]}"
         return hashlib.sha256(hash_input.encode()).hexdigest()[:16]
 
     def _extract_metadata(self, path: Path) -> dict[str, Any]:

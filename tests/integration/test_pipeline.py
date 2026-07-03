@@ -806,3 +806,33 @@ class TestParametrized:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestIngestRollback:
+    def test_vector_failure_rolls_back_document_store(
+        self, nexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
+    ):
+        def boom(chunks, embeddings):
+            raise RuntimeError("simulated storage failure")
+
+        monkeypatch.setattr(nexusrag_instance.vector_store, "add", boom)
+
+        result = nexusrag_instance.ingest(sample_text_file)
+
+        assert result.success is False
+        assert nexusrag_instance.document_store.count() == 0
+        assert nexusrag_instance.bm25.count() == 0
+
+    def test_bm25_failure_rolls_back_all_stores(
+        self, nexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
+    ):
+        def boom(chunks):
+            raise RuntimeError("simulated index failure")
+
+        monkeypatch.setattr(nexusrag_instance.bm25, "add_incremental", boom)
+
+        result = nexusrag_instance.ingest(sample_text_file)
+
+        assert result.success is False
+        assert nexusrag_instance.document_store.count() == 0
+        assert nexusrag_instance.vector_store.count() == 0

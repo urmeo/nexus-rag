@@ -109,6 +109,12 @@ the instance is a process singleton.
   localhost, bound query/ingest with an `asyncio.Semaphore` that returns 503
   when full. The app-level `/health` probe bypasses the executor and stays
   responsive either way.
+- **Streaming caveat:** `query_streaming` yields raw tokens as they are
+  generated; citation verification and grounding run only after the stream
+  completes and are surfaced as a trailing `data: {...}` verification event.
+  Streamed text can therefore momentarily show citations that the final
+  verification reports (and the non-streaming path would strip). No HTTP
+  route currently exposes streaming — it is a library-level API.
 - **Scaling out is not just adding workers:** the BM25 index and rate-limit
   counters are per-process, so multiple uvicorn workers would each hold their
   own diverging index. Scaling beyond one process requires a shared sparse

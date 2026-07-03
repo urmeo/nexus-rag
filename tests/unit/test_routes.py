@@ -624,6 +624,19 @@ class TestListDocuments:
         assert data["documents"][0]["word_count"] == 1000
         assert data["documents"][1]["id"] == "doc_2"
 
+    def test_list_documents_pagination(self, client, patch_get_nexusrag, mock_nexusrag):
+        mock_nexusrag.list_documents.return_value = [
+            {"id": f"doc_{i}", "filename": f"p{i}.pdf", "word_count": 10} for i in range(5)
+        ]
+
+        page = client.get("/api/documents?limit=2&offset=2").json()
+
+        assert [d["id"] for d in page["documents"]] == ["doc_2", "doc_3"]
+        assert page["total_documents"] == 2  # global stats, not page size
+
+        assert client.get("/api/documents?limit=0").status_code == 422
+        assert client.get("/api/documents?offset=-1").status_code == 422
+
     def test_list_documents_response_model(self, client, patch_get_nexusrag, mock_nexusrag):
         mock_nexusrag.list_documents.return_value = [
             {

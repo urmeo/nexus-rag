@@ -110,167 +110,93 @@ class HierarchicalChunker:
                 continue
 
             section_title = section.title or ""
-            page_num = section.page_number
+            header_prefix = f"[{section_title}]\n\n" if section_title else ""
+            texts, remainder = self._pack_paragraphs(
+                self._split_into_paragraphs(section_text), header_prefix
+            )
 
-            # Create header prefix for context
-            header_prefix = ""
-            if section_title:
-                header_prefix = f"[{section_title}]\n\n"
-
-            # Split section into paragraphs
-            paragraphs = self._split_into_paragraphs(section_text)
-
-            current_content: list[str] = []
-            current_length = len(header_prefix)
-
-            for para in paragraphs:
-                para = para.strip()
-                if not para:
-                    continue
-
-                para_len = len(para)
-
-                # If paragraph alone exceeds max, split by sentences
-                if para_len > self.max_chunk_size - len(header_prefix):
-                    # Flush current content first
-                    if current_content:
-                        chunk_text = header_prefix + "\n\n".join(current_content)
-                        chunks.append(
-                            self._create_chunk(
-                                document, chunk_index, chunk_text, doc_name, section_title, page_num
-                            )
-                        )
-                        chunk_index += 1
-                        current_content = []
-                        current_length = len(header_prefix)
-
-                    # Split large paragraph by sentences
-                    sentence_chunks = self._split_by_sentences(para, header_prefix)
-                    for sent_chunk in sentence_chunks:
-                        if len(sent_chunk.strip()) >= self.min_chunk_size:
-                            chunks.append(
-                                self._create_chunk(
-                                    document,
-                                    chunk_index,
-                                    sent_chunk,
-                                    doc_name,
-                                    section_title,
-                                    page_num,
-                                )
-                            )
-                            chunk_index += 1
-                    continue
-
-                # Check if adding paragraph exceeds target (but not max)
-                if current_length + para_len + 2 > self.target_chunk_size:
-                    # Check if we have enough content
-                    if current_content and current_length >= self.min_chunk_size:
-                        chunk_text = header_prefix + "\n\n".join(current_content)
-                        chunks.append(
-                            self._create_chunk(
-                                document, chunk_index, chunk_text, doc_name, section_title, page_num
-                            )
-                        )
-                        chunk_index += 1
-
-                        # Start new chunk with overlap
-                        overlap_content = self._get_overlap_content(current_content)
-                        current_content = overlap_content + [para]
-                        current_length = len(header_prefix) + sum(
-                            len(c) + 2 for c in current_content
-                        )
-                    else:
-                        # Not enough content yet, keep adding
-                        current_content.append(para)
-                        current_length += para_len + 2
-                else:
-                    current_content.append(para)
-                    current_length += para_len + 2
-
-            # Flush remaining content
-            if current_content:
-                chunk_text = header_prefix + "\n\n".join(current_content)
-                if len(chunk_text) >= self.min_chunk_size:
-                    chunks.append(
-                        self._create_chunk(
-                            document, chunk_index, chunk_text, doc_name, section_title, page_num
-                        )
+            for text in texts:
+                chunks.append(
+                    self._create_chunk(
+                        document, chunk_index, text, doc_name, section_title, section.page_number
                     )
-                    chunk_index += 1
-                elif chunks:
-                    # Merge small remainder with previous chunk
-                    chunks[-1].content += "\n\n" + "\n\n".join(current_content)
+                )
+                chunk_index += 1
+            if remainder and chunks:
+                # Merge small remainder with previous chunk
+                chunks[-1].content += "\n\n" + remainder
 
         return chunks
 
     def _chunk_by_paragraphs(self, document: ParsedDocument, doc_name: str) -> list[Chunk]:
         """Fallback: chunk by paragraphs when no sections detected."""
-        paragraphs = self._split_into_paragraphs(document.content)
-        chunks: list[Chunk] = []
+        texts, remainder = self._pack_paragraphs(self._split_into_paragraphs(document.content), "")
 
-        current_content: list[str] = []
-        current_length = 0
-        chunk_index = 0
+        chunks = [
+            self._create_chunk(document, index, text, doc_name, "", None)
+            for index, text in enumerate(texts)
+        ]
+        if remainder and chunks:
+            chunks[-1].content += "\n\n" + remainder
+
+        return chunks
+
+    def _pack_paragraphs(
+        self, paragraphs: list[str], header_prefix: str
+    ) -> tuple[list[str], str | None]:
+        """Pack paragraphs into chunk texts near the target size.
+
+        Pure accumulator shared by both strategies: paragraphs fill a chunk
+        up to the target, oversized paragraphs are split by sentence, and
+        consecutive chunks share `overlap_size` characters of tail context.
+        Returns the finished texts plus an under-min remainder (without the
+        header) for the caller to merge into the previous chunk.
+        """
+        texts: list[str] = []
+        current: list[str] = []
+        current_length = len(header_prefix)
+
+        def flush() -> None:
+            nonlocal current, current_length
+            texts.append(header_prefix + "\n\n".join(current))
+            current = []
+            current_length = len(header_prefix)
 
         for para in paragraphs:
             para = para.strip()
             if not para:
                 continue
-
             para_len = len(para)
 
-            # Large paragraph - split by sentences
-            if para_len > self.max_chunk_size:
-                if current_content:
-                    chunk_text = "\n\n".join(current_content)
-                    chunks.append(
-                        self._create_chunk(document, chunk_index, chunk_text, doc_name, "", None)
-                    )
-                    chunk_index += 1
-                    current_content = []
-                    current_length = 0
-
-                sentence_chunks = self._split_by_sentences(para, "")
-                for sent_chunk in sentence_chunks:
+            # A paragraph that alone exceeds max: flush, then sentence-split.
+            if para_len > self.max_chunk_size - len(header_prefix):
+                if current:
+                    flush()
+                for sent_chunk in self._split_by_sentences(para, header_prefix):
                     if len(sent_chunk.strip()) >= self.min_chunk_size:
-                        chunks.append(
-                            self._create_chunk(
-                                document, chunk_index, sent_chunk, doc_name, "", None
-                            )
-                        )
-                        chunk_index += 1
+                        texts.append(sent_chunk)
                 continue
 
-            # Check if exceeds target
+            # Past the target with enough content: emit and carry overlap.
             if current_length + para_len + 2 > self.target_chunk_size:
-                if current_content and current_length >= self.min_chunk_size:
-                    chunk_text = "\n\n".join(current_content)
-                    chunks.append(
-                        self._create_chunk(document, chunk_index, chunk_text, doc_name, "", None)
-                    )
-                    chunk_index += 1
-
-                    overlap_content = self._get_overlap_content(current_content)
-                    current_content = overlap_content + [para]
-                    current_length = sum(len(c) + 2 for c in current_content)
+                if current and current_length >= self.min_chunk_size:
+                    texts.append(header_prefix + "\n\n".join(current))
+                    current = self._get_overlap_content(current) + [para]
+                    current_length = len(header_prefix) + sum(len(c) + 2 for c in current)
                 else:
-                    current_content.append(para)
+                    current.append(para)
                     current_length += para_len + 2
             else:
-                current_content.append(para)
+                current.append(para)
                 current_length += para_len + 2
 
-        # Flush remaining
-        if current_content:
-            chunk_text = "\n\n".join(current_content)
-            if len(chunk_text) >= self.min_chunk_size:
-                chunks.append(
-                    self._create_chunk(document, chunk_index, chunk_text, doc_name, "", None)
-                )
-            elif chunks:
-                chunks[-1].content += "\n\n" + chunk_text
-
-        return chunks
+        if not current:
+            return texts, None
+        tail = header_prefix + "\n\n".join(current)
+        if len(tail) >= self.min_chunk_size:
+            texts.append(tail)
+            return texts, None
+        return texts, "\n\n".join(current)
 
     def _split_into_paragraphs(self, text: str) -> list[str]:
         """Split text into semantic paragraphs, preserving special blocks."""
