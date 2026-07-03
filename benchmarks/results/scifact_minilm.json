@@ -1,9 +1,11 @@
 {
   "dataset": "scifact",
   "split": "test",
+  "dataset_revision": "b3b5335604bf5ee3c4447671af975ea25143d4f5",
   "num_queries": 300,
   "corpus_size": 5183,
   "depth": 50,
+  "rrf_k": 60,
   "embedding_model": "all-MiniLM-L6-v2",
   "reranker": false,
   "reference_system": "+ Corrective PRF",
@@ -63,7 +65,9 @@
         }
       },
       "latency_ms_per_query": 6.98846083333289,
-      "p_vs_final": 0.21197880211978803
+      "p_vs_final": 0.21197880211978803,
+      "delta_vs_bm25": null,
+      "p_vs_bm25": null
     },
     "Dense": {
       "means": {
@@ -119,7 +123,13 @@
         }
       },
       "latency_ms_per_query": 5.717054026657327,
-      "p_vs_final": 0.010698930106989302
+      "p_vs_final": 0.010698930106989302,
+      "delta_vs_bm25": {
+        "mean": -0.018396887571128513,
+        "lo": -0.056167816206411536,
+        "hi": 0.019609285928644134
+      },
+      "p_vs_bm25": 0.35306469353064696
     },
     "Hybrid (RRF)": {
       "means": {
@@ -175,7 +185,13 @@
         }
       },
       "latency_ms_per_query": 14.368651666688189,
-      "p_vs_final": 0.24197580241975802
+      "p_vs_final": 0.24197580241975802,
+      "delta_vs_bm25": {
+        "mean": 0.024650247496114695,
+        "lo": 0.0007782127844558192,
+        "hi": 0.048501979174032095
+      },
+      "p_vs_bm25": 0.049095090490950906
     },
     "+ Adaptive weights": {
       "means": {
@@ -231,7 +247,13 @@
         }
       },
       "latency_ms_per_query": 14.3379418066858,
-      "p_vs_final": 0.0882911708829117
+      "p_vs_final": 0.0882911708829117,
+      "delta_vs_bm25": {
+        "mean": 0.026308990979519144,
+        "lo": 0.0037804713105070455,
+        "hi": 0.04912530013740027
+      },
+      "p_vs_bm25": 0.026197380261973803
     },
     "+ Corrective PRF": {
       "means": {
@@ -287,7 +309,13 @@
         }
       },
       "latency_ms_per_query": 25.828319026671426,
-      "p_vs_final": null
+      "p_vs_final": null,
+      "delta_vs_bm25": {
+        "mean": 0.01627060959239959,
+        "lo": -0.009063342375371562,
+        "hi": 0.04161224956086071
+      },
+      "p_vs_bm25": 0.21197880211978803
     }
   },
   "per_query_ndcg": {

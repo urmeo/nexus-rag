@@ -1,9 +1,11 @@
 {
   "dataset": "scifact",
   "split": "test",
+  "dataset_revision": "b3b5335604bf5ee3c4447671af975ea25143d4f5",
   "num_queries": 300,
   "corpus_size": 5183,
   "depth": 50,
+  "rrf_k": 60,
   "embedding_model": "BAAI/bge-small-en-v1.5",
   "reranker": false,
   "reference_system": "+ Corrective PRF",
@@ -63,7 +65,9 @@
         }
       },
       "latency_ms_per_query": 6.711890136648435,
-      "p_vs_final": 0.0013998600139986002
+      "p_vs_final": 0.0013998600139986002,
+      "delta_vs_bm25": null,
+      "p_vs_bm25": null
     },
     "Dense": {
       "means": {
@@ -119,7 +123,13 @@
         }
       },
       "latency_ms_per_query": 11.015283333302554,
-      "p_vs_final": 0.7282271772822718
+      "p_vs_final": 0.7282271772822718,
+      "delta_vs_bm25": {
+        "mean": 0.041392992860873105,
+        "lo": 0.004696341040343689,
+        "hi": 0.07839784346951965
+      },
+      "p_vs_bm25": 0.031796820317968204
     },
     "Hybrid (RRF)": {
       "means": {
@@ -175,7 +185,13 @@
         }
       },
       "latency_ms_per_query": 20.573865833333304,
-      "p_vs_final": 0.922107789221078
+      "p_vs_final": 0.922107789221078,
+      "delta_vs_bm25": {
+        "mean": 0.03735702390606487,
+        "lo": 0.014105188805217703,
+        "hi": 0.061222937257264985
+      },
+      "p_vs_bm25": 0.0020997900209979003
     },
     "+ Adaptive weights": {
       "means": {
@@ -231,7 +247,13 @@
         }
       },
       "latency_ms_per_query": 19.885583886692377,
-      "p_vs_final": 1.0
+      "p_vs_final": 1.0,
+      "delta_vs_bm25": {
+        "mean": 0.03681921725197956,
+        "lo": 0.014536344751188965,
+        "hi": 0.05961625610392743
+      },
+      "p_vs_bm25": 0.0013998600139986002
     },
     "+ Corrective PRF": {
       "means": {
@@ -287,7 +309,13 @@
         }
       },
       "latency_ms_per_query": 33.67728083331409,
-      "p_vs_final": null
+      "p_vs_final": null,
+      "delta_vs_bm25": {
+        "mean": 0.03681921725197956,
+        "lo": 0.014536344751188965,
+        "hi": 0.05961625610392743
+      },
+      "p_vs_bm25": 0.0013998600139986002
     }
   },
   "per_query_ndcg": {
