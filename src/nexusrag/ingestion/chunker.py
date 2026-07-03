@@ -29,10 +29,6 @@ class Chunk:
     context_after: str = ""
 
     @property
-    def token_estimate(self) -> int:
-        return int(len(self.content.split()) * 1.3)
-
-    @property
     def full_context(self) -> str:
         parts = []
         if self.context_before:
@@ -41,17 +37,6 @@ class Chunk:
         if self.context_after:
             parts.append(f"{self.context_after}[...]")
         return " ".join(parts)
-
-    @property
-    def header(self) -> str:
-        parts = []
-        if self.document_name:
-            parts.append(self.document_name)
-        if self.section_title:
-            parts.append(f"Section: {self.section_title}")
-        if self.page_number:
-            parts.append(f"Page {self.page_number}")
-        return " | ".join(parts) if parts else ""
 
 
 class HierarchicalChunker:
@@ -111,56 +96,40 @@ class HierarchicalChunker:
 
             section_title = section.title or ""
             header_prefix = f"[{section_title}]\n\n" if section_title else ""
-            texts, remainder = self._pack_paragraphs(
+            for text in self._pack_paragraphs(
                 self._split_into_paragraphs(section_text), header_prefix
-            )
-
-            for text in texts:
+            ):
                 chunks.append(
                     self._create_chunk(
                         document, chunk_index, text, doc_name, section_title, section.page_number
                     )
                 )
                 chunk_index += 1
-            if remainder and chunks:
-                # Merge small remainder with previous chunk
-                chunks[-1].content += "\n\n" + remainder
 
         return chunks
 
     def _chunk_by_paragraphs(self, document: ParsedDocument, doc_name: str) -> list[Chunk]:
         """Fallback: chunk by paragraphs when no sections detected."""
-        texts, remainder = self._pack_paragraphs(self._split_into_paragraphs(document.content), "")
-
-        chunks = [
+        texts = self._pack_paragraphs(self._split_into_paragraphs(document.content), "")
+        return [
             self._create_chunk(document, index, text, doc_name, "", None)
             for index, text in enumerate(texts)
         ]
-        if remainder and chunks:
-            chunks[-1].content += "\n\n" + remainder
 
-        return chunks
-
-    def _pack_paragraphs(
-        self, paragraphs: list[str], header_prefix: str
-    ) -> tuple[list[str], str | None]:
+    def _pack_paragraphs(self, paragraphs: list[str], header_prefix: str) -> list[str]:
         """Pack paragraphs into chunk texts near the target size.
 
-        Pure accumulator shared by both strategies: paragraphs fill a chunk
-        up to the target, oversized paragraphs are split by sentence, and
-        consecutive chunks share `overlap_size` characters of tail context.
-        Returns the finished texts plus an under-min remainder (without the
-        header) for the caller to merge into the previous chunk.
+        Pure accumulator shared by both strategies: paragraphs fill a chunk up
+        to the target, oversized paragraphs are split by sentence, and
+        consecutive chunks share ``overlap_size`` characters of tail context. A
+        trailing chunk below ``min_chunk_size`` is merged into the previous
+        chunk of THIS batch (same section) so citation metadata stays correct;
+        if there is nothing to merge into, it is emitted on its own rather than
+        dropped, so a short document is never lost.
         """
         texts: list[str] = []
         current: list[str] = []
         current_length = len(header_prefix)
-
-        def flush() -> None:
-            nonlocal current, current_length
-            texts.append(header_prefix + "\n\n".join(current))
-            current = []
-            current_length = len(header_prefix)
 
         for para in paragraphs:
             para = para.strip()
@@ -171,7 +140,8 @@ class HierarchicalChunker:
             # A paragraph that alone exceeds max: flush, then sentence-split.
             if para_len > self.max_chunk_size - len(header_prefix):
                 if current:
-                    flush()
+                    texts.append(header_prefix + "\n\n".join(current))
+                    current, current_length = [], len(header_prefix)
                 for sent_chunk in self._split_by_sentences(para, header_prefix):
                     if len(sent_chunk.strip()) >= self.min_chunk_size:
                         texts.append(sent_chunk)
@@ -191,12 +161,14 @@ class HierarchicalChunker:
                 current_length += para_len + 2
 
         if not current:
-            return texts, None
+            return texts
         tail = header_prefix + "\n\n".join(current)
-        if len(tail) >= self.min_chunk_size:
+        if len(tail) >= self.min_chunk_size or not texts:
             texts.append(tail)
-            return texts, None
-        return texts, "\n\n".join(current)
+        else:
+            # Merge the short tail into the previous chunk of this same section.
+            texts[-1] += "\n\n" + "\n\n".join(current)
+        return texts
 
     def _split_into_paragraphs(self, text: str) -> list[str]:
         """Split text into semantic paragraphs, preserving special blocks."""
@@ -205,9 +177,20 @@ class HierarchicalChunker:
         return [p.strip() for p in paragraphs if p.strip()]
 
     def _split_by_sentences(self, text: str, prefix: str) -> list[str]:
-        """Split text into sentence-based chunks, never breaking mid-sentence."""
-        # Sentence boundary pattern
-        sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", text)
+        """Split text into sentence-based chunks, never breaking mid-sentence.
+
+        A single sentence with no usable boundary that still exceeds the size
+        budget is hard-wrapped on whitespace, so no emitted chunk can exceed
+        ``max_chunk_size``.
+        """
+        budget = max(1, self.max_chunk_size - len(prefix))
+        sentences: list[str] = []
+        for raw in re.split(r"(?<=[.!?])\s+(?=[A-Z])", text):
+            raw = raw.strip()
+            if not raw:
+                continue
+            sentences.extend([raw] if len(raw) <= budget else self._wrap_on_whitespace(raw, budget))
+
         chunks = []
         current = prefix
 
@@ -230,6 +213,21 @@ class HierarchicalChunker:
             chunks.append(current.strip())
 
         return chunks
+
+    @staticmethod
+    def _wrap_on_whitespace(text: str, width: int) -> list[str]:
+        """Wrap text into <=width windows, breaking on spaces where possible."""
+        windows: list[str] = []
+        current = ""
+        for word in text.split():
+            if current and len(current) + 1 + len(word) > width:
+                windows.append(current)
+                current = word
+            else:
+                current = f"{current} {word}" if current else word
+        if current:
+            windows.append(current)
+        return windows
 
     def _get_overlap_content(self, content: list[str]) -> list[str]:
         """Get content for overlap based on character count."""
@@ -427,7 +425,7 @@ class FixedSizeChunker:
         return chunks
 
 
-# Backward compatibility alias
+# Pipeline-facing name for the hierarchical chunker.
 SemanticChunker = HierarchicalChunker
 
 

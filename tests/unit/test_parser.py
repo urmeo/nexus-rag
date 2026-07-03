@@ -179,3 +179,25 @@ class TestDuplicateNormalization:
         doc.write_text("Alpha beta. Gamma delta. Epsilon.")
 
         assert parser.parse(doc).id != original_id
+
+
+class TestPreamblePreserved:
+    def test_markdown_preamble_before_first_heading_kept(self, temp_dir):
+        md = temp_dir / "doc.md"
+        md.write_text("Critical preamble sentence.\n\n# Heading One\n\nBody under heading.\n")
+        doc = DocumentParser().parse(md)
+        assert "critical preamble" in doc.content.lower()
+        assert any("critical preamble" in s.content.lower() for s in doc.sections)
+
+    def test_docx_preamble_before_first_heading_kept(self, temp_dir):
+        from docx import Document as DocxDocument
+
+        d = DocxDocument()
+        d.add_paragraph("Critical preamble sentence.")
+        d.add_heading("Heading One", level=1)
+        d.add_paragraph("Body under heading.")
+        path = temp_dir / "doc.docx"
+        d.save(path)
+
+        doc = DocumentParser().parse(path)
+        assert any("critical preamble" in s.content.lower() for s in doc.sections)

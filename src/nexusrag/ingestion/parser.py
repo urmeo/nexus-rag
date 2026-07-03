@@ -129,6 +129,7 @@ class DocumentParser:
         doc = DocxDocument(str(path))
         sections: list[Section] = []
         current_section: Section | None = None
+        preamble: list[str] = []
         full_text_parts: list[str] = []
 
         for para in doc.paragraphs:
@@ -140,15 +141,23 @@ class DocumentParser:
 
             # Detect headings by style
             if para.style and para.style.name.startswith("Heading"):
+                if current_section is None and preamble:
+                    sections.append(Section(title="", content="\n".join(preamble), level=0))
+                    preamble = []
                 level = self._get_heading_level(para.style.name)
                 if current_section:
                     sections.append(current_section)
                 current_section = Section(title=text, content="", level=level)
             elif current_section:
                 current_section.content += text + "\n"
+            else:
+                # Body before the first heading — keep it, do not drop it.
+                preamble.append(text)
 
         if current_section:
             sections.append(current_section)
+        elif preamble:
+            sections.append(Section(title="", content="\n".join(preamble), level=0))
 
         full_text = "\n\n".join(full_text_parts)
 
@@ -167,10 +176,14 @@ class DocumentParser:
         content = path.read_text(encoding="utf-8")
         sections: list[Section] = []
         current_section: Section | None = None
+        preamble: list[str] = []
 
         for line in content.split("\n"):
             header_match = re.match(r"^(#{1,6})\s+(.+)$", line)
             if header_match:
+                if current_section is None and "".join(preamble).strip():
+                    sections.append(Section(title="", content="\n".join(preamble).strip(), level=0))
+                    preamble = []
                 if current_section:
                     sections.append(current_section)
                 level = len(header_match.group(1))
@@ -178,9 +191,14 @@ class DocumentParser:
                 current_section = Section(title=title, content="", level=level)
             elif current_section:
                 current_section.content += line + "\n"
+            else:
+                # Body before the first heading — keep it, do not drop it.
+                preamble.append(line)
 
         if current_section:
             sections.append(current_section)
+        elif "".join(preamble).strip():
+            sections.append(Section(title="", content="\n".join(preamble).strip(), level=0))
 
         if not sections and content.strip():
             sections = [Section(title="Content", content=content, level=0)]
