@@ -49,6 +49,16 @@ pip install -e ".[eval]"
 make run            # web UI at http://localhost:8000 (needs a local Ollama for generation)
 ```
 
+Use it as a library — the public API is `NexusRAG` plus `Settings`/`get_settings` (re-exported from the top-level package):
+
+```python
+from nexusrag import NexusRAG
+
+rag = NexusRAG()
+rag.ingest("paper.pdf")
+answer = rag.query("What did the paper find?")   # answer.answer, answer.sources, answer.confidence
+```
+
 Reproduce the benchmark on CPU. Each command downloads its datasets and small models from Hugging Face on first run, then caches them:
 
 ```bash
