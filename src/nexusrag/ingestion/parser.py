@@ -11,6 +11,10 @@ from docx import Document as DocxDocument
 from pypdf import PdfReader
 
 
+class DocumentParseError(ValueError):
+    """A document cannot be parsed for a reason the user can act on."""
+
+
 @dataclass
 class Section:
     """A logical section within a document."""
@@ -92,6 +96,11 @@ class DocumentParser:
     def _parse_pdf(self, path: Path) -> tuple[str, list[Section]]:
         """Extract text and sections from PDF."""
         reader = PdfReader(path)
+        if reader.is_encrypted:
+            raise DocumentParseError(
+                "PDF is password-protected; remove the password and upload again"
+            )
+
         sections: list[Section] = []
         full_text_parts: list[str] = []
 
@@ -103,6 +112,11 @@ class DocumentParser:
                 sections.extend(page_sections)
 
         full_text = "\n\n".join(full_text_parts)
+        if not full_text.strip() and self._has_images(reader):
+            raise DocumentParseError(
+                "PDF contains no extractable text but has images — it is likely "
+                "a scanned document; OCR is not supported"
+            )
 
         # If no sections found, treat entire content as one section
         if not sections and full_text.strip():
@@ -206,6 +220,14 @@ class DocumentParser:
             sections.append(current_section)
 
         return sections
+
+    @staticmethod
+    def _has_images(reader: PdfReader) -> bool:
+        """True when any page carries an image (best effort)."""
+        try:
+            return any(page.images for page in reader.pages)
+        except Exception:
+            return False
 
     def _get_heading_level(self, style_name: str) -> int:
         """Extract heading level from DOCX style name."""

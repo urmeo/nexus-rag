@@ -2,6 +2,7 @@
 
 import contextlib
 import json
+import logging
 import os
 import re
 import tempfile
@@ -13,6 +14,8 @@ from typing import Any
 
 from nexusrag.ingestion import ParsedDocument, Section
 from nexusrag.utils.filenames import resolve_display_name
+
+logger = logging.getLogger(__name__)
 
 # Safe filename pattern - only alphanumeric and limited special chars
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
@@ -53,17 +56,62 @@ class DocumentStore:
         return self._index
 
     def _load_index(self) -> dict[str, dict[str, Any]]:
-        """Load index from disk."""
+        """Load index from disk, reconciling it against the doc files.
+
+        The index and per-doc files are written as two separate atomic
+        renames, so a crash between them can leave either a doc file with no
+        index entry (invisible) or an index entry with no file (a phantom
+        that blocks re-ingestion). Both are repaired here.
+        """
+        index: dict[str, dict[str, Any]] = {}
         if self._index_path.exists():
-            data: dict[str, dict[str, Any]] = json.loads(
-                self._index_path.read_text(encoding="utf-8")
+            index = json.loads(self._index_path.read_text(encoding="utf-8"))
+
+        on_disk = {p.stem for p in self.path.glob("*.json") if p != self._index_path}
+        dangling = set(index) - on_disk
+        orphaned = on_disk - set(index)
+
+        for doc_id in dangling:
+            del index[doc_id]
+        for doc_id in orphaned:
+            entry = self._index_entry_from_file(doc_id)
+            if entry is not None:
+                index[doc_id] = entry
+
+        if dangling or orphaned:
+            logger.warning(
+                "Reconciled document index: dropped %d dangling entr(ies), "
+                "recovered %d orphaned doc file(s)",
+                len(dangling),
+                len(orphaned),
             )
-            return data
-        return {}
+            self._write_index(index)
+        return index
+
+    def _index_entry_from_file(self, doc_id: str) -> dict[str, Any] | None:
+        """Rebuild an index entry from a doc file (crash recovery)."""
+        try:
+            data = json.loads((self.path / f"{doc_id}.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        metadata = data.get("metadata", {})
+        name = resolve_display_name(metadata, fallback="unknown")
+        return {
+            "filename": name,
+            "original_filename": name,
+            "display_name": name,
+            "word_count": len(data.get("content", "").split()),
+            "section_count": len(data.get("sections", [])),
+            "uploaded_at": datetime.now(UTC).isoformat(),
+            "file_type": metadata.get("file_type", "unknown"),
+        }
 
     def _save_index(self) -> None:
+        self._write_index(self.index)
+
+    def _write_index(self, index: dict[str, dict[str, Any]]) -> None:
         """Persist index to disk atomically via write-to-temp-then-rename."""
-        data = json.dumps(self.index, indent=2, ensure_ascii=False)
+        data = json.dumps(index, indent=2, ensure_ascii=False)
         fd, tmp_path = tempfile.mkstemp(dir=self.path, suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -156,9 +204,11 @@ class DocumentStore:
         if not doc_path.exists():
             return False
 
-        doc_path.unlink()
+        # Index first: a crash after this leaves only a harmless orphan file
+        # (swept on next load) instead of a phantom entry blocking re-ingest.
         self.index.pop(doc_id, None)
         self._save_index()
+        doc_path.unlink()
         return True
 
     def count(self) -> int:

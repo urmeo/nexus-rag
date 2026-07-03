@@ -130,7 +130,9 @@ class VectorStore:
                     document_id=row["document_id"],
                     metadata=json.loads(row["metadata"]),
                 ),
-                score=1.0 - row["_distance"],  # cosine similarity in [-1, 1]
+                # Cosine distance spans [0, 2]; clamp so downstream thresholds
+                # and confidence math always see a [0, 1] similarity.
+                score=max(0.0, 1.0 - row["_distance"]),
             )
             for row in results
         ]

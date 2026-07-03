@@ -19,7 +19,9 @@ class LLMSettings(BaseSettings):
     )
     model: str = Field(default="llama3.2:3b", validation_alias="LLM_MODEL")
     temperature: float = 0.1
-    max_tokens: int = 256
+    # Upper bound on generated tokens; the synthesizer scales its budget with
+    # source count up to this cap.
+    max_tokens: int = Field(default=768, validation_alias="LLM_MAX_TOKENS")
     timeout: int = 60
 
 

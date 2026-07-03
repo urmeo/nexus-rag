@@ -16,6 +16,7 @@ from nexusrag.config import Settings, get_settings
 from nexusrag.generation import LLMClient, Orchestrator, RAGResponse, ReasoningStep
 from nexusrag.ingestion import (
     Chunk,
+    DocumentParseError,
     DocumentParser,
     Embedder,
     ParsedDocument,
@@ -63,6 +64,9 @@ class NexusRAG:
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self._initialized = False
+        # Serializes all index/store mutations; concurrent API threads
+        # otherwise interleave BM25 rebuilds and silently drop documents.
+        self._write_lock = threading.RLock()
 
         # Lazy-loaded components
         self._parser: DocumentParser | None = None
@@ -122,8 +126,10 @@ class NexusRAG:
     @property
     def bm25(self) -> BM25Retriever:
         if self._bm25 is None:
-            self._bm25 = BM25Retriever()
-            self._rebuild_bm25_index()
+            with self._write_lock:
+                if self._bm25 is None:
+                    self._bm25 = BM25Retriever()
+                    self._rebuild_bm25_index()
         return self._bm25
 
     @property
@@ -165,6 +171,7 @@ class NexusRAG:
                 top_k=self.settings.retrieval.top_k,
                 document_store=self.document_store,
                 grounding_verifier=grounding_verifier,
+                max_tokens=self.settings.llm.max_tokens,
             )
         return self._orchestrator
 
@@ -172,19 +179,20 @@ class NexusRAG:
         self, document: ParsedDocument, chunks: list[Chunk], embeddings: NDArray[np.float32]
     ) -> None:
         """Write document + chunks to all stores; roll back on partial failure."""
-        self.document_store.add(document)
-        try:
-            self.vector_store.add(chunks, embeddings)
-            self.bm25.add_incremental(chunks)
-            self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
-        except Exception:
-            with contextlib.suppress(Exception):
-                self.bm25.remove({c.id for c in chunks})
-            with contextlib.suppress(Exception):
-                self.vector_store.delete_by_document(document.id)
-            with contextlib.suppress(Exception):
-                self.document_store.delete(document.id)
-            raise
+        with self._write_lock:
+            self.document_store.add(document)
+            try:
+                self.vector_store.add(chunks, embeddings)
+                self.bm25.add_incremental(chunks)
+                self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
+            except Exception:
+                with contextlib.suppress(Exception):
+                    self.bm25.remove({c.id for c in chunks})
+                with contextlib.suppress(Exception):
+                    self.vector_store.delete_by_document(document.id)
+                with contextlib.suppress(Exception):
+                    self.document_store.delete(document.id)
+                raise
 
     def ingest(self, file_path: str | Path) -> IngestResult:
         path = Path(file_path)
@@ -227,6 +235,15 @@ class NexusRAG:
                 success=True,
             )
 
+        except DocumentParseError as e:
+            return IngestResult(
+                document_id="",
+                filename=path.name,
+                chunk_count=0,
+                word_count=0,
+                success=False,
+                error=str(e),
+            )
         except Exception as e:
             logger.exception(f"Failed to ingest file: {path.name}")
             return IngestResult(
@@ -282,6 +299,15 @@ class NexusRAG:
                 success=True,
             )
 
+        except DocumentParseError as e:
+            return IngestResult(
+                document_id="",
+                filename=filename,
+                chunk_count=0,
+                word_count=0,
+                success=False,
+                error=str(e),
+            )
         except Exception as e:
             logger.exception(f"Failed to ingest bytes: {filename}")
             return IngestResult(
@@ -294,19 +320,35 @@ class NexusRAG:
             )
 
     def ingest_directory(self, dir_path: str | Path, recursive: bool = False) -> list[IngestResult]:
+        """Ingest every supported file; unsupported ones appear as failed results."""
         path = Path(dir_path)
         if not path.is_dir():
             raise ValueError(f"Not a directory: {path}")
 
-        results: list[IngestResult] = []
         pattern = "**/*" if recursive else "*"
+        results: list[IngestResult] = []
+        skipped = 0
 
-        for ext in self.parser.SUPPORTED_EXTENSIONS:
-            for file_path in path.glob(f"{pattern}{ext}"):
-                if file_path.is_file():
-                    result = self.ingest(file_path)
-                    results.append(result)
+        for file_path in sorted(path.glob(pattern)):
+            if not file_path.is_file() or file_path.name.startswith("."):
+                continue
+            if file_path.suffix.lower() in self.parser.SUPPORTED_EXTENSIONS:
+                results.append(self.ingest(file_path))
+            else:
+                skipped += 1
+                results.append(
+                    IngestResult(
+                        document_id="",
+                        filename=file_path.name,
+                        chunk_count=0,
+                        word_count=0,
+                        success=False,
+                        error=f"Unsupported file type: {file_path.suffix or 'no extension'}",
+                    )
+                )
 
+        if skipped:
+            logger.warning("Skipped %d unsupported file(s) in %s", skipped, path)
         return results
 
     def query(self, question: str) -> RAGResponse:
@@ -330,27 +372,29 @@ class NexusRAG:
 
     def delete_document(self, document_id: str) -> bool:
         """Remove a document and its chunks."""
-        if not self.document_store.exists(document_id):
-            return False
+        with self._write_lock:
+            if not self.document_store.exists(document_id):
+                return False
 
-        # Get chunk IDs before deleting from vector store
-        doc_chunks = self.vector_store.get_chunks_by_document(document_id)
-        chunk_ids = {c.id for c in doc_chunks}
+            # Get chunk IDs before deleting from vector store
+            doc_chunks = self.vector_store.get_chunks_by_document(document_id)
+            chunk_ids = {c.id for c in doc_chunks}
 
-        self.vector_store.delete_by_document(document_id)
-        self.document_store.delete(document_id)
+            self.vector_store.delete_by_document(document_id)
+            self.document_store.delete(document_id)
 
-        # Incrementally remove from BM25 instead of full rebuild
-        if chunk_ids and self._bm25 is not None:
-            self._bm25.remove(chunk_ids)
+            # Incrementally remove from BM25 instead of full rebuild
+            if chunk_ids and self._bm25 is not None:
+                self._bm25.remove(chunk_ids)
 
-        return True
+            return True
 
     def clear_all(self) -> None:
         """Remove all documents and reset the system."""
-        self.vector_store.clear()
-        self.document_store.clear()
-        self.bm25.clear()
+        with self._write_lock:
+            self.vector_store.clear()
+            self.document_store.clear()
+            self.bm25.clear()
 
     def get_stats(self) -> SystemStats:
         """Get system statistics."""
@@ -375,16 +419,17 @@ class NexusRAG:
 
     def _rebuild_bm25_index(self) -> None:
         """Rebuild BM25 index from vector store."""
-        if self._bm25 is None:
-            self._bm25 = BM25Retriever()
+        with self._write_lock:
+            if self._bm25 is None:
+                self._bm25 = BM25Retriever()
 
-        # Get all chunks from vector store
-        chunks = self.vector_store.get_all_chunks()
+            # Get all chunks from vector store
+            chunks = self.vector_store.get_all_chunks()
 
-        # Rebuild BM25 index with all chunks
-        self._bm25.clear()
-        if chunks:
-            self._bm25.add(chunks)
+            # Rebuild BM25 index with all chunks
+            self._bm25.clear()
+            if chunks:
+                self._bm25.add(chunks)
 
     def unload_models(self) -> None:
         """

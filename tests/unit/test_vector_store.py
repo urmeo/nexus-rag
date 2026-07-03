@@ -48,3 +48,15 @@ def test_search_ranks_by_similarity(temp_dir) -> None:
 
     assert ranked[0].chunk.id == "near"
     assert ranked[0].score > ranked[1].score
+
+
+def test_search_score_clamped_to_unit_interval(temp_dir) -> None:
+    # An opposite-direction vector has cosine distance 2 (similarity -1);
+    # thresholds like the corrective tau assume [0, 1], so it clamps to 0.
+    store = _store(temp_dir)
+    chunks = [Chunk(id="opp", content="opposite", document_id="opp")]
+    store.add(chunks, np.array([[-1, 0, 0, 0]], dtype=np.float32))
+
+    results = store.search(np.array([1, 0, 0, 0], np.float32), top_k=1)
+
+    assert results[0].score == 0.0

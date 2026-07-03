@@ -312,10 +312,45 @@ class TestMultiFileIngestion:
 
         results = nexusrag_instance.ingest_directory(test_dir)
 
-        # Only .txt file should be ingested
-        assert len(results) == 1
-        assert results[0].success is True
-        assert results[0].filename == "valid.txt"
+        # Both files are reported: one ingested, one explicitly skipped
+        assert len(results) == 2
+        by_name = {r.filename: r for r in results}
+        assert by_name["valid.txt"].success is True
+        assert by_name["unsupported.xyz"].success is False
+        assert "Unsupported file type" in (by_name["unsupported.xyz"].error or "")
+
+
+class TestConcurrentWrites:
+    def test_parallel_ingest_keeps_indexes_consistent(
+        self, nexusrag_instance: NexusRAG, temp_data_dir: Path
+    ):
+        # Without the pipeline write lock, simultaneous ingests interleave
+        # BM25 read-rebuild-swap and silently drop documents (lost update).
+        import threading
+
+        files = []
+        for i in range(4):
+            p = temp_data_dir / f"doc_{i}.txt"
+            p.write_text(f"Document number {i}.\n" + f"Unique sentence {i} repeated often.\n" * 30)
+            files.append(p)
+
+        barrier = threading.Barrier(len(files))
+        results: list[IngestResult] = []
+
+        def worker(fp: Path) -> None:
+            barrier.wait()
+            results.append(nexusrag_instance.ingest(fp))
+
+        threads = [threading.Thread(target=worker, args=(f,)) for f in files]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert all(r.success for r in results)
+        total_chunks = sum(r.chunk_count for r in results)
+        assert nexusrag_instance.vector_store.count() == total_chunks
+        assert nexusrag_instance.bm25.count() == total_chunks
 
 
 class TestDuplicateDetection:

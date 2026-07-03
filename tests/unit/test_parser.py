@@ -2,7 +2,7 @@
 
 import pytest
 
-from nexusrag.ingestion import DocumentParser, ParsedDocument
+from nexusrag.ingestion import DocumentParseError, DocumentParser, ParsedDocument
 
 
 class TestDocumentParser:
@@ -123,3 +123,37 @@ class TestDocumentParser:
         # Should not have excessive whitespace
         assert "   " not in doc.content
         assert "\n\n\n" not in doc.content
+
+
+class TestPdfEdgeCases:
+    def test_encrypted_pdf_actionable_error(self, temp_dir):
+        from pypdf import PdfWriter
+
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=200)
+        writer.encrypt("secret")
+        pdf_path = temp_dir / "locked.pdf"
+        with open(pdf_path, "wb") as f:
+            writer.write(f)
+
+        with pytest.raises(DocumentParseError, match="password-protected"):
+            DocumentParser().parse(pdf_path)
+
+    def test_scanned_pdf_actionable_error(self, temp_dir, monkeypatch):
+        class FakePage:
+            images = [object()]
+
+            def extract_text(self):
+                return ""
+
+        class FakeReader:
+            def __init__(self, path):
+                self.pages = [FakePage()]
+                self.is_encrypted = False
+
+        monkeypatch.setattr("nexusrag.ingestion.parser.PdfReader", FakeReader)
+        pdf_path = temp_dir / "scan.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake")
+
+        with pytest.raises(DocumentParseError, match="scanned"):
+            DocumentParser().parse(pdf_path)

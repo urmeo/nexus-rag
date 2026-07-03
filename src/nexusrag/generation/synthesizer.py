@@ -5,10 +5,10 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any
 
-from nexusrag.generation.citations import strip_citations
 from nexusrag.generation.llm import LLMClient
 from nexusrag.generation.query_analyzer import QueryType
 from nexusrag.retrieval import RetrievalResult
+from nexusrag.utils.filenames import resolve_display_name
 
 logger = logging.getLogger(__name__)
 
@@ -75,10 +75,16 @@ class Synthesizer:
         llm: LLMClient,
         max_context_length: int = 6000,
         max_sources: int = 5,
+        max_tokens: int = 768,
     ):
         self.llm = llm
         self.max_context_length = max_context_length
         self.max_sources = max_sources
+        self.max_tokens = max_tokens
+
+    def _token_budget(self, sources: list[Source]) -> int:
+        """Scale the response budget with source count, capped by config."""
+        return min(self.max_tokens, 256 + 100 * len(sources))
 
     def _get_type_hint(self, query_type: QueryType) -> str | None:
         hints = {
@@ -127,7 +133,7 @@ class Synthesizer:
                 user_prompt,
                 system=SYSTEM_PROMPT,
                 temperature=temperature,
-                max_tokens=min(768, 256 + 100 * len(sources)),
+                max_tokens=self._token_budget(sources),
             )
         except Exception:
             logger.error("LLM generation failed", exc_info=True)
@@ -137,7 +143,8 @@ class Synthesizer:
                 confidence=0.0,
             )
 
-        answer = strip_citations(answer, set(range(1, len(sources) + 1)))
+        # Out-of-range citations are left in place so AnswerVerifier can
+        # detect, report, and strip them — it is the single source of truth.
         return SynthesisResult(answer=answer.strip(), sources=sources, raw_response=answer)
 
     def synthesize_streaming(
@@ -175,7 +182,7 @@ class Synthesizer:
                 user_prompt,
                 system=SYSTEM_PROMPT,
                 temperature=0.1,
-                max_tokens=min(768, 256 + 100 * len(sources)),
+                max_tokens=self._token_budget(sources),
             )
         except Exception as e:
             logger.error(f"Streaming failed: {e}")
@@ -247,13 +254,7 @@ class Synthesizer:
             return name
 
         # Try metadata
-        metadata = chunk.metadata
-        for key in ["original_filename", "filename", "display_name", "document_name"]:
-            name = str(metadata.get(key, ""))
-            if name and not name.startswith("tmp"):
-                return name
-
-        return f"Document {fallback_index}"
+        return resolve_display_name(chunk.metadata, fallback=f"Document {fallback_index}")
 
     def _format_sources_for_llm(self, sources: list[Source]) -> str:
         """Format sources in a clear, numbered structure for the LLM."""

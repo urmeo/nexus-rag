@@ -8,10 +8,16 @@ from nexusrag.ingestion.chunker import (
     get_chunker,
 )
 from nexusrag.ingestion.embedder import Embedder
-from nexusrag.ingestion.parser import DocumentParser, ParsedDocument, Section
+from nexusrag.ingestion.parser import (
+    DocumentParseError,
+    DocumentParser,
+    ParsedDocument,
+    Section,
+)
 
 __all__ = [
     "Chunk",
+    "DocumentParseError",
     "DocumentParser",
     "Embedder",
     "FixedSizeChunker",

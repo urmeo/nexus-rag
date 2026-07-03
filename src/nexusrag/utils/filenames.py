@@ -6,13 +6,14 @@ from typing import Any
 def resolve_display_name(metadata: dict[str, Any], fallback: str = "Unknown") -> str:
     """Resolve the user-facing display name from document metadata.
 
-    Prefers original_filename, then filename, then display_name.
-    Skips names that look like temp files (start with 'tmp').
+    Prefers original_filename, then filename, then display_name, then
+    document_name. Skips names that look like temp files (start with 'tmp').
     """
     candidates = [
         metadata.get("original_filename"),
         metadata.get("filename"),
         metadata.get("display_name"),
+        metadata.get("document_name"),
     ]
 
     for name in candidates:

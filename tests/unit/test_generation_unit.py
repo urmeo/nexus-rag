@@ -101,6 +101,15 @@ class TestSynthesizerFormatting:
         assert len(out.sources) == 1
         assert out.sources[0].index == 1
 
+    def test_token_budget_capped_by_config(self) -> None:
+        five = [_result(i, f"s{i}") for i in range(1, 6)]
+        sources = Synthesizer(StubLLM("x"))._build_sources(five, {})  # type: ignore[arg-type]
+
+        # Formula wins under a generous cap: 256 + 100 * 5 = 756.
+        assert Synthesizer(StubLLM("x"), max_tokens=2048)._token_budget(sources) == 756  # type: ignore[arg-type]
+        # A tight configured cap wins over the formula.
+        assert Synthesizer(StubLLM("x"), max_tokens=300)._token_budget(sources) == 300  # type: ignore[arg-type]
+
 
 class TestOrchestratorWiring:
     def test_returns_rag_response(self) -> None:
@@ -116,8 +125,8 @@ class TestOrchestratorWiring:
         assert "[1]" in resp.answer
 
     def test_invalid_citations_handled(self) -> None:
-        # The synthesizer strips out-of-range markers before verification,
-        # so [9] never reaches the answer while [1] survives.
+        # The verifier alone detects, reports, and strips out-of-range
+        # markers, so the warning must surface on the response.
         retriever = StubRetriever([_result(1, "only source")])
         llm = StubLLM("Grounded [1] but invalid [9].")
         orch = Orchestrator(retriever, llm)  # type: ignore[arg-type]
@@ -126,6 +135,7 @@ class TestOrchestratorWiring:
 
         assert "[9]" not in resp.answer
         assert "[1]" in resp.answer
+        assert any("out-of-range" in w for w in resp.warnings)
 
     def test_grounding_verifier_sets_faithfulness(self) -> None:
         retriever = StubRetriever([_result(1, "source text")])
