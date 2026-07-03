@@ -93,7 +93,7 @@ These are the small vendored sample, not the headline table above — they exist
 
 ## Reproducibility and limitations
 
-The full ablation is CPU-only and runs in roughly 15–25 min per dataset on a modern laptop (embedding 3.6k–5.2k abstracts with BGE-small, exact search). Models cache locally on first run: BGE-small ~130 MB, cross-encoder ~90 MB, DeBERTa-NLI ~280 MB, plus `llama3.2:3b` ~2 GB via Ollama for generation — about 8 GB RAM to run the full stack. Design and component-level limitations are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The full ablation is CPU-only and runs in roughly 15–25 min per dataset on a modern laptop (embedding 3.6k–5.2k abstracts with BGE-small, exact search). Models cache locally on first run: BGE-small ~130 MB, cross-encoder ~90 MB, DeBERTa-NLI ~280 MB, plus `llama3.2:3b` ~2 GB via Ollama for generation — about 8 GB RAM to run the full stack. Design and component-level limitations are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the exact source, pinned revision, and license of every model and corpus are catalogued in [PROVENANCE.md](PROVENANCE.md).
 
 Scope is deliberately narrow: two abstract-level BEIR datasets (the 300-query SciFact set is BEIR's maximum). Broader datasets (FiQA, SciDocs), domain encoders (SPECTER2, SciNCL), additional neural baselines (SPLADE, ColBERTv2, monoT5), full-paper chunking ablations, and end-to-end answer-quality scoring (RAGAs / LLM-as-judge) are future work, not claimed here. The `frontend/` directory is an optional static UI served by FastAPI for local use; it is not needed for the benchmark or API.
 
