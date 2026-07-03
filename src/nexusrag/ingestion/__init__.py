@@ -4,7 +4,7 @@ from nexusrag.ingestion.chunker import (
     Chunk,
     FixedSizeChunker,
     HierarchicalChunker,
-    SemanticChunker,  # Alias for backward compatibility
+    SemanticChunker,  # pipeline-facing name for HierarchicalChunker
     get_chunker,
 )
 from nexusrag.ingestion.embedder import Embedder

@@ -151,28 +151,6 @@ class VectorStore:
             filter_expr=f"document_id = '{safe_doc_id}'",
         )
 
-    def get_by_ids(self, chunk_ids: list[str]) -> list[Chunk]:
-        """Retrieve chunks by their IDs."""
-        import json
-
-        if not chunk_ids:
-            return []
-
-        # Sanitize all IDs to prevent SQL injection
-        safe_ids = [_sanitize_id(cid) for cid in chunk_ids]
-        ids_str = ", ".join(f"'{cid}'" for cid in safe_ids)
-        results = self.table.search().where(f"id IN ({ids_str})").limit(len(chunk_ids)).to_list()
-
-        return [
-            Chunk(
-                id=row["id"],
-                content=row["content"],
-                document_id=row["document_id"],
-                metadata=json.loads(row["metadata"]),
-            )
-            for row in results
-        ]
-
     def delete(self, chunk_ids: list[str]) -> int:
         if not chunk_ids:
             return 0
@@ -196,14 +174,6 @@ class VectorStore:
             return int(self.table.count_rows())
         except (OSError, ValueError):
             return 0
-
-    def count_by_document(self, document_id: str) -> int:
-        """Count chunks for a specific document."""
-        safe_doc_id = _sanitize_id(document_id)
-        results = (
-            self.table.search().where(f"document_id = '{safe_doc_id}'").limit(100000).to_list()
-        )
-        return len(results)
 
     def list_documents(self) -> list[str]:
         """Get all unique document IDs."""

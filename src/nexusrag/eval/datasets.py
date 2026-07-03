@@ -114,30 +114,3 @@ def load(
         if _vendored_path(name).exists():
             return load_vendored(name)
         raise
-
-
-def write_sample(ds: IRDataset, max_queries: int = 50, distractors: int = 600) -> Path:
-    """Persist a small real subset for offline/CI use."""
-    base = _vendored_path(ds.name)
-    base.mkdir(parents=True, exist_ok=True)
-
-    qids = list(ds.queries)[:max_queries]
-    keep_docs: set[str] = set()
-    for qid in qids:
-        keep_docs |= set(ds.qrels.get(qid, {}))
-
-    extra = [d for d in ds.corpus if d not in keep_docs][:distractors]
-    keep_docs |= set(extra)
-
-    with open(base / "corpus.jsonl", "w") as f:
-        for doc_id in keep_docs:
-            d = ds.corpus[doc_id]
-            f.write(json.dumps({"_id": doc_id, "title": d["title"], "text": d["text"]}) + "\n")
-    with open(base / "queries.jsonl", "w") as f:
-        for qid in qids:
-            f.write(json.dumps({"_id": qid, "text": ds.queries[qid]}) + "\n")
-    with open(base / "qrels.jsonl", "w") as f:
-        for qid in qids:
-            for doc_id, score in ds.qrels.get(qid, {}).items():
-                f.write(json.dumps({"query-id": qid, "corpus-id": doc_id, "score": score}) + "\n")
-    return base

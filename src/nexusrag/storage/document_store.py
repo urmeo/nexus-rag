@@ -6,7 +6,6 @@ import logging
 import os
 import re
 import tempfile
-from collections.abc import Iterator
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -220,22 +219,6 @@ class DocumentStore:
         for doc_id in list(self.index.keys()):
             self.delete(doc_id)
         return count
-
-    def iter_documents(self) -> Iterator[ParsedDocument]:
-        """Iterate over all documents."""
-        for doc_id in self.list_all():
-            doc = self.get(doc_id)
-            if doc:
-                yield doc
-
-    def search_by_filename(self, filename: str) -> list[str]:
-        """Find documents by filename (partial match)."""
-        filename_lower = filename.lower()
-        return [
-            doc_id
-            for doc_id, meta in self.index.items()
-            if filename_lower in meta.get("filename", "").lower()
-        ]
 
     def get_stats(self) -> dict[str, Any]:
         """Get storage statistics."""

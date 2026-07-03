@@ -68,9 +68,6 @@ class HybridRetriever:
     def retrieve_dense_only(self, query: str, top_k: int = 10) -> list[RetrievalResult]:
         return self.dense.retrieve(query, top_k)
 
-    def retrieve_sparse_only(self, query: str, top_k: int = 10) -> list[RetrievalResult]:
-        return self.sparse.retrieve(query, top_k)
-
 
 class AdaptiveHybridRetriever(HybridRetriever):
     """Hybrid retriever that shifts fusion weight by query shape.
