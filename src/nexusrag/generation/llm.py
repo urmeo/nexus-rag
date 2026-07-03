@@ -3,23 +3,12 @@
 import json
 import time
 from collections.abc import Generator
-from dataclasses import dataclass
 
 import httpx
 
 
 class LLMError(RuntimeError):
     """Raised when the LLM backend fails after retries."""
-
-
-@dataclass
-class GenerationConfig:
-    """Configuration for text generation."""
-
-    temperature: float = 0.1
-    max_tokens: int = 2048
-    top_p: float = 0.9
-    stop: list[str] | None = None
 
 
 class LLMClient:
@@ -139,25 +128,6 @@ class LLMClient:
         except httpx.HTTPStatusError as exc:
             raise LLMError(f"LLM stream failed ({self._where()}): {exc}") from exc
 
-    def chat(
-        self,
-        messages: list[dict[str, str]],
-        temperature: float = 0.1,
-        max_tokens: int = 2048,
-    ) -> str:
-        payload: dict[str, object] = {
-            "model": self.model,
-            "messages": messages,
-            "stream": False,
-            "options": {
-                "temperature": temperature,
-                "num_predict": max_tokens,
-            },
-        }
-
-        response = self._post("/api/chat", payload)
-        return str(response.json()["message"]["content"])
-
     def is_available(self) -> bool:
         """Check if Ollama is running and model is available."""
         try:
@@ -166,7 +136,7 @@ class LLMClient:
                 return False
             models = [m["name"] for m in response.json().get("models", [])]
             return any(self.model in m for m in models)
-        except httpx.RequestError:
+        except (httpx.HTTPError, json.JSONDecodeError, KeyError, TypeError):
             return False
 
     def close(self) -> None:

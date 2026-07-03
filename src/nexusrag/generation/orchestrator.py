@@ -47,6 +47,7 @@ class Orchestrator:
         document_store: Any = None,
         grounding_verifier: GroundingVerifier | None = None,
         max_tokens: int = 768,
+        temperature: float = 0.1,
     ) -> None:
         self.retriever = retriever
         self.llm = llm
@@ -54,7 +55,7 @@ class Orchestrator:
         self.document_store = document_store
         self.grounding_verifier = grounding_verifier
         self.analyzer = QueryAnalyzer()
-        self.synthesizer = Synthesizer(llm, max_tokens=max_tokens)
+        self.synthesizer = Synthesizer(llm, max_tokens=max_tokens, temperature=temperature)
         self.verifier = AnswerVerifier()
 
     def query(self, question: str) -> RAGResponse:

@@ -836,3 +836,17 @@ class TestIngestRollback:
         assert result.success is False
         assert nexusrag_instance.document_store.count() == 0
         assert nexusrag_instance.vector_store.count() == 0
+
+
+class TestUnloadModels:
+    def test_unload_resets_lazy_handles(self, nexusrag_instance: NexusRAG):
+        # Force the lazy components to instantiate, then unload.
+        assert nexusrag_instance.embedder is not None
+        _ = nexusrag_instance.llm
+        _ = nexusrag_instance.orchestrator
+
+        nexusrag_instance.unload_models()
+
+        assert nexusrag_instance._embedder is None
+        assert nexusrag_instance._llm is None
+        assert nexusrag_instance._orchestrator is None

@@ -42,13 +42,16 @@ class Reranker:
         pairs = [(query, r.chunk.content) for r in results]
         scores = self.model.predict(pairs, batch_size=self.batch_size)
 
+        # Min-max normalize; when every score is equal (incl. a single result),
+        # map to a neutral 1.0 rather than 0.0 so the top hit is not reported
+        # as irrelevant.
         min_score, max_score = min(scores), max(scores)
-        score_range = max_score - min_score if max_score != min_score else 1.0
+        span = max_score - min_score
 
         reranked = [
             RetrievalResult(
                 chunk=r.chunk,
-                score=(s - min_score) / score_range,
+                score=(s - min_score) / span if span else 1.0,
                 source=f"{r.source}+rerank",
             )
             for r, s in zip(results, scores, strict=True)
@@ -60,7 +63,3 @@ class Reranker:
             reranked = reranked[:top_k]
 
         return reranked
-
-    def score(self, query: str, text: str) -> float:
-        """Get relevance score for a single query-text pair."""
-        return float(self.model.predict([(query, text)])[0])

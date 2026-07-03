@@ -7,22 +7,11 @@ def resolve_display_name(metadata: dict[str, Any], fallback: str = "Unknown") ->
     """Resolve the user-facing display name from document metadata.
 
     Prefers original_filename, then filename, then display_name, then
-    document_name. Skips names that look like temp files (start with 'tmp').
+    document_name. Ingestion always overwrites these with the user's real
+    filename before storage, so the stored name is authoritative.
     """
-    candidates = [
-        metadata.get("original_filename"),
-        metadata.get("filename"),
-        metadata.get("display_name"),
-        metadata.get("document_name"),
-    ]
-
-    for name in candidates:
-        if name and not str(name).startswith("tmp"):
+    for key in ("original_filename", "filename", "display_name", "document_name"):
+        name = metadata.get(key)
+        if name:
             return str(name)
-
-    # All candidates were temp names; try display_name as last resort
-    display = metadata.get("display_name")
-    if display:
-        return str(display)
-
     return fallback

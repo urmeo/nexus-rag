@@ -64,8 +64,9 @@ def evaluate(
         }
         print(f"{name:24s} nDCG@10={means['nDCG@10']:.3f}  R@10={means['R@10']:.3f}")
 
-    # significance vs full
-    ref = list(systems)[-1]
+    # significance vs the headline corrective pipeline — pinned so optional
+    # --rerank/--splade rungs (appended last) don't silently become the ref.
+    ref = "+ Corrective PRF" if "+ Corrective PRF" in systems else list(systems)[-1]
     for name in systems:
         if name == ref:
             results[name]["p_vs_final"] = None

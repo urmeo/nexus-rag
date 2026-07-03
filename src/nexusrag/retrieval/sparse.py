@@ -53,20 +53,23 @@ class BM25Retriever:
         return self.add(all_chunks)
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
-        if self._index is None:
+        # Pin one snapshot: add() rebinds self._index atomically, so a
+        # concurrent ingest cannot desync scores from chunks mid-call.
+        index = self._index
+        if index is None:
             return []
 
         tokenized_query = self.tokenize(query)
         if not tokenized_query:
             return []
 
-        scores = self._index.bm25.get_scores(tokenized_query)
+        scores = index.bm25.get_scores(tokenized_query)
         top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
         max_score = max(scores) if max(scores) > 0 else 1.0
 
         return [
             RetrievalResult(
-                chunk=self._index.chunks[i],
+                chunk=index.chunks[i],
                 score=scores[i] / max_score,
                 source="sparse",
             )

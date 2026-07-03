@@ -74,8 +74,7 @@ class QueryAnalyzer:
         return out
 
     def rewrite_vague_query(self, query: str) -> str:
-        low = query.lower().strip()
-        for vague, specific in VAGUE_REWRITES.items():
-            if low == vague or low.startswith(vague):
-                return specific
-        return query
+        # Only rewrite when the WHOLE query is the vague phrase. A prefix match
+        # would hijack specific questions like "summarize the CRISPR methods".
+        low = query.lower().strip().rstrip("?.").strip()
+        return VAGUE_REWRITES.get(low, query)

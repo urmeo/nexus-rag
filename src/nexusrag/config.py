@@ -99,7 +99,7 @@ class APISettings(BaseSettings):
     # local-first UX open; any network-exposed deployment MUST set this.
     api_key: str = Field(default="", validation_alias="NEXUSRAG_API_KEY")
 
-    # Per-client (IP) sliding-window rate limits.
+    # Per-client (IP) fixed-window rate limits.
     query_rate_per_minute: int = 60
     upload_rate_per_minute: int = 10
 

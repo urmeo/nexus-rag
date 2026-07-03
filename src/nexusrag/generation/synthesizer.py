@@ -27,16 +27,6 @@ class Source:
     document_name: str = ""
     full_content: str = ""
 
-    @property
-    def citation_key(self) -> str:
-        """Format citation reference."""
-        parts = [f"[{self.index}]"]
-        if self.document_name:
-            parts.append(self.document_name)
-        if self.section_title:
-            parts.append(self.section_title)
-        return " - ".join(parts)
-
 
 @dataclass
 class SynthesisResult:
@@ -76,11 +66,13 @@ class Synthesizer:
         max_context_length: int = 6000,
         max_sources: int = 5,
         max_tokens: int = 768,
+        temperature: float = 0.1,
     ):
         self.llm = llm
         self.max_context_length = max_context_length
         self.max_sources = max_sources
         self.max_tokens = max_tokens
+        self.temperature = temperature
 
     def _token_budget(self, sources: list[Source]) -> int:
         """Scale the response budget with source count, capped by config."""
@@ -102,7 +94,6 @@ class Synthesizer:
         self,
         query: str,
         results: list[RetrievalResult],
-        temperature: float = 0.1,
         doc_names: dict[str, str] | None = None,
         query_type: QueryType | None = None,
     ) -> SynthesisResult:
@@ -132,7 +123,7 @@ class Synthesizer:
             answer = self.llm.generate(
                 user_prompt,
                 system=SYSTEM_PROMPT,
-                temperature=temperature,
+                temperature=self.temperature,
                 max_tokens=self._token_budget(sources),
             )
         except Exception:
@@ -181,7 +172,7 @@ class Synthesizer:
             yield from self.llm.stream(
                 user_prompt,
                 system=SYSTEM_PROMPT,
-                temperature=0.1,
+                temperature=self.temperature,
                 max_tokens=self._token_budget(sources),
             )
         except Exception as e:
@@ -241,19 +232,12 @@ class Synthesizer:
         doc_names: dict[str, str],
         fallback_index: int,
     ) -> str:
-        """Get document name with multiple fallbacks."""
-        # Try doc_names mapping
+        """Resolve a display name: store mapping, then chunk, then metadata."""
         if doc_id in doc_names:
-            name = doc_names[doc_id]
-            if not name.startswith("tmp"):
-                return name
-
-        # Try chunk attributes
+            return doc_names[doc_id]
         name = getattr(chunk, "document_name", "")
-        if name and not name.startswith("tmp"):
-            return name
-
-        # Try metadata
+        if name:
+            return str(name)
         return resolve_display_name(chunk.metadata, fallback=f"Document {fallback_index}")
 
     def _format_sources_for_llm(self, sources: list[Source]) -> str:

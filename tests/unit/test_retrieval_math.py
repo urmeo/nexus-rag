@@ -100,3 +100,29 @@ def test_corrective_expands_when_weak():
     assert triggered is True
     assert len(base.calls) == 2
     assert base.calls[1] != base.calls[0]
+
+
+def _content_result(text: str) -> RetrievalResult:
+    return RetrievalResult(chunk=Chunk(id="x", content=text, document_id="d"), score=0.5)
+
+
+def test_expand_appends_frequent_non_query_terms():
+    # PRF term selection is the headline of the corrective loop; test it directly.
+    base = _FakeBase(top_score=0.2)
+    cr = CorrectiveRetriever(base, feedback_terms=2)
+    results = [
+        _content_result("apoptosis apoptosis apoptosis signaling pathway"),
+        _content_result("signaling pathway pathway"),
+    ]
+    added = cr.expand("kinase inhibits", results).split()[2:]  # after the query terms
+
+    assert added == ["apoptosis", "pathway"]  # top-2 by frequency, in order
+    assert "kinase" not in added and "inhibits" not in added  # query terms excluded
+    assert "signaling" not in added  # capped out by feedback_terms=2
+
+
+def test_expand_respects_feedback_terms_cap():
+    base = _FakeBase(top_score=0.2)
+    cr = CorrectiveRetriever(base, feedback_terms=1)
+    added = cr.expand("kinase", [_content_result("apoptosis apoptosis signaling")]).split()[1:]
+    assert added == ["apoptosis"]
