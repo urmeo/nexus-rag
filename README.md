@@ -22,7 +22,7 @@ Retrieval quality on SciFact (300 claims, 5,183 abstracts) and NFCorpus (323 que
 | Hybrid (RRF) | 0.704 | **0.352** |
 | + Corrective PRF | 0.703 | 0.346 |
 
-The single biggest lever is the embedding model: swapping the common `all-MiniLM-L6-v2` for `bge-small-en-v1.5` moves dense retrieval from *below* BM25 to clearly above it (+0.060 nDCG@10 on SciFact, paired randomization p < 0.001). Reciprocal-rank fusion then beats BM25 by **+0.037 [+0.014, +0.061]** on SciFact and **+0.040 [+0.025, +0.055]** on NFCorpus — the 95% bootstrap CI of the paired per-query difference excludes zero in both cases, so the win is real but modest. The confidence-gated corrective loop runs a single re-retrieval pass only on low-confidence queries and is roughly neutral on nDCG here. A cross-encoder reranker was also evaluated and **does not help** on these abstract-level corpora: it lowers nDCG@10 (0.702 vs 0.734) and Recall@20 (0.886 vs 0.900) at ~45× the latency — reported as-is.
+The single biggest lever is the embedding model: swapping the common `all-MiniLM-L6-v2` for `bge-small-en-v1.5` moves dense retrieval from *below* BM25 to clearly above it (+0.060 nDCG@10 on SciFact, paired randomization p < 0.001). Reciprocal-rank fusion then beats BM25 by **+0.037 [+0.014, +0.061]** on SciFact and **+0.040 [+0.025, +0.055]** on NFCorpus — the 95% bootstrap CI of the paired per-query difference excludes zero in both cases, so the win is real but modest. The confidence-gated corrective loop runs a single re-retrieval pass only on low-confidence queries and is roughly neutral on nDCG here. A cross-encoder reranker was also evaluated and **does not help** on these abstract-level corpora: it lowers nDCG@10 (0.702 vs 0.734) and Recall@20 (0.886 vs 0.900) at ~67× the latency — reported as-is.
 
 nDCG@10 uses graded relevance (the BEIR/`pytrec_eval` convention), RRF k = 60, the corrective threshold is selected on a held-out split, all bootstrap and randomization tests use seed 0, dense retrieval is exact, BEIR dataset revisions are pinned, and every number is generated from committed results in [`benchmarks/results/`](benchmarks/results). Full per-metric tables with CIs and p-values are in [paper/main.pdf](paper/main.pdf).
 
@@ -36,10 +36,10 @@ flowchart LR
     R --> G{Confident?}
     G -- yes --> S[Answer with citations]
     G -- no --> P[Expand + re-retrieve] --> S
-    S --> CC[Citation check] --> V[Grounding check]
+    S --> CC[Citation check] --> V["Grounding check (optional)"]
 ```
 
-Documents are parsed, chunked, embedded into LanceDB, and indexed for BM25. A query fuses dense and lexical results with reciprocal rank fusion; if the top dense score is weak, a pseudo-relevance-feedback pass expands the query and re-retrieves. A local model answers using only the retrieved passages, with inline citations, and an NLI model checks that each answer sentence is entailed by its sources.
+Documents are parsed, chunked, embedded into LanceDB, and indexed for BM25. A query fuses dense and lexical results with reciprocal rank fusion; if the top dense score is weak, a pseudo-relevance-feedback pass expands the query and re-retrieves. A local model answers using only the retrieved passages, with inline citations; an optional NLI grounding check (off by default) can verify that each answer sentence is entailed by its sources.
 
 ## Getting started
 
@@ -105,7 +105,7 @@ Scope is deliberately narrow: two abstract-level BEIR datasets (the 300-query Sc
 | Retrieval | sentence-transformers (BGE-small), rank-bm25, RRF (k=60), cross-encoder reranker, DeBERTa NLI, LanceDB (cosine, exact) |
 | Serving | FastAPI, Uvicorn, Ollama (`llama3.2:3b`, pinned) |
 | Evaluation | SciFact, NFCorpus (BEIR, revisions pinned), bootstrap CIs, paired randomization + delta CIs, Holm correction |
-| Quality | pytest (279 tests, 62% branch coverage), ruff, mypy (strict), GitHub Actions CI, gitleaks, pip-audit, Docker |
+| Quality | pytest (287 tests, 65% branch coverage), ruff, mypy (strict), GitHub Actions CI, gitleaks, pip-audit, Docker |
 
 ## License
 
