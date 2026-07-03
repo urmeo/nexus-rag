@@ -100,9 +100,19 @@ the instance is a process singleton.
 - Blocking work (parsing, embedding, query, stats) is offloaded with
   `asyncio.to_thread`, so the event loop is **not** blocked during ingestion or
   query. Verify in `routes.py` (`ingest_document`, `query_documents`, etc.).
-- **Scale recommendation:** for throughput, run under gunicorn with multiple uvicorn
-  workers and batch embeddings; the current single process and per-process in-memory
-  BM25 index are the main scaling limits.
+- **Concurrency limits (single-user scope):** `asyncio.to_thread` shares
+  asyncio's default executor, capped at `min(32, cpu + 4)` threads. The slowapi
+  limits are per-minute windows, not concurrency caps, so a burst beyond the
+  pool queues in-process with no 503 backpressure. A hung Ollama holds a thread
+  for up to ~3 minutes per request (three attempts at the configured 60 s
+  timeout plus backoff). Acceptable for localhost use; if exposed beyond
+  localhost, bound query/ingest with an `asyncio.Semaphore` that returns 503
+  when full. The app-level `/health` probe bypasses the executor and stays
+  responsive either way.
+- **Scaling out is not just adding workers:** the BM25 index and rate-limit
+  counters are per-process, so multiple uvicorn workers would each hold their
+  own diverging index. Scaling beyond one process requires a shared sparse
+  index and rate-limit store first.
 - Health endpoints: `/health` (app-level liveness, no pipeline init) and
   `/api/health` (reports `llm_available`, i.e. Ollama readiness, plus model and
   corpus stats).

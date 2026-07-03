@@ -40,8 +40,12 @@ NexusRAG is **local-first** and keeps your data on your machine.
 - **Authentication** — when `NEXUSRAG_API_KEY` is set, every `/api` route
   requires a matching `X-API-Key` header (constant-time comparison). Empty in
   local mode; **required for any network-exposed deployment**.
-- **Rate limiting** — per-client sliding-window limits on `/api/query` and
-  `/api/ingest` (`src/nexusrag/api/security.py`).
+- **Rate limiting** — per-IP fixed-window limits on `/api/query` and
+  `/api/ingest` (`src/nexusrag/api/security.py`). Counters live in process
+  memory: they reset on restart and are not shared across replicas, matching
+  the single-worker deployment this project ships. Behind a reverse proxy,
+  run uvicorn with `--proxy-headers` and `--forwarded-allow-ips` set to the
+  proxy address, or all clients share the proxy's IP bucket.
 - **Upload validation** — extension allowlist, content-type allowlist,
   magic-byte sniffing (PDF/DOCX), UTF-8 check for text, a max upload size, and a
   decompressed-size (zip-bomb) cap on DOCX.
