@@ -196,35 +196,65 @@ function renderDocuments() {
 
     el.emptyDocs.style.display = 'none';
 
-    // Build document list HTML
-    let html = '';
-    state.documents.forEach(doc => {
-        const ext = getFileExtension(doc.filename);
-        const uploadTime = doc.uploaded_at ? formatTime(doc.uploaded_at) : '';
-
-        html += `
-            <div class="document-item" data-id="${doc.id}">
-                <div class="document-icon ${ext}">${ext.toUpperCase()}</div>
-                <div class="document-info">
-                    <div class="document-name" title="${esc(doc.filename)}">${esc(doc.filename)}</div>
-                    <div class="document-meta">
-                        ${doc.chunk_count ? `<span>${doc.chunk_count} chunks</span>` : ''}
-                        ${uploadTime ? `<span>${uploadTime}</span>` : ''}
-                    </div>
-                </div>
-                <button class="document-delete" onclick="deleteDocument('${doc.id}')" title="Delete">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
-                    </svg>
-                </button>
-            </div>
-        `;
-    });
-
-    // Insert after empty docs element
+    // Rebuild list via DOM construction so document ids/filenames are never
+    // interpolated into markup (avoids HTML/attribute-injection sinks).
     const existingItems = el.documentList.querySelectorAll('.document-item');
     existingItems.forEach(item => item.remove());
-    el.documentList.insertAdjacentHTML('beforeend', html);
+
+    const frag = document.createDocumentFragment();
+    state.documents.forEach(doc => {
+        frag.appendChild(buildDocumentItem(doc));
+    });
+    el.documentList.appendChild(frag);
+}
+
+function buildDocumentItem(doc) {
+    const ext = getFileExtension(doc.filename);
+    const uploadTime = doc.uploaded_at ? formatTime(doc.uploaded_at) : '';
+
+    const item = document.createElement('div');
+    item.className = 'document-item';
+    item.dataset.id = doc.id != null ? String(doc.id) : '';
+
+    const icon = document.createElement('div');
+    icon.className = `document-icon ${ext}`;
+    icon.textContent = ext.toUpperCase();
+
+    const info = document.createElement('div');
+    info.className = 'document-info';
+
+    const name = document.createElement('div');
+    name.className = 'document-name';
+    name.title = doc.filename || '';
+    name.textContent = doc.filename || '';
+
+    const meta = document.createElement('div');
+    meta.className = 'document-meta';
+    if (doc.chunk_count) {
+        const chunks = document.createElement('span');
+        chunks.textContent = `${doc.chunk_count} chunks`;
+        meta.appendChild(chunks);
+    }
+    if (uploadTime) {
+        const when = document.createElement('span');
+        when.textContent = uploadTime;
+        meta.appendChild(when);
+    }
+
+    info.appendChild(name);
+    info.appendChild(meta);
+
+    const del = document.createElement('button');
+    del.className = 'document-delete';
+    del.title = 'Delete';
+    del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+        '<path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path></svg>';
+    del.addEventListener('click', () => deleteDocument(doc.id));
+
+    item.appendChild(icon);
+    item.appendChild(info);
+    item.appendChild(del);
+    return item;
 }
 
 function getFileExtension(filename) {
