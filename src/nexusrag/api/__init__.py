@@ -1,5 +1,6 @@
 """API module for FastAPI endpoints."""
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -14,8 +15,11 @@ from nexusrag.api.routes import router
 from nexusrag.api.security import limiter
 from nexusrag.config import get_settings
 
-# Frontend directory
-FRONTEND_DIR = Path(__file__).parent.parent.parent.parent / "frontend"
+# Optional static UI. Resolved from the working directory (./frontend) so it
+# works both in local dev (run from the repo root) and in the Docker image
+# (WORKDIR /app, frontend copied to /app/frontend); override with an env var
+# for a non-editable install served from elsewhere.
+FRONTEND_DIR = Path(os.environ.get("NEXUSRAG_FRONTEND_DIR") or Path.cwd() / "frontend")
 
 
 def create_app() -> FastAPI:

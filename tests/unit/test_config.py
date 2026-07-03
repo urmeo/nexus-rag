@@ -160,62 +160,25 @@ class TestConfigPrecedence:
         assert Settings().llm.model == "llama3.2:3b"  # the code default, not YAML
 
 
-class TestYAMLLoading:
-    def test_yaml_file_exists(self):
-        config_path = Path("configs/default.yaml")
-        assert config_path.exists()
+class TestYAMLDocMatchesSettings:
+    """default.yaml is a reference doc, not loaded at runtime; guard only that
+    it does not silently drift from the real Settings model."""
 
-    def test_yaml_structure(self):
-        config_path = Path("configs/default.yaml")
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
+    def test_documented_sections_match_settings_submodels(self):
+        from pydantic import BaseModel
 
-        assert "llm" in config
-        assert "embedding" in config
-        assert "ingestion" in config
-        assert "retrieval" in config
-        assert "self_correction" in config
-        assert "storage" in config
-        assert "api" in config
+        from nexusrag.config import Settings
 
-    def test_yaml_llm_section(self):
-        config_path = Path("configs/default.yaml")
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
+        with open("configs/default.yaml") as f:
+            documented = set(yaml.safe_load(f))
 
-        llm = config["llm"]
-        assert "model" in llm
-        assert "temperature" in llm
-        assert "max_tokens" in llm
-
-    def test_yaml_ingestion_section(self):
-        config_path = Path("configs/default.yaml")
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-
-        ingestion = config["ingestion"]
-        assert "chunk_size" in ingestion
-        assert "chunk_overlap" in ingestion
-        assert "supported_formats" in ingestion
-
-    def test_yaml_retrieval_section(self):
-        config_path = Path("configs/default.yaml")
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-
-        retrieval = config["retrieval"]
-        assert "top_k" in retrieval
-        assert "similarity_threshold" in retrieval
-
-    def test_yaml_self_correction_section(self):
-        config_path = Path("configs/default.yaml")
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-
-        correction = config["self_correction"]
-        assert "enabled" in correction
-        assert "confidence_tau" in correction
-        assert "feedback_docs" in correction
+        real = {
+            name
+            for name, field in Settings.model_fields.items()
+            if isinstance(field.annotation, type) and issubclass(field.annotation, BaseModel)
+        }
+        # 'logging' documents the flat log_level/data_dir fields.
+        assert documented - {"logging"} == real
 
 
 class TestConfigValidation:

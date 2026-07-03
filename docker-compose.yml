@@ -19,9 +19,9 @@ services:
       - |
         ollama serve &
         until curl -sf http://localhost:11434/; do sleep 1; done
-        # Pin the model tag (override with LLAMA_MODEL). For a digest pin use
-        # e.g. LLAMA_MODEL=llama3.2:3b@sha256:<digest>.
-        ollama pull ${LLAMA_MODEL:-llama3.2:3b}
+        # Pull the SAME model the app queries (single source: LLM_MODEL). For a
+        # digest pin use e.g. LLM_MODEL=llama3.2:3b@sha256:<digest>.
+        ollama pull ${LLM_MODEL:-llama3.2:3b}
         wait
     restart: unless-stopped
     deploy:
@@ -38,6 +38,9 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+      # One variable drives both the pulled model (ollama service) and the
+      # queried model (app), so they can never desync.
+      - LLM_MODEL=${LLM_MODEL:-llama3.2:3b}
       # Set NEXUSRAG_API_KEY in your shell/.env to require an X-API-Key header.
       - NEXUSRAG_API_KEY=${NEXUSRAG_API_KEY:-}
     volumes:

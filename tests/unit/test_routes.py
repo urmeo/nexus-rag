@@ -20,7 +20,7 @@ from nexusrag.api.routes import (
     UploadResponse,
     router,
 )
-from nexusrag.config import get_settings
+from nexusrag.config import Settings, get_settings
 from nexusrag.generation import RAGResponse, Source
 from nexusrag.pipeline import IngestResult, NexusRAG, SystemStats
 
@@ -459,7 +459,10 @@ class TestQueryDocuments:
 
         assert response.status_code == 200
         data = response.json()
-        assert "No documents" in data["answer"] or data["confidence"] == 0.0
+        # Assert the route's own transform of an empty-source response, not the
+        # canned mock text: no sources, and the processing time is passed through.
+        assert data["sources"] == []
+        assert data["processing_time_ms"] == 10.0
 
     def test_query_multiple_sources(self, client, patch_get_nexusrag, mock_nexusrag):
         from nexusrag.generation import RAGResponse
@@ -945,3 +948,52 @@ class TestErrorHandling:
         )
 
         assert response.status_code == 422
+
+
+def _settings(**api_overrides) -> Settings:
+    s = Settings()
+    for key, value in api_overrides.items():
+        setattr(s.api, key, value)
+    return s
+
+
+class TestApiKeyAuth:
+    """Default-deny auth must be enforced end-to-end, not just unit-tested."""
+
+    def test_missing_key_rejected(self, client, patch_get_nexusrag):
+        with patch("nexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
+            assert client.get("/api/status").status_code == 401
+
+    def test_wrong_key_rejected(self, client, patch_get_nexusrag):
+        with patch("nexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
+            r = client.get("/api/status", headers={"X-API-Key": "wrong"})
+            assert r.status_code == 401
+
+    def test_correct_key_allowed(self, client, patch_get_nexusrag):
+        with patch("nexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
+            r = client.get("/api/status", headers={"X-API-Key": "secret"})
+            assert r.status_code == 200
+
+
+class TestUploadValidationThroughRoute:
+    """The magic-byte / zip-bomb guard must fire via the HTTP layer."""
+
+    def test_wrong_magic_bytes_rejected(self, client, patch_get_nexusrag):
+        files = {"file": ("bad.pdf", b"this is not a pdf at all", "application/pdf")}
+        r = client.post("/api/ingest", files=files)
+        assert r.status_code == 415
+
+    def test_zip_bomb_rejected(self, client, patch_get_nexusrag):
+        # A real (tiny) docx zip trips the guard once the decompressed cap is 0.
+        with patch(
+            "nexusrag.api.security.get_settings", return_value=_settings(max_uncompressed_mb=0)
+        ):
+            files = {
+                "file": (
+                    "doc.docx",
+                    DOCX_BYTES,
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            }
+            r = client.post("/api/ingest", files=files)
+            assert r.status_code == 413

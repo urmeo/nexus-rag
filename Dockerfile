@@ -1,24 +1,38 @@
-FROM python:3.11-slim AS base
+# ---- builder: compile dependencies into a venv (needs a toolchain) ----
+FROM python:3.11-slim AS builder
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential curl libmagic1 && \
+    apt-get install -y --no-install-recommends build-essential && \
     rm -rf /var/lib/apt/lists/*
+
+ENV VIRTUAL_ENV=/opt/venv
+RUN python -m venv "$VIRTUAL_ENV"
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 WORKDIR /app
 
-# Install pinned, hash-verified dependencies first (reproducible, supply-chain safe)
+# Pinned, hash-verified dependencies first (reproducible, supply-chain safe)
 COPY requirements-runtime.lock .
 RUN pip install --no-cache-dir --require-hashes -r requirements-runtime.lock
 
-# Install the application itself (deps already satisfied above)
+# The application itself (deps already satisfied above)
 COPY pyproject.toml .
 COPY src/ src/
 RUN pip install --no-cache-dir --no-deps .
 
-# Copy application files
-COPY configs/ configs/
+# ---- runtime: slim image, no compiler shipped ----
+FROM python:3.11-slim AS runtime
 
-# Copy frontend if present
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl libmagic1 && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+COPY --from=builder "$VIRTUAL_ENV" "$VIRTUAL_ENV"
+
+WORKDIR /app
+COPY configs/ configs/
 COPY frontend/ frontend/
 
 # Run as a non-root user
