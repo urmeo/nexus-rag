@@ -166,12 +166,9 @@ def build_macros(
         _macro("EvalSeed", str(sci.get("seed", 0))),
         _macro("SciBM", nd(sci, "BM25")),
         _macro("SciDense", nd(sci, "Dense")),
-        _macro("SciHybrid", nd(sci, "Hybrid (RRF)")),
         _macro("SciHybridP", _fmt_p(sci_p["Hybrid (RRF)"], True).replace("*", "")),
         _macro("SciHybridDelta", f"{sci_hd[0]:+.3f}"),
         _macro("SciHybridDeltaCI", f"[{sci_hd[1]:+.3f}, {sci_hd[2]:+.3f}]"),
-        _macro("NFbm", nd(nf, "BM25")),
-        _macro("NFhybrid", nd(nf, "Hybrid (RRF)")),
         _macro("NFhybridP", _fmt_p(nf_p["Hybrid (RRF)"], True).replace("*", "")),
         _macro("NFhybridDelta", f"{nf_hd[0]:+.3f}"),
         _macro("NFhybridDeltaCI", f"[{nf_hd[1]:+.3f}, {nf_hd[2]:+.3f}]"),
@@ -193,7 +190,6 @@ def build_macros(
         max_fire = max(s["trigger_rate"] for s in corr_sci["tau_sweep"])
         speedup = cq["Rerank (cross-enc)"]["latency_ms"] / max(cq["Adaptive"]["latency_ms"], 1e-9)
         macros += [
-            _macro("SciCorrTau", f"{corr_sci['best_tau']:.2f}"),
             _macro("SciCorrMaxFire", f"{max_fire * 100:.0f}\\%"),
             _macro("RerankMs", f"{cq['Rerank (cross-enc)']['latency_ms']:.0f}"),
             _macro("CorrMs", f"{cq['Corrective PRF']['latency_ms']:.0f}"),
