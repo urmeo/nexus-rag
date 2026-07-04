@@ -151,6 +151,23 @@ class TestConfigPrecedence:
         monkeypatch.setenv("LLM_MODEL", "env-wins")
         assert Settings().llm.model == "env-wins"
 
+    def test_llm_settings_ignore_bare_env_names(self, monkeypatch):
+        # temperature/timeout must read LLM_TEMPERATURE/LLM_TIMEOUT, never bare
+        # TEMPERATURE/TIMEOUT which collide with unrelated environment vars.
+        from nexusrag.config import LLMSettings
+
+        monkeypatch.setenv("TEMPERATURE", "0.99")
+        monkeypatch.setenv("TIMEOUT", "999")
+        s = LLMSettings()
+        assert s.temperature == 0.1
+        assert s.timeout == 60
+
+        monkeypatch.setenv("LLM_TEMPERATURE", "0.7")
+        monkeypatch.setenv("LLM_TIMEOUT", "33")
+        s = LLMSettings()
+        assert s.temperature == 0.7
+        assert s.timeout == 33
+
     def test_yaml_is_not_a_runtime_source(self, monkeypatch):
         # default.yaml is documentation only: settings come from env + code
         # defaults, never from the YAML file, so there is no precedence ambiguity.

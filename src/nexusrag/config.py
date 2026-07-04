@@ -11,17 +11,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMSettings(BaseSettings):
     """LLM configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="", populate_by_name=True)
+    # LLM_ prefix so temperature/timeout read LLM_TEMPERATURE/LLM_TIMEOUT, not
+    # bare TEMPERATURE/TIMEOUT (which would collide with unrelated env vars).
+    model_config = SettingsConfigDict(env_prefix="LLM_", populate_by_name=True)
 
+    # base_url keeps the conventional OLLAMA_BASE_URL name.
     base_url: str = Field(
         default="http://localhost:11434",
         validation_alias="OLLAMA_BASE_URL",
     )
-    model: str = Field(default="llama3.2:3b", validation_alias="LLM_MODEL")
+    model: str = "llama3.2:3b"
     temperature: float = 0.1
     # Upper bound on generated tokens; the synthesizer scales its budget with
     # source count up to this cap.
-    max_tokens: int = Field(default=768, validation_alias="LLM_MAX_TOKENS")
+    max_tokens: int = 768
     timeout: int = 60
 
 
