@@ -100,6 +100,7 @@ help:
 	@echo "  reproduce      Regenerate every committed README benchmark number"
 	@echo "  corrective     Corrective-loop trigger and cost/quality analysis"
 	@echo "  faithfulness   Run the evidence-detection evaluation"
+	@echo "  generation     Run the generation-quality evaluation"
 	@echo "  ragtruth       Run the RAGTruth hallucination-detection evaluation"
 	@echo "  paper          Regenerate tables/figures and build the PDF"
 	@echo "  clean          Remove build artifacts"
