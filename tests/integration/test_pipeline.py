@@ -884,3 +884,13 @@ class TestBM25NoDoubleCount:
 
         assert result.success
         assert rag.bm25.count() == result.chunk_count  # not 2x
+
+    def test_first_ingest_keeps_bm25_and_vector_in_sync(
+        self, nexusrag_instance: NexusRAG, sample_text_file: Path
+    ):
+        # Sequential, deterministic guard for the exact double-count bug: the
+        # very first ingest must leave the sparse and dense indexes equal.
+        r = nexusrag_instance.ingest(sample_text_file)
+        assert r.success
+        assert nexusrag_instance.bm25.count() == r.chunk_count
+        assert nexusrag_instance.vector_store.count() == r.chunk_count

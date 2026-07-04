@@ -186,6 +186,7 @@ class NexusRAG:
                 self.vector_store.add(chunks, embeddings)
                 self.bm25.add_incremental(chunks)
                 self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
+                self._assert_indexes_synced("persist")
             except Exception:
                 with contextlib.suppress(Exception):
                     self.bm25.remove({c.id for c in chunks})
@@ -195,130 +196,85 @@ class NexusRAG:
                     self.document_store.delete(document.id)
                 raise
 
-    def ingest(self, file_path: str | Path) -> IngestResult:
-        path = Path(file_path)
+    def _assert_indexes_synced(self, where: str) -> None:
+        """The sparse and dense indexes must always hold the same chunks."""
+        bm25_n, vector_n = self.bm25.count(), self.vector_store.count()
+        if bm25_n != vector_n:
+            raise RuntimeError(f"index desync after {where}: bm25={bm25_n} vector={vector_n}")
 
-        try:
-            document = self.parser.parse(path)
-            if self.document_store.exists(document.id):
-                return IngestResult(
-                    document_id=document.id,
-                    filename=path.name,
-                    chunk_count=0,
-                    word_count=document.word_count,
-                    success=False,
-                    error="Document already exists",
-                )
-
-            chunks = self.chunker.chunk(document)
-            if not chunks:
-                return IngestResult(
-                    document_id=document.id,
-                    filename=path.name,
-                    chunk_count=0,
-                    word_count=document.word_count,
-                    success=False,
-                    error="No content extracted",
-                )
-
-            embeddings = self.embedder.embed(
-                [c.content for c in chunks],
-                batch_size=self.settings.embedding.batch_size,
-            )
-            self._persist(document, chunks, embeddings)
-            gc.collect()
-
+    def _ingest_document(
+        self, document: ParsedDocument, filename: str, show_progress: bool
+    ) -> IngestResult:
+        """Chunk, embed, and persist an already-parsed document."""
+        if self.document_store.exists(document.id):
             return IngestResult(
                 document_id=document.id,
-                filename=path.name,
-                chunk_count=len(chunks),
+                filename=filename,
+                chunk_count=0,
                 word_count=document.word_count,
-                success=True,
+                success=False,
+                error="Document already exists",
             )
 
-        except DocumentParseError as e:
+        chunks = self.chunker.chunk(document)
+        if not chunks:
             return IngestResult(
-                document_id="",
-                filename=path.name,
+                document_id=document.id,
+                filename=filename,
                 chunk_count=0,
-                word_count=0,
+                word_count=document.word_count,
                 success=False,
-                error=str(e),
+                error="No content extracted",
             )
+
+        embeddings = self.embedder.embed(
+            [c.content for c in chunks],
+            batch_size=self.settings.embedding.batch_size,
+            show_progress=show_progress,
+        )
+        self._persist(document, chunks, embeddings)
+        gc.collect()
+
+        return IngestResult(
+            document_id=document.id,
+            filename=filename,
+            chunk_count=len(chunks),
+            word_count=document.word_count,
+            success=True,
+        )
+
+    @staticmethod
+    def _failed_ingest(filename: str, error: str) -> IngestResult:
+        return IngestResult(
+            document_id="",
+            filename=filename,
+            chunk_count=0,
+            word_count=0,
+            success=False,
+            error=error,
+        )
+
+    def ingest(self, file_path: str | Path) -> IngestResult:
+        path = Path(file_path)
+        try:
+            document = self.parser.parse(path)
+            return self._ingest_document(document, path.name, show_progress=True)
+        except DocumentParseError as e:
+            return self._failed_ingest(path.name, str(e))
         except Exception as e:
             logger.exception(f"Failed to ingest file: {path.name}")
-            return IngestResult(
-                document_id="",
-                filename=path.name,
-                chunk_count=0,
-                word_count=0,
-                success=False,
-                error=f"Ingestion failed: {type(e).__name__}",
-            )
+            return self._failed_ingest(path.name, f"Ingestion failed: {type(e).__name__}")
 
     def ingest_bytes(self, data: bytes, filename: str, extension: str) -> IngestResult:
         """Ingest document from bytes (for file uploads)."""
         try:
             document = self.parser.parse_bytes(data, filename, extension)
-
-            if self.document_store.exists(document.id):
-                return IngestResult(
-                    document_id=document.id,
-                    filename=filename,
-                    chunk_count=0,
-                    word_count=document.word_count,
-                    success=False,
-                    error="Document already exists",
-                )
-
-            chunks = self.chunker.chunk(document)
-            if not chunks:
-                return IngestResult(
-                    document_id=document.id,
-                    filename=filename,
-                    chunk_count=0,
-                    word_count=document.word_count,
-                    success=False,
-                    error="No content extracted",
-                )
-
-            texts = [chunk.content for chunk in chunks]
-            embeddings = self.embedder.embed(
-                texts,
-                batch_size=self.settings.embedding.batch_size,
-                show_progress=False,
-            )
-
-            self._persist(document, chunks, embeddings)
-            gc.collect()
-
-            return IngestResult(
-                document_id=document.id,
-                filename=filename,
-                chunk_count=len(chunks),
-                word_count=document.word_count,
-                success=True,
-            )
-
+            return self._ingest_document(document, filename, show_progress=False)
         except DocumentParseError as e:
-            return IngestResult(
-                document_id="",
-                filename=filename,
-                chunk_count=0,
-                word_count=0,
-                success=False,
-                error=str(e),
-            )
+            return self._failed_ingest(filename, str(e))
         except Exception as e:
             logger.exception(f"Failed to ingest bytes: {filename}")
-            return IngestResult(
-                document_id="",
-                filename=filename,
-                chunk_count=0,
-                word_count=0,
-                success=False,
-                error=f"Ingestion failed: {type(e).__name__}",
-            )
+            return self._failed_ingest(filename, f"Ingestion failed: {type(e).__name__}")
 
     def ingest_directory(self, dir_path: str | Path, recursive: bool = False) -> list[IngestResult]:
         """Ingest every supported file; unsupported ones appear as failed results."""
@@ -384,10 +340,11 @@ class NexusRAG:
             self.vector_store.delete_by_document(document_id)
             self.document_store.delete(document_id)
 
-            # Incrementally remove from BM25 instead of full rebuild
-            if chunk_ids and self._bm25 is not None:
-                self._bm25.remove(chunk_ids)
+            # Access via the property so a consistent index always exists.
+            if chunk_ids:
+                self.bm25.remove(chunk_ids)
 
+            self._assert_indexes_synced("delete")
             return True
 
     def clear_all(self) -> None:
