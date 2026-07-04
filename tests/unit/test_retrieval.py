@@ -56,6 +56,16 @@ class TestBM25Retriever:
         assert r.remove({"chunk1", "chunk2"}) == 2
         assert r.count() == 3
 
+    def test_incremental_add_is_idempotent_by_id(self, sample_chunks):
+        # Re-adding already-indexed chunks must not double-count them; only
+        # genuinely new ids are appended.
+        r = BM25Retriever()
+        r.add(sample_chunks[:3])
+        r.add_incremental(sample_chunks[:3])  # same chunks again
+        assert r.count() == 3
+        r.add_incremental(sample_chunks[2:])  # 1 overlap + 2 new
+        assert r.count() == 5
+
 
 class TestDenseRetriever:
     @pytest.fixture

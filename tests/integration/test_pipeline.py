@@ -850,3 +850,37 @@ class TestUnloadModels:
         assert nexusrag_instance._embedder is None
         assert nexusrag_instance._llm is None
         assert nexusrag_instance._orchestrator is None
+
+
+class _ImmediateVisibilityStore:
+    """Vector store whose get_all_chunks reflects add() immediately — the worst
+    case the lazy BM25 rebuild must tolerate without double-counting."""
+
+    def __init__(self, real):
+        self._real = real
+        self._seen: list = []
+
+    def add(self, chunks, embeddings):
+        n = self._real.add(chunks, embeddings)
+        self._seen.extend(chunks)
+        return n
+
+    def get_all_chunks(self):
+        return list(self._seen)
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+
+class TestBM25NoDoubleCount:
+    def test_ingest_does_not_double_count_bm25_on_lazy_init(
+        self, nexusrag_instance: NexusRAG, sample_text_file: Path
+    ):
+        rag = nexusrag_instance
+        # Force the vector store to expose freshly-written chunks to the rebuild.
+        rag._vector_store = _ImmediateVisibilityStore(rag.vector_store)
+
+        result = rag.ingest(sample_text_file)
+
+        assert result.success
+        assert rag.bm25.count() == result.chunk_count  # not 2x

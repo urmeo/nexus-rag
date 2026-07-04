@@ -45,12 +45,21 @@ class BM25Retriever:
         return len(chunks)
 
     def add_incremental(self, chunks: list[Chunk]) -> int:
-        """Add chunks to existing index (rebuilds internally)."""
+        """Add chunks to the existing index (rebuilds internally).
+
+        Chunks whose id is already indexed are skipped. Chunk ids are unique,
+        so this makes the add idempotent: a lazy cold-start rebuild that
+        happens to observe a document's just-written chunks, followed by this
+        incremental add of the same chunks, cannot double-count them.
+        """
         if self._index is None:
             return self.add(chunks)
 
-        all_chunks = self._index.chunks + chunks
-        return self.add(all_chunks)
+        existing = {c.id for c in self._index.chunks}
+        fresh = [c for c in chunks if c.id not in existing]
+        if not fresh:
+            return len(self._index.chunks)
+        return self.add(self._index.chunks + fresh)
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
         # Pin one snapshot: add() rebinds self._index atomically, so a
