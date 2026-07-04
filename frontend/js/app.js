@@ -476,9 +476,16 @@ function addAssistantMessage(data, elapsed) {
     // Format content with markdown and citations
     const formattedContent = formatResponse(data.answer, data.sources || []);
 
+    // Surface grounding/citation caveats so ungrounded answers are flagged.
+    const warnings = data.warnings || [];
+    const warningsBlock = warnings.length
+        ? `<div class="answer-warnings">${warnings.map((w) => `<span>⚠ ${esc(w)}</span>`).join('')}</div>`
+        : '';
+
     div.innerHTML = `
         <div class="message-bubble">
             <div class="message-content">${formattedContent}</div>
+            ${warningsBlock}
             <div class="message-meta">
                 <span class="meta-item">${elapsed}s</span>
                 <span class="meta-item confidence ${confClass}">${confPercent}% conf</span>
@@ -601,6 +608,7 @@ function updateSourcesPanel(sources) {
                 <div class="source-preview">${esc(preview)}${content.length > 200 ? '...' : ''}</div>
                 <div class="source-full" style="display: none;">
                     <div class="source-full-content">${esc(content)}</div>
+                    ${src.truncated ? '<div class="source-truncated-note">Preview — first 500 characters of the source passage.</div>' : ''}
                 </div>
             </div>
         `;

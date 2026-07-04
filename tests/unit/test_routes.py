@@ -384,6 +384,21 @@ class TestQueryDocuments:
         assert data["sources"][0]["filename"] == "test.pdf"
         assert data["processing_time_ms"] == 150.5
 
+    def test_query_surfaces_warnings(self, client, patch_get_nexusrag, mock_nexusrag):
+        mock_nexusrag.query.return_value = RAGResponse(
+            answer="Ungrounded answer.",
+            sources=[],
+            confidence=0.3,
+            reasoning_trace=[],
+            processing_time_ms=12.0,
+            warnings=["answer cites no sources"],
+        )
+        mock_nexusrag.list_documents.return_value = []
+
+        data = client.post("/api/query", json={"question": "q?"}).json()
+
+        assert data["warnings"] == ["answer cites no sources"]
+
     def test_query_empty_question(self, client, patch_get_nexusrag):
         response = client.post(
             "/api/query",

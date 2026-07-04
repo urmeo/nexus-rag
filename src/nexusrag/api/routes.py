@@ -56,6 +56,7 @@ class QueryResponse(BaseModel):
     confidence: float
     sources: list[dict[str, Any]]
     processing_time_ms: float
+    warnings: list[str] = []
 
 
 class UploadResponse(BaseModel):
@@ -261,9 +262,11 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
             if "/" in filename:
                 filename = filename.split("/")[-1]
 
-            # Truncate content for response
+            # Cap content in the response; flag it so the UI can label the
+            # expanded view honestly rather than implying it is the full source.
             content = source.content
-            if len(content) > 500:
+            truncated = len(content) > 500
+            if truncated:
                 content = content[:500] + "..."
 
             sources.append(
@@ -271,6 +274,7 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
                     "index": idx + 1,
                     "content": content,
                     "text": content,
+                    "truncated": truncated,
                     "filename": filename,
                     "document_id": source.document_id,
                     "section_title": source.section_title or "",
@@ -285,6 +289,7 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
             confidence=response.confidence,
             sources=sources,
             processing_time_ms=round(response.processing_time_ms, 1),
+            warnings=response.warnings,
         )
     except HTTPException:
         raise

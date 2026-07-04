@@ -519,6 +519,22 @@ body {
     font-size: 0.9rem;
 }
 
+.answer-warnings {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--space-sm);
+    font-size: 0.78rem;
+    color: #b45309;
+}
+
+.source-truncated-note {
+    margin-top: var(--space-xs);
+    font-size: 0.72rem;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
 .message-content strong { font-weight: 600; }
 
 .message-content ul, .message-content ol {
@@ -789,9 +805,11 @@ body {
     z-index: 100;
     display: flex;
     flex-direction: column;
+    /* Keep the off-screen panel out of the tab order and screen-reader tree. */
+    visibility: hidden;
 }
 
-.sources-panel.open { transform: translateX(0); }
+.sources-panel.open { transform: translateX(0); visibility: visible; }
 
 .sources-header {
     display: flex;
