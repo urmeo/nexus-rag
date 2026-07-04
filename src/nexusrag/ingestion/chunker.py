@@ -143,8 +143,13 @@ class HierarchicalChunker:
                     texts.append(header_prefix + "\n\n".join(current))
                     current, current_length = [], len(header_prefix)
                 for sent_chunk in self._split_by_sentences(para, header_prefix):
-                    if len(sent_chunk.strip()) >= self.min_chunk_size:
+                    if len(sent_chunk.strip()) >= self.min_chunk_size or not texts:
                         texts.append(sent_chunk)
+                    else:
+                        # Merge a short trailing sentence into the previous
+                        # chunk (same section) instead of dropping it; strip
+                        # its duplicate header prefix first.
+                        texts[-1] += "\n\n" + sent_chunk.removeprefix(header_prefix).strip()
                 continue
 
             # Past the target with enough content: emit and carry overlap.

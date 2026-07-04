@@ -256,6 +256,14 @@ class TestPackParagraphs:
         texts = self._chunker()._pack_paragraphs(["preamble text first", big], "")
         assert texts[0] == "preamble text first"
 
+    def test_oversized_paragraph_short_trailing_sentence_not_dropped(self):
+        # A >max paragraph whose final sentence-chunk is under min must keep
+        # that sentence (merged), not silently drop it.
+        ch = self._chunker(min_chunk_size=60, target_chunk_size=90, max_chunk_size=120)
+        big = "This is a long lead sentence that fills the budget nicely here. " * 3
+        texts = ch._pack_paragraphs([big + "Short unique CONTENTX."], "")
+        assert any("CONTENTX" in t for t in texts)
+
 
 class TestChunkerNoDataLoss:
     def test_short_document_yields_a_chunk(self):
