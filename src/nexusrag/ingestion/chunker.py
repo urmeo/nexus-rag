@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from nexusrag.ingestion.parser import ParsedDocument
 from nexusrag.utils.filenames import resolve_display_name
+from nexusrag.utils.text import SENTENCE_BOUNDARY
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,7 @@ class HierarchicalChunker:
         """
         budget = max(1, self.max_chunk_size - len(prefix))
         sentences: list[str] = []
-        for raw in re.split(r"(?<=[.!?])\s+(?=[A-Z])", text):
+        for raw in SENTENCE_BOUNDARY.split(text):
             raw = raw.strip()
             if not raw:
                 continue

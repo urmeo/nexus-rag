@@ -3,22 +3,14 @@
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from nexusrag.utils.text import split_sentences
+
 logger = logging.getLogger(__name__)
 
-_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z(0-9])")
-
-
-def split_sentences(text: str) -> list[str]:
-    """Lightweight sentence splitter."""
-    text = text.strip()
-    if not text:
-        return []
-    parts = _SENT_SPLIT.split(text)
-    return [p.strip() for p in parts if len(p.strip()) > 2]
+__all__ = ["GroundingReport", "GroundingVerifier", "SentenceGrounding", "split_sentences"]
 
 
 @dataclass

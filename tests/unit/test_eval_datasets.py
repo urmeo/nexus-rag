@@ -47,3 +47,16 @@ class TestSentenceSplit:
 
     def test_split_empty(self) -> None:
         assert split_sentences("") == []
+
+    def test_split_before_digit(self) -> None:
+        # A sentence starting with a digit is a boundary (shared rule).
+        assert len(split_sentences("We ran the test. 3 trials passed cleanly.")) == 2
+
+    def test_grounding_and_chunker_share_one_boundary(self) -> None:
+        # Both modules must resolve to the single canonical boundary.
+        from nexusrag.generation import grounding
+        from nexusrag.ingestion import chunker
+        from nexusrag.utils.text import SENTENCE_BOUNDARY
+
+        assert grounding.split_sentences.__module__ == "nexusrag.utils.text"
+        assert chunker.SENTENCE_BOUNDARY is SENTENCE_BOUNDARY
