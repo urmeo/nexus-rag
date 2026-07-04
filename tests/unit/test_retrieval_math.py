@@ -102,6 +102,15 @@ def test_corrective_expands_when_weak():
     assert base.calls[1] != base.calls[0]
 
 
+def test_corrective_disabled_skips_second_pass():
+    # enabled=False must short-circuit even when confidence is below tau.
+    base = _FakeBase(top_score=0.2)
+    cr = CorrectiveRetriever(base, tau=0.55, enabled=False)
+    _, triggered = cr.retrieve_traced("kinase inhibits tumor growth", top_k=2)
+    assert triggered is False
+    assert len(base.calls) == 1  # no re-retrieval
+
+
 def _content_result(text: str) -> RetrievalResult:
     return RetrievalResult(chunk=Chunk(id="x", content=text, document_id="d"), score=0.5)
 

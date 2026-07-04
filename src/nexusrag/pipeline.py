@@ -153,6 +153,7 @@ class NexusRAG:
                 tau=sc.confidence_tau,
                 feedback_docs=sc.feedback_docs,
                 feedback_terms=sc.feedback_terms,
+                enabled=sc.enabled,
             )
 
             grounding_verifier = None
@@ -255,6 +256,7 @@ class NexusRAG:
         )
 
     def ingest(self, file_path: str | Path) -> IngestResult:
+        """Ingest a document from a file path."""
         path = Path(file_path)
         try:
             document = self.parser.parse(path)
@@ -309,6 +311,7 @@ class NexusRAG:
         return results
 
     def query(self, question: str) -> RAGResponse:
+        """Answer a question over the ingested corpus with cited sources."""
         if self.vector_store.count() == 0:
             return RAGResponse(
                 answer="No documents have been uploaded yet. Please upload research papers first.",

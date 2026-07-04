@@ -27,8 +27,6 @@ ingestion:
 
 retrieval:
   top_k: 8
-  rerank_top_k: 4
-  similarity_threshold: 0.2
   max_query_length: 2000
 
 self_correction:

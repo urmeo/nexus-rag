@@ -22,11 +22,13 @@ class CorrectiveRetriever:
         tau: float = 0.55,
         feedback_docs: int = 5,
         feedback_terms: int = 10,
+        enabled: bool = True,
     ):
         self.base = base
         self.tau = tau
         self.feedback_docs = feedback_docs
         self.feedback_terms = feedback_terms
+        self.enabled = enabled
 
     def confidence(self, query: str) -> float:
         top = self.base.dense.retrieve(query, 1)
@@ -46,7 +48,7 @@ class CorrectiveRetriever:
         self, query: str, top_k: int = 10, depth: int = 50
     ) -> tuple[list[RetrievalResult], bool]:
         first = self.base.retrieve(query, top_k=depth, depth=depth)
-        if not first or self.confidence(query) >= self.tau:
+        if not self.enabled or not first or self.confidence(query) >= self.tau:
             return first[:top_k], False
         expanded = self.expand(query, first)
         second = self.base.retrieve(expanded, top_k=depth, depth=depth)

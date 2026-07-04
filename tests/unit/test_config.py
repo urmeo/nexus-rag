@@ -106,8 +106,7 @@ class TestSettings:
         retrieval = RetrievalSettings()
 
         assert retrieval.top_k > 0
-        assert retrieval.rerank_top_k > 0
-        assert 0 <= retrieval.similarity_threshold <= 1
+        assert retrieval.max_query_length > 0
 
     def test_self_correction_settings(self):
         from nexusrag.config import SelfCorrectionSettings

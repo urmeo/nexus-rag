@@ -1,5 +1,6 @@
 """API module for FastAPI endpoints."""
 
+import logging
 import os
 from pathlib import Path
 
@@ -25,6 +26,7 @@ FRONTEND_DIR = Path(os.environ.get("NEXUSRAG_FRONTEND_DIR") or Path.cwd() / "fro
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
+    logging.getLogger("nexusrag").setLevel(settings.log_level)
 
     # hide docs/openapi in production (api key set) or when disabled
     docs_on = settings.api.docs_enabled and not settings.api.api_key
