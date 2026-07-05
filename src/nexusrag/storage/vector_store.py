@@ -1,5 +1,6 @@
 """Vector storage using LanceDB."""
 
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -90,8 +91,6 @@ class VectorStore:
         if len(chunks) != len(embeddings):
             raise ValueError(f"Mismatch: {len(chunks)} chunks, {len(embeddings)} embeddings")
 
-        import json
-
         records = [
             {
                 "id": chunk.id,
@@ -112,8 +111,6 @@ class VectorStore:
         top_k: int = 5,
         filter_expr: str | None = None,
     ) -> list[SearchResult]:
-        import json
-
         # cosine, else LanceDB defaults to L2 and the score is not a similarity
         query = self.table.search(query_embedding.tolist()).metric("cosine").limit(top_k)
 
@@ -201,8 +198,6 @@ class VectorStore:
 
     def get_all_chunks(self) -> list[Chunk]:
         """Retrieve all chunks from the store."""
-        import json
-
         try:
             if self.count() == 0:
                 return []
@@ -225,8 +220,6 @@ class VectorStore:
 
     def get_chunks_by_document(self, document_id: str) -> list[Chunk]:
         """Retrieve all chunks for a specific document."""
-        import json
-
         try:
             safe_doc_id = _sanitize_id(document_id)
             results = (
