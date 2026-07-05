@@ -105,7 +105,21 @@ Scope is deliberately narrow: two abstract-level BEIR datasets (the 300-query Sc
 | Retrieval | sentence-transformers (BGE-small), rank-bm25, RRF (k=60), cross-encoder reranker, DeBERTa NLI, LanceDB (cosine, exact) |
 | Serving | FastAPI, Uvicorn, Ollama (`llama3.2:3b`, pinned) |
 | Evaluation | SciFact, NFCorpus (BEIR, revisions pinned), bootstrap CIs, paired randomization + delta CIs, Holm correction |
-| Quality | pytest (297 tests, 65% branch coverage), ruff, mypy (strict), GitHub Actions CI, gitleaks, pip-audit, Docker |
+| Quality | pytest (299 tests, 65% branch coverage), ruff, mypy (strict), GitHub Actions CI, gitleaks, pip-audit, Docker |
+
+## Citation
+
+If you use NexusRAG, please cite it (metadata in [CITATION.cff](CITATION.cff)):
+
+```bibtex
+@software{bose_nexusrag_2026,
+  author  = {Bose, Urme},
+  title   = {NexusRAG: Local Hybrid Retrieval and Faithfulness Evaluation for Scientific Papers},
+  year    = {2026},
+  version = {1.0.1},
+  url     = {https://github.com/urmeo/nexus-rag}
+}
+```
 
 ## License
 
