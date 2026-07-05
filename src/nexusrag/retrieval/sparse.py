@@ -22,7 +22,6 @@ class BM25Retriever:
 
     def __init__(self, stopwords: set[str] | None = None):
         self._index: BM25Index | None = None
-        self._chunk_map: dict[str, Chunk] = {}
         self.stopwords = stopwords or STOP_WORDS
 
     def tokenize(self, text: str) -> list[str]:
@@ -41,7 +40,6 @@ class BM25Retriever:
             tokenized_corpus=tokenized,
         )
 
-        self._chunk_map = {chunk.id: chunk for chunk in chunks}
         return len(chunks)
 
     def add_incremental(self, chunks: list[Chunk]) -> int:
@@ -98,7 +96,6 @@ class BM25Retriever:
             self.add(remaining)
         else:
             self._index = None
-            self._chunk_map.clear()
 
         return removed
 
@@ -109,4 +106,3 @@ class BM25Retriever:
     def clear(self) -> None:
         """Clear the index."""
         self._index = None
-        self._chunk_map.clear()
