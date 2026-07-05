@@ -187,15 +187,6 @@ class VectorStore:
             self.db.drop_table(self.table_name)
         self._table = None
 
-    def optimize(self) -> None:
-        """Optimize the index for better search performance."""
-        if self.count() > 0:
-            self.table.create_index(
-                metric="cosine",
-                num_partitions=min(256, max(1, self.count() // 100)),
-                num_sub_vectors=min(96, self.embedding_dim // 4),
-            )
-
     def get_all_chunks(self) -> list[Chunk]:
         """Retrieve all chunks from the store."""
         try:
