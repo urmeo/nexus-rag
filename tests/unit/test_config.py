@@ -217,3 +217,28 @@ class TestConfigValidation:
 
         with pytest.raises(ValidationError):
             EmbeddingSettings()
+
+
+class TestNoDeadConfig:
+    def test_every_settings_field_is_read_in_src(self) -> None:
+        # Guards the recurring bug class: a config knob that nothing consumes.
+        import re
+
+        import nexusrag
+        from pydantic import BaseModel
+
+        from nexusrag.config import Settings
+
+        src = Path(nexusrag.__file__).parent
+        code = "\n".join(p.read_text() for p in src.rglob("*.py") if p.name != "config.py")
+
+        dead: list[str] = []
+        for name, field in Settings.model_fields.items():
+            ann = field.annotation
+            if isinstance(ann, type) and issubclass(ann, BaseModel):
+                dead += [
+                    f"{name}.{f}" for f in ann.model_fields if not re.search(rf"\b{f}\b", code)
+                ]
+            elif not re.search(rf"\b{name}\b", code):
+                dead.append(name)
+        assert not dead, f"config fields never read in src/: {dead}"

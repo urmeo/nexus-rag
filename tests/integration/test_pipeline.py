@@ -892,3 +892,23 @@ class TestBM25NoDoubleCount:
         assert r.success
         assert nexusrag_instance.bm25.count() == r.chunk_count
         assert nexusrag_instance.vector_store.count() == r.chunk_count
+
+
+class TestEndToEnd:
+    def test_ingest_query_cites_a_real_source(
+        self, nexusrag_instance: NexusRAG, sample_text_file: Path
+    ):
+        # Full seam: parse -> chunk -> embed -> index -> retrieve -> synthesize
+        # -> verify. The LLM cites [1]; the response must carry a real source.
+        rag = nexusrag_instance
+        rag._llm.generate = lambda prompt, **kw: "The methodology was rigorous [1]."
+        rag._embedder.embed_query = lambda q: np.random.rand(384).astype(np.float32)
+
+        assert rag.ingest(sample_text_file).success
+        resp = rag.query("What methodology was used?")
+
+        assert resp.sources, "query returned no sources"
+        assert "[1]" in resp.answer, "answer did not cite a source"
+        assert resp.confidence > 0
+        # The cited index [1] maps to an actual retrieved source (1-indexed).
+        assert resp.sources[0].chunk_id
