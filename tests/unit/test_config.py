@@ -224,9 +224,9 @@ class TestNoDeadConfig:
         # Guards the recurring bug class: a config knob that nothing consumes.
         import re
 
-        import nexusrag
         from pydantic import BaseModel
 
+        import nexusrag
         from nexusrag.config import Settings
 
         src = Path(nexusrag.__file__).parent
