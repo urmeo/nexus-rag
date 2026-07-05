@@ -66,7 +66,7 @@ jobs:
         run: mypy src/
 
       - name: Test
-        run: pytest tests/ -q
+        run: pytest tests/ -q --cov=nexusrag --cov-branch --cov-fail-under=60
 
       - name: README test count in sync
         run: |
