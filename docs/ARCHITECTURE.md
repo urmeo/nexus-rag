@@ -145,7 +145,7 @@ Approximate on-disk sizes (rough; for capacity planning, not exact):
 | Model | Role | Approx. size |
 | --- | --- | --- |
 | `BAAI/bge-small-en-v1.5` | embeddings | ~130 MB |
-| `cross-encoder/ms-marco-MiniLM` | reranker (cross-encoder) | ~90 MB |
+| `cross-encoder/ms-marco-MiniLM-L-6-v2` | reranker (cross-encoder) | ~90 MB |
 | `cross-encoder/nli-deberta-v3-small` | grounding NLI | ~280 MB |
 | `llama3.2:3b` (Ollama) | generation | ~2 GB |
 
