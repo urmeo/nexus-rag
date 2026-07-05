@@ -84,7 +84,9 @@ class DocumentParser:
 
         try:
             doc = self.parse(tmp_path)
-            # keep the user's filename, not the temp one
+            # id off the real filename, not the random temp name, so identical
+            # uploads dedup instead of each getting a fresh id
+            doc.id = self._generate_id(Path(filename), doc.content)
             doc.metadata["filename"] = filename
             doc.metadata["original_filename"] = filename
             doc.metadata["file_type"] = extension.lstrip(".")

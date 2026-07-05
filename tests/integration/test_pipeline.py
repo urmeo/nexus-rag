@@ -665,13 +665,14 @@ More content for proper chunking.
     def test_ingest_bytes_duplicate_detection(self, nexusrag_instance: NexusRAG):
         content = b"Unique test content for duplicate detection.\n" * 5
 
-        result1 = nexusrag_instance.ingest_bytes(content, "file1.txt", ".txt")
+        result1 = nexusrag_instance.ingest_bytes(content, "dup.txt", ".txt")
         assert result1.success is True
 
-        result2 = nexusrag_instance.ingest_bytes(content, "file2.txt", ".txt")
-        # May fail due to content hash collision
-        # Just verify behavior is consistent
-        assert isinstance(result2.success, bool)
+        # Same bytes and name must dedup, not slip through under a fresh temp id.
+        result2 = nexusrag_instance.ingest_bytes(content, "dup.txt", ".txt")
+        assert result2.success is False
+        assert result2.document_id == result1.document_id
+        assert "already exists" in (result2.error or "")
 
 
 class TestEdgeCases:
