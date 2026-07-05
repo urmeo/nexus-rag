@@ -82,8 +82,13 @@ def run_all(sample: bool = False) -> None:
     _write_json(nf_m, "nfcorpus_minilm.json")
 
     print("[5/6] Corrective-loop tau selection (SciFact)")
-    corr = C.evaluate(dataset="scifact", split="test", embedding_model=BGE)
-    _write_json(corr, "corrective_scifact.json")
+    if sample:
+        # The vendored sample has a single 50-query split, so tune and test would
+        # collapse to the same queries; skip rather than tune-and-test on a leak.
+        print("  skipped in --sample (no disjoint tune split in the offline subset)")
+    else:
+        corr = C.evaluate(dataset="scifact", split="test", embedding_model=BGE)
+        _write_json(corr, "corrective_scifact.json")
 
     print("[6/6] Evidence-detection eval (SciFact claims)")
     faith = F.evaluate(prefer_vendored=sample, with_reranker=True, seed=SEED)
