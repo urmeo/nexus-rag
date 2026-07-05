@@ -79,7 +79,7 @@ It reruns both datasets (BGE-small and the MiniLM baseline), the corrective-loop
 
 Retrieval and faithfulness quality are guarded by a CI job, not just asserted in the README. On every push, `python -m nexusrag.eval.gate` reruns the vendored offline sample (50 SciFact queries / 651 abstracts and 60 SciFact claims, seed 0, CPU, no downloads of the large corpora) and **fails the build if any tracked metric drops below a committed floor** in [`benchmarks/thresholds.json`](benchmarks/thresholds.json). The sample is deterministic to the printed digits across runs; floors are the current values minus a small tolerance so a genuine regression trips the gate while cross-version float noise does not.
 
-Current sample values (the floors sit ~0.01 below each):
+Current sample values (floors sit 0.01 below the retrieval rows and 0.015 below the faithfulness rows):
 
 | Metric | Sample value | Floor |
 |--------|--------------|-------|
