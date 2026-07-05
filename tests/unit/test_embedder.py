@@ -17,7 +17,6 @@ class TestEmbedder:
             mock_model.get_sentence_embedding_dimension.return_value = 384
 
             def mock_encode(texts, **kwargs):
-                kwargs.get("convert_to_numpy", True)
                 if isinstance(texts, str):
                     result = np.random.rand(384).astype(np.float32)
                 else:
