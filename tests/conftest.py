@@ -1,6 +1,7 @@
 """Pytest configuration and shared fixtures."""
 
 import tempfile
+import zlib
 from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -168,7 +169,7 @@ def mock_embedding_model():
 
     def mock_encode(texts, **kwargs):
         if isinstance(texts, str):
-            np.random.seed(hash(texts) % 2**32)
+            np.random.seed(zlib.crc32(texts.encode()))
             return np.random.rand(384).astype(np.float32)
         np.random.seed(42)
         return np.random.rand(len(texts), 384).astype(np.float32)

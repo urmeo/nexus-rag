@@ -1,6 +1,7 @@
 """Integration tests for the ingest -> query -> delete pipeline."""
 
 import tempfile
+import zlib
 from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -58,7 +59,7 @@ def mock_embedder():
     def mock_embed(texts, batch_size=None, show_progress=False):
         if isinstance(texts, str):
             texts = [texts]
-        np.random.seed(hash("".join(texts)) % (2**31))
+        np.random.seed(zlib.crc32("".join(texts).encode()))
         return np.random.rand(len(texts), 384).astype(np.float32)
 
     embedder.embed = mock_embed
