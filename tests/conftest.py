@@ -19,6 +19,16 @@ def _disable_rate_limits() -> Generator[None, None, None]:
     limiter.enabled = True
 
 
+@pytest.fixture(autouse=True)
+def _reset_nexusrag_singleton() -> Generator[None, None, None]:
+    """Keep the global singleton from leaking a stale instance across tests."""
+    import nexusrag.pipeline as _p
+
+    _p._instance = None
+    yield
+    _p._instance = None
+
+
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
     """Provide a temporary directory for test artifacts."""
