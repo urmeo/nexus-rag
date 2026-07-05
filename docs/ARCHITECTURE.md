@@ -24,14 +24,10 @@ the instance is a process singleton.
 ### Dense
 
 - The product path uses LanceDB. Search calls `.metric("cosine")`, so the stored
-  `_distance` is cosine distance and the returned score is `1 - distance` (cosine
-  similarity in `[-1, 1]`). See `VectorStore.search` in
+  `_distance` is cosine distance and the returned score is `max(0, 1 - distance)`,
+  clamped to `[0, 1]`. See `VectorStore.search` in
   `src/nexusrag/storage/vector_store.py`.
-- LanceDB does **exact brute-force** search by default. An ANN index (IVF/PQ) is
-  built only if `VectorStore.optimize()` is called, with `metric="cosine"`,
-  `num_partitions = min(256, count // 100)`, and `num_sub_vectors =
-  min(96, embedding_dim // 4)`.
-- `optimize()` is **not** called anywhere in the default pipeline, so production
+- LanceDB does **exact brute-force** search; no ANN index is built, so production
   retrieval is exact. This is fine at the current corpus scale but means query cost
   grows linearly with corpus size.
 - The reproducible benchmark uses a separate in-memory `ExactDenseRetriever`
