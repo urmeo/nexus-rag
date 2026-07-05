@@ -806,10 +806,6 @@ class TestParametrized:
         assert result.success is True
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
-
-
 class TestIngestRollback:
     def test_vector_failure_rolls_back_document_store(
         self, nexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
