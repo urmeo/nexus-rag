@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from nexusrag.config import HF_REVISIONS
 from nexusrag.utils.text import split_sentences
 
 logger = logging.getLogger(__name__)
@@ -45,10 +46,12 @@ class GroundingVerifier:
         model_name: str = "cross-encoder/nli-deberta-v3-small",
         threshold: float = 0.5,
         device: Literal["cpu", "cuda", "mps"] | None = None,
+        revision: str | None = None,
     ):
         self.model_name = model_name
         self.threshold = threshold
         self.device = device
+        self.revision = revision or HF_REVISIONS.get(model_name)
         self._model: Any = None
         self.entail_idx = 1
         self.contra_idx = 0
@@ -58,7 +61,7 @@ class GroundingVerifier:
         if self._model is None:
             from sentence_transformers import CrossEncoder
 
-            self._model = CrossEncoder(self.model_name, device=self.device)
+            self._model = CrossEncoder(self.model_name, device=self.device, revision=self.revision)
             id2label = getattr(self._model.model.config, "id2label", {})
             for idx, label in id2label.items():
                 label = str(label).lower()

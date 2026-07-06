@@ -7,6 +7,15 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Pinned HF revisions for every model the project loads (supply chain): the
+# loaders resolve through this map, so reported numbers reference fixed weights.
+HF_REVISIONS = {
+    "BAAI/bge-small-en-v1.5": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+    "sentence-transformers/all-MiniLM-L6-v2": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "cross-encoder/ms-marco-MiniLM-L-6-v2": "c5ee24cb16019beea0893ab7796b1df96625c6b8",
+    "cross-encoder/nli-deberta-v3-small": "fa2804872c3b4bd748f38c0185cc85775361e735",
+}
+
 
 class LLMSettings(BaseSettings):
     """LLM configuration."""
@@ -34,8 +43,7 @@ class EmbeddingSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="EMBEDDING_")
 
     model: str = Field(default="BAAI/bge-small-en-v1.5")
-    # pinned HF revision (supply-chain); matches the default model
-    revision: str = Field(default="5c38ec7c405ec4b44b94cc5a9bb96e735b38267a")
+    revision: str = Field(default=HF_REVISIONS["BAAI/bge-small-en-v1.5"])
     device: Literal["cpu", "cuda", "mps"] = "cpu"
     batch_size: int = 32
 

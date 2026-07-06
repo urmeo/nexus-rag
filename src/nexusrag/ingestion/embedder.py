@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 from numpy.typing import NDArray
 
+from nexusrag.config import HF_REVISIONS
+
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
@@ -35,7 +37,7 @@ class Embedder:
         self.normalize = normalize
         self._model: SentenceTransformer | None = None
         self._device = device
-        self.revision = revision or None
+        self.revision = revision or HF_REVISIONS.get(model_name)
         qp, dp = default_prefixes(model_name)
         self.query_prefix = qp if query_prefix is None else query_prefix
         self.doc_prefix = dp if doc_prefix is None else doc_prefix

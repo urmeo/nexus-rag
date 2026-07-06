@@ -2,6 +2,7 @@
 
 from typing import Any, Literal
 
+from nexusrag.config import HF_REVISIONS
 from nexusrag.retrieval.dense import RetrievalResult
 
 
@@ -13,10 +14,12 @@ class Reranker:
         model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
         device: Literal["cpu", "cuda", "mps"] | None = None,
         batch_size: int = 8,
+        revision: str | None = None,
     ):
         self.model_name = model_name
         self.device = device
         self.batch_size = batch_size
+        self.revision = revision or HF_REVISIONS.get(model_name)
         self._model: Any = None
 
     @property
@@ -27,6 +30,7 @@ class Reranker:
             self._model = CrossEncoder(
                 self.model_name,
                 device=self.device,
+                revision=self.revision,
             )
         return self._model
 
