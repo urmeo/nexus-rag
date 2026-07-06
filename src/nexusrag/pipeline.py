@@ -355,7 +355,11 @@ class NexusRAG:
         with self._write_lock:
             self.vector_store.clear()
             self.document_store.clear()
-            self.bm25.clear()
+            # Reset the handle directly; touching the property would rebuild the
+            # BM25 index from the store just to throw it away.
+            if self._bm25 is not None:
+                self._bm25.clear()
+            self._bm25 = None
 
     def get_stats(self) -> SystemStats:
         """Get system statistics."""

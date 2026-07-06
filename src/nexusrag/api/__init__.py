@@ -30,6 +30,11 @@ def create_app() -> FastAPI:
 
     # hide docs/openapi in production (api key set) or when disabled
     docs_on = settings.api.docs_enabled and not settings.api.api_key
+    if not docs_on:
+        logging.getLogger("nexusrag").info(
+            "Interactive API docs disabled (%s); /docs, /redoc, /openapi.json return 404",
+            "API key set" if settings.api.api_key else "docs_enabled=False",
+        )
 
     app = FastAPI(
         title="NexusRAG",

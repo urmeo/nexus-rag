@@ -48,7 +48,11 @@ class LLMClient:
         for attempt in range(self.max_retries + 1):
             try:
                 response = self.client.post(path, json=payload)
-            except (httpx.TimeoutException, httpx.ConnectError, httpx.RequestError) as exc:
+            except httpx.TimeoutException as exc:
+                # A read timeout means the model is slow; retrying only multiplies
+                # the wall-clock hang, so fail fast after a single timeout.
+                raise LLMError(f"LLM timed out after {self.timeout}s ({self._where()})") from exc
+            except (httpx.ConnectError, httpx.RequestError) as exc:
                 last_exc = exc
             else:
                 if response.status_code < 500:

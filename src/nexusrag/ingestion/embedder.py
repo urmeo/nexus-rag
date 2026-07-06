@@ -103,7 +103,10 @@ class Embedder:
         if self.normalize:
             result: NDArray[np.float32] = np.dot(document_embeddings, query_embedding)
             return result
-        q = query_embedding / np.linalg.norm(query_embedding)
-        d = document_embeddings / np.linalg.norm(document_embeddings, axis=1, keepdims=True)
+        qn = np.linalg.norm(query_embedding)
+        q = query_embedding / qn if qn else query_embedding
+        dn = np.linalg.norm(document_embeddings, axis=1, keepdims=True)
+        dn[dn == 0] = 1.0  # zero vector -> 0 similarity, not NaN
+        d = document_embeddings / dn
         result2: NDArray[np.float32] = np.dot(d, q)
         return result2
