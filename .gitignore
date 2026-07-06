@@ -1,92 +1,25 @@
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
+build/
+dist/
 
-# Virtual environments
+# Environments
 .env
-.venv
-env/
-venv/
-ENV/
+.venv/
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# Testing
-.tox/
-.nox/
+# Tool caches
 .coverage
-.coverage.*
-htmlcov/
 .pytest_cache/
-.hypothesis/
-
-# Mypy
 .mypy_cache/
-
-# Ruff
 .ruff_cache/
-
-# Jupyter
 .ipynb_checkpoints/
-*.ipynb_checkpoints
 
-# Project-specific
+# Project data and generated output
 data/
-models/
-*.bin
-*.pt
-*.onnx
-*.safetensors
-
-# LanceDB
-.lancedb/
-*.lance
-
-# Logs
 *.log
-logs/
+benchmarks/results/*_sample*
 
-# OS
+# macOS
 .DS_Store
-Thumbs.db
-
-# Node
-node_modules/
-
-# Secrets
-.env.local
-.env.*.local
-secrets/
-
-# Superseded by paper/
-Report.pdf
-benchmarks/results/faithfulness_sample.json
-benchmarks/results/scifact_sample.json
-benchmarks/results/scifact_sample_*
