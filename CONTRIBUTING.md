@@ -48,7 +48,9 @@ change per commit.
 
 1. Branch off `main`.
 2. Make your change and keep commits focused.
-3. Run `make lint type-check test` locally.
+3. Run `make lint type-check test` and `make eval-gate` locally — CI runs the
+   same eval regression gate and fails the build if any tracked retrieval or
+   faithfulness metric drops below its floor in `benchmarks/thresholds.json`.
 4. Open a pull request against `main` and fill in the template.
 5. CI must be green before merge.
 

@@ -1,4 +1,4 @@
-.PHONY: install install-dev test test-unit test-integration test-cov lint format type-check eval eval-sample corrective faithfulness ragtruth generation reproduce paper run clean help docker-build docker-up docker-down docker-logs
+.PHONY: install install-dev test test-unit test-integration test-cov lint format type-check eval eval-sample eval-gate corrective faithfulness ragtruth generation reproduce paper run clean help docker-build docker-up docker-down docker-logs
 
 PYTHON := python3
 PIP := $(PYTHON) -m pip
@@ -37,6 +37,9 @@ eval:
 
 eval-sample:
 	$(PYTHON) -m nexusrag.eval.run --sample
+
+eval-gate:
+	$(PYTHON) -m nexusrag.eval.gate
 
 corrective:
 	$(PYTHON) -m nexusrag.eval.corrective --dataset scifact --split test
@@ -97,6 +100,7 @@ help:
 	@echo "  run            Start FastAPI server + web UI"
 	@echo "  eval           Run the SciFact + NFCorpus retrieval ablation"
 	@echo "  eval-sample    Run the offline vendored subset (no download)"
+	@echo "  eval-gate      Run the eval regression gate (CI parity)"
 	@echo "  reproduce      Regenerate every committed README benchmark number"
 	@echo "  corrective     Corrective-loop trigger and cost/quality analysis"
 	@echo "  faithfulness   Run the evidence-detection evaluation"
