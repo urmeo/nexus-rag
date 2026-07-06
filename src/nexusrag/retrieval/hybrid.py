@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import string
 from collections import defaultdict
 from collections.abc import Sequence
 
@@ -55,15 +56,24 @@ class HybridRetriever:
         self.sparse_weight = sparse_weight
         self.rrf_k = rrf_k
 
-    def _run(
-        self, query: str, dw: float, sw: float, top_k: int, depth: int
-    ) -> list[RetrievalResult]:
+    def _weights(self, _query: str) -> tuple[float, float]:
+        return self.dense_weight, self.sparse_weight
+
+    def _run(self, query: str, top_k: int, depth: int) -> tuple[list[RetrievalResult], float]:
+        dw, sw = self._weights(query)
         dense = self.dense.retrieve(query, depth)
         sparse = self.sparse.retrieve(query, depth)
-        return rrf_fuse([dense, sparse], [dw, sw], self.rrf_k, top_k)
+        fused = rrf_fuse([dense, sparse], [dw, sw], self.rrf_k, top_k)
+        return fused, (dense[0].score if dense else 0.0)
 
     def retrieve(self, query: str, top_k: int = 10, depth: int = 50) -> list[RetrievalResult]:
-        return self._run(query, self.dense_weight, self.sparse_weight, top_k, depth)
+        return self._run(query, top_k, depth)[0]
+
+    def retrieve_with_dense_top(
+        self, query: str, top_k: int = 10, depth: int = 50
+    ) -> tuple[list[RetrievalResult], float]:
+        """Fused results plus the top dense cosine score, from one dense pass."""
+        return self._run(query, top_k, depth)
 
     def retrieve_dense_only(self, query: str, top_k: int = 10) -> list[RetrievalResult]:
         return self.dense.retrieve(query, top_k)
@@ -88,10 +98,6 @@ class AdaptiveHybridRetriever(HybridRetriever):
         super().__init__(dense_retriever, sparse_retriever, dense_weight, sparse_weight, rrf_k)
         self.shift = shift
 
-    def retrieve(self, query: str, top_k: int = 10, depth: int = 50) -> list[RetrievalResult]:
-        dw, sw = self._weights(query)
-        return self._run(query, dw, sw, top_k, depth)
-
     def _weights(self, query: str) -> tuple[float, float]:
         words = query.split()
         lexical = len(words) <= 4 or any(_looks_technical(w) for w in words)
@@ -104,4 +110,9 @@ class AdaptiveHybridRetriever(HybridRetriever):
 
 
 def _looks_technical(word: str) -> bool:
-    return word.isupper() or "_" in word or any(c.isdigit() for c in word) or len(word) > 14
+    # Strip surrounding punctuation so it matches the retrieval tokenizer
+    # (e.g. "classification." must not read as a 15-char technical token).
+    word = word.strip(string.punctuation)
+    return bool(word) and (
+        word.isupper() or "_" in word or any(c.isdigit() for c in word) or len(word) > 14
+    )

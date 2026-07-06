@@ -30,10 +30,6 @@ class CorrectiveRetriever:
         self.feedback_terms = feedback_terms
         self.enabled = enabled
 
-    def confidence(self, query: str) -> float:
-        top = self.base.dense.retrieve(query, 1)
-        return top[0].score if top else 0.0
-
     def expand(self, query: str, results: list[RetrievalResult]) -> str:
         qterms = set(self.base.sparse.tokenize(query))
         counts: Counter[str] = Counter()
@@ -47,8 +43,9 @@ class CorrectiveRetriever:
     def retrieve_traced(
         self, query: str, top_k: int = 10, depth: int = 50
     ) -> tuple[list[RetrievalResult], bool]:
-        first = self.base.retrieve(query, top_k=depth, depth=depth)
-        if not self.enabled or not first or self.confidence(query) >= self.tau:
+        # One dense pass: the fused results and the top dense score together.
+        first, dense_top = self.base.retrieve_with_dense_top(query, top_k=depth, depth=depth)
+        if not self.enabled or not first or dense_top >= self.tau:
             return first[:top_k], False
         expanded = self.expand(query, first)
         second = self.base.retrieve(expanded, top_k=depth, depth=depth)

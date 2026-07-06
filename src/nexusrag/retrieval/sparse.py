@@ -1,7 +1,7 @@
 """Sparse retrieval using BM25."""
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from rank_bm25 import BM25Okapi
 
@@ -14,7 +14,6 @@ from nexusrag.retrieval.stopwords import STOP_WORDS
 class BM25Index:
     bm25: BM25Okapi
     chunks: list[Chunk]
-    tokenized_corpus: list[list[str]] = field(default_factory=list)
 
 
 class BM25Retriever:
@@ -34,12 +33,7 @@ class BM25Retriever:
 
         tokenized = [self.tokenize(chunk.content) for chunk in chunks]
 
-        self._index = BM25Index(
-            bm25=BM25Okapi(tokenized),
-            chunks=chunks,
-            tokenized_corpus=tokenized,
-        )
-
+        self._index = BM25Index(bm25=BM25Okapi(tokenized), chunks=chunks)
         return len(chunks)
 
     def add_incremental(self, chunks: list[Chunk]) -> int:

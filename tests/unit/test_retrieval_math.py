@@ -59,8 +59,10 @@ def test_ece_perfect_and_overconfident():
 class _FakeDense:
     def __init__(self, top_score: float):
         self.top_score = top_score
+        self.calls = 0
 
     def retrieve(self, query, top_k=5):
+        self.calls += 1
         return [_result("d1", self.top_score)]
 
 
@@ -83,6 +85,11 @@ class _FakeBase:
     def retrieve(self, query, top_k=10, depth=50):
         self.calls.append(query)
         return [_result("d1", 0.9), _result("d2", 0.8)]
+
+    def retrieve_with_dense_top(self, query, top_k=10, depth=50):
+        # Mirrors the real hybrid: one fused pass yields results + top dense score.
+        self.calls.append(query)
+        return [_result("d1", 0.9), _result("d2", 0.8)], self.dense.retrieve(query, 1)[0].score
 
 
 def test_corrective_skips_when_confident():
@@ -135,3 +142,42 @@ def test_expand_respects_feedback_terms_cap():
     cr = CorrectiveRetriever(base, feedback_terms=1)
     added = cr.expand("kinase", [_content_result("apoptosis apoptosis signaling")]).split()[1:]
     assert added == ["apoptosis"]
+
+
+def test_corrective_confident_query_does_one_dense_pass():
+    # #5 regression: a high-confidence query must not re-embed/re-search dense.
+    base = _FakeBase(top_score=0.9)
+    cr = CorrectiveRetriever(base, tau=0.55)
+    _, triggered = cr.retrieve_traced("kinase inhibits tumor growth", top_k=2)
+    assert triggered is False
+    assert base.dense.calls == 1  # was 2 before the fix
+
+
+def test_hybrid_retrieve_with_dense_top_single_pass():
+    from nexusrag.retrieval.hybrid import HybridRetriever
+
+    class _Dense:
+        def __init__(self):
+            self.calls = 0
+
+        def retrieve(self, q, k):
+            self.calls += 1
+            return [_result("d1", 0.72)]
+
+    class _Sparse:
+        def retrieve(self, q, k):
+            return [_result("d1", 0.4)]
+
+    dense = _Dense()
+    fused, top = HybridRetriever(dense, _Sparse()).retrieve_with_dense_top("q", top_k=5, depth=10)
+    assert dense.calls == 1
+    assert top == 0.72
+    assert fused
+
+
+def test_looks_technical_ignores_trailing_punctuation():
+    from nexusrag.retrieval.hybrid import _looks_technical
+
+    assert _looks_technical("classification.") is False  # 14 chars + period
+    assert _looks_technical("immunodeficiency,") is True  # 16 chars, genuinely long
+    assert _looks_technical("TF-IDF") is True  # acronym still detected
