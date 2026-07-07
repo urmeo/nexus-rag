@@ -1,38 +1,50 @@
 # NexusRAG: Local Hybrid Retrieval and Faithfulness Evaluation for Scientific Papers
 
-**Which parts of a local RAG stack actually improve retrieval?** **Mostly the embedding model: swapping MiniLM for BGE-small lifts dense retrieval from below BM25 to well above it, fusion adds a small significant gain, and the cross-encoder reranker makes results worse at 67x the latency.**
+**Which parts of a local RAG stack actually improve retrieval?** **Mostly the embedding model: swapping MiniLM for BGE-small lifts dense retrieval from below BM25 to well above it, fusion adds a small provable gain, and the cross-encoder reranker makes results worse at 67x the latency.**
 
 ![NexusRAG answering a question with checkable citations](screenshots/nexusrag-ui.png)
 
-Ask questions across your research papers and get answers with citations you can check. NexusRAG runs entirely on your machine and ships with a reproducible benchmark: every retrieval claim is measured against ground truth on two BEIR datasets, with bootstrap confidence intervals and paired randomization tests.
+Ask questions across your research papers and get answers with citations you can check. Everything runs on your machine, and every design choice is measured on public benchmarks:
+
+- Measured, not asserted: each component ablated on two BEIR datasets with bootstrap CIs and paired randomization tests
+- Reproducible to the digit: one command regenerates every number at seed 0; raw per-query CSVs are committed
+- CI quality gate: the build fails if any tracked metric drops below its committed floor
+- Honest results: the reranker made things worse, so it is reported and kept out of the default path
+- Fully local: papers never leave your machine; generation runs on Ollama
 
 ## Results
 
-Retrieval quality on SciFact (300 claims, 5,183 abstracts) and NFCorpus (323 queries, 3,633 documents), CPU-only, exact search.
+Retrieval on SciFact (300 claims, 5,183 abstracts) and NFCorpus (323 queries, 3,633 documents). CPU only, exact search, seed 0.
 
 | System | SciFact nDCG@10 | NFCorpus nDCG@10 |
-|--------|-----------------|------------------|
+|--------|:---:|:---:|
+| Dense, MiniLM (the common default) | 0.648 | 0.319 |
 | BM25 | 0.666 | 0.312 |
-| Dense (MiniLM, the usual default) | 0.648 | 0.319 |
-| Dense (BGE-small) | **0.708** | 0.342 |
+| Dense, BGE-small | **0.708** | 0.342 |
 | Hybrid (RRF) | 0.704 | **0.352** |
 | + Corrective PRF | 0.703 | 0.346 |
+
+```mermaid
+xychart-beta
+    title "SciFact nDCG@10 (higher is better)"
+    x-axis ["MiniLM", "BM25", "BGE-small", "Hybrid RRF", "+PRF"]
+    y-axis "nDCG@10" 0.60 --> 0.72
+    bar [0.648, 0.666, 0.708, 0.704, 0.703]
+```
 
 Evidence detection on SciFact claims (188 dev claims, 2,031 candidate sentences), claim-bootstrap 95% CIs:
 
 | Scorer | ROC-AUC | 95% CI |
-|--------|---------|--------|
+|--------|:---:|:---:|
 | Cross-encoder | **0.755** | [0.721, 0.793] |
 | NLI (DeBERTa) | 0.688 | [0.652, 0.726] |
 | Lexical overlap | 0.686 | [0.652, 0.720] |
 
 Three findings, reported as measured:
 
-- The embedding model is the lever: BGE-small moves dense retrieval from below BM25 to +0.060 nDCG@10 above it on SciFact (paired randomization p < 0.001).
-- Fusion helps a little: RRF beats BM25 by +0.037 [+0.014, +0.061] on SciFact and +0.040 [+0.025, +0.055] on NFCorpus; both CIs exclude zero.
-- The reranker hurts: it lowers nDCG@10 (0.702 vs 0.734) and Recall@20 (0.886 vs 0.900) at roughly 67x the latency on a 120-query timing subset. The corrective loop is neutral on these corpora.
-
-![Ablation: nDCG@10 per system on SciFact and NFCorpus](paper/figures/ablation.png)
+- The embedding model is the biggest lever: replacing `all-MiniLM-L6-v2` with `bge-small-en-v1.5` lifts dense retrieval from below BM25 to +0.060 nDCG@10 above it (p < 0.001)
+- Hybrid fusion wins, modestly but provably: RRF beats BM25 by +0.037 [+0.014, +0.061] on SciFact and +0.040 [+0.025, +0.055] on NFCorpus; both CIs exclude zero
+- The reranker hurts here: lower nDCG@10 (0.702 vs 0.734), lower Recall@20, at roughly 67x the latency; the corrective loop is neutral on these corpora
 
 ## Parameters
 
@@ -44,40 +56,57 @@ Three findings, reported as measured:
 | Retrieval depth | 50, exact search (no ANN index) |
 | Corrective threshold | Tau selected on a held-out split |
 | Statistics | Bootstrap CIs and paired randomization, 10,000 resamples, seed 0 |
+| Models | Every HF model pinned to an exact revision (one map in config) |
 
-Every number above regenerates from committed results in [benchmarks/results](benchmarks/results). Per-query nDCG@10 is committed as CSV ([scifact](benchmarks/results/scifact_test_per_query.csv), [nfcorpus](benchmarks/results/nfcorpus_test_per_query.csv)) so each mean can be recomputed row by row. Full tables with CIs and p-values are in [paper/main.pdf](paper/main.pdf).
+Every number above regenerates from committed results in [benchmarks/results](benchmarks/results). Per-query nDCG@10 is committed as CSV ([scifact](benchmarks/results/scifact_test_per_query.csv), [nfcorpus](benchmarks/results/nfcorpus_test_per_query.csv)) so each mean can be recomputed row by row. Full tables with CIs and p-values: [paper/main.pdf](paper/main.pdf).
 
 ## Method
 
 ```mermaid
 flowchart LR
-    D[Documents] --> C[Chunk] --> E[BGE embeddings + BM25]
+    D[Documents] --> C[Chunk] --> E[BGE + BM25 index]
     Q[Question] --> R[RRF fusion]
     E --> R
     R --> G{Confident?}
-    G -- yes --> S[Answer with citations]
-    G -- no --> P[Expand + re-retrieve] --> S
-    S --> CC[Citation check] --> V["Grounding check (optional)"]
+    G -- yes --> S[Answer + citations]
+    G -- no --> P[PRF re-retrieve] --> S
+    S --> CC[Citation check] --> V["NLI grounding (optional)"]
 ```
 
-Documents are parsed, chunked, embedded into LanceDB, and indexed for BM25. A query fuses dense and lexical results with reciprocal rank fusion; if the top dense score is weak, a pseudo-relevance-feedback pass expands the query and re-retrieves. A local model answers using only the retrieved passages, with inline citations; an optional NLI grounding check (off by default) verifies that each answer sentence is entailed by its sources.
+- Ingest: parse PDF/DOCX/MD/TXT, chunk section-aware with overlap, embed into LanceDB, index for BM25
+- Retrieve: fuse dense and lexical rankings with reciprocal rank fusion
+- Correct: if top dense confidence is weak, one pseudo-relevance-feedback pass expands the query and re-retrieves
+- Answer: a local model writes from retrieved passages only, with inline citations; invalid citations are stripped and reported
+- Verify: an optional NLI check tests that each answer sentence is entailed by its cited sources
 
-On every push, CI reruns a vendored offline sample (50 SciFact queries, 651 abstracts, 60 claims, seed 0, CPU) and fails the build if any tracked metric drops below its committed floor in [benchmarks/thresholds.json](benchmarks/thresholds.json):
+On every push, CI reruns a deterministic vendored sample (50 queries, 651 abstracts, 60 claims, CPU, no large downloads) and fails the build if any metric drops below its floor in [benchmarks/thresholds.json](benchmarks/thresholds.json):
 
 | Metric | Sample value | Floor |
-|--------|--------------|-------|
-| nDCG@10: Hybrid (RRF) | 0.910 | 0.900 |
-| nDCG@10: + Corrective PRF | 0.899 | 0.889 |
+|--------|:---:|:---:|
+| nDCG@10, Hybrid (RRF) | 0.910 | 0.900 |
+| nDCG@10, + Corrective PRF | 0.899 | 0.889 |
 | Recall@10 (both) | 0.980 | 0.970 |
-| ROC-AUC: NLI | 0.752 | 0.737 |
-| ROC-AUC: cross-encoder | 0.774 | 0.759 |
+| Faithfulness ROC-AUC, NLI | 0.752 | 0.737 |
+| Faithfulness ROC-AUC, cross-encoder | 0.774 | 0.759 |
+
+The same CI runs gitleaks, pip-audit against hash-pinned lockfiles, ruff, strict mypy, and the full test suite on Python 3.11 and 3.12.
+
+## Core ideas in 30 seconds
+
+| Term | Meaning here |
+|------|--------------|
+| RAG | Retrieve relevant passages first, then generate an answer from them |
+| Hybrid retrieval | Combine dense embeddings (meaning) with BM25 (exact words) |
+| RRF | Reciprocal rank fusion: merges the two rankings without score calibration |
+| Corrective PRF | If confidence is low, expand the query with top terms and retrieve again |
+| NLI grounding | A natural language inference model checks each sentence against its sources |
 
 ## Toolkit
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[eval]"
-make run            # web UI at http://localhost:8000 (needs a local Ollama)
+make run    # web UI at http://localhost:8000 (needs local Ollama)
 ```
 
 ```python
@@ -85,18 +114,28 @@ from nexusrag import NexusRAG
 
 rag = NexusRAG()
 rag.ingest("paper.pdf")
-answer = rag.query("What did the paper find?")   # answer.answer, answer.sources, answer.confidence
+result = rag.query("What did the paper find?")
+# result.answer, result.sources, result.confidence
 ```
+
+Docker: `docker compose up` starts the API plus a pinned Ollama service. See [examples](examples) and [notebooks/01_quickstart.ipynb](notebooks/01_quickstart.ipynb).
 
 | Command | What it does |
 |---------|--------------|
-| make eval | SciFact + NFCorpus ablation (downloads BGE-small on first run) |
-| make faithfulness | Evidence detection (downloads the NLI and reranker models) |
-| make reproduce | Regenerates every number above from scratch, seed 0, pinned environments |
-| make eval-sample | Small vendored subset, no downloads |
-| make paper | Regenerates tables, figures, and the PDF (needs tectonic) |
+| make reproduce | Regenerates every number above from scratch, pinned env, seed 0 |
+| make eval | SciFact + NFCorpus ablation (downloads BGE-small once) |
+| make faithfulness | Evidence detection eval (NLI + cross-encoder) |
+| make eval-sample | Vendored subset, no downloads, runs in minutes |
+| make paper | Rebuilds tables, figures, and the PDF (needs tectonic) |
 
-The full ablation is CPU-only, roughly 15 to 25 minutes per dataset on a modern laptop. About 8 GB RAM runs the whole stack: BGE-small ~130 MB, cross-encoder ~90 MB, DeBERTa-NLI ~280 MB, llama3.2:3b ~2 GB via Ollama. Scope is deliberately narrow: two abstract-level BEIR datasets, no SPLADE/ColBERT/monoT5 baselines, no end-to-end answer scoring.
+| Footprint | Size |
+|-----------|------|
+| BGE-small embedder | ~130 MB |
+| Cross-encoder reranker | ~90 MB |
+| DeBERTa NLI | ~280 MB |
+| llama3.2:3b (Ollama) | ~2 GB |
+| RAM for full stack | ~8 GB |
+| Full ablation runtime | 15 to 25 min per dataset, laptop CPU |
 
 ## Applications
 
@@ -107,22 +146,34 @@ The full ablation is CPU-only, roughly 15 to 25 minutes per dataset on a modern 
 | Evaluate a faithfulness scorer | make faithfulness scores it as an evidence detector |
 | Gate RAG quality in CI | python -m nexusrag.eval.gate with committed floors |
 
+## Limitations
+
+- Two abstract-level BEIR datasets only; the 300-query SciFact set is BEIR's maximum
+- Exact dense search, no ANN index; fine at this scale, not tuned for millions of chunks
+- BM25 index lives in memory and rebuilds on cold start
+- Corrective PRF is roughly neutral on nDCG here; kept because it is cheap and helps recall on hard queries
+- Broader datasets, domain encoders (SPECTER2, SciNCL), and neural baselines (SPLADE, ColBERTv2) are not claimed here
+
 ## Tech Stack
 
 | Area | Tools |
 |------|-------|
-| Language | Python 3.11 to 3.12, typed, mypy strict |
-| Retrieval | sentence-transformers (BGE-small), rank-bm25, RRF (k=60), cross-encoder reranker, DeBERTa NLI, LanceDB (cosine, exact) |
+| Retrieval | sentence-transformers (BGE-small, pinned revision), rank-bm25, RRF (k=60), LanceDB (cosine, exact) |
+| Verification | citation validation, DeBERTa NLI sentence grounding |
 | Serving | FastAPI, Uvicorn, Ollama (llama3.2:3b, pinned) |
-| Evaluation | SciFact, NFCorpus (BEIR, revisions pinned), bootstrap CIs, paired randomization + delta CIs, Holm correction |
-| Quality | pytest (303 tests, 65% branch coverage), ruff, mypy strict, GitHub Actions, gitleaks, pip-audit, Docker |
+| Evaluation | BEIR (SciFact, NFCorpus, pinned revisions), bootstrap CIs, paired randomization, Holm correction |
+| Quality | pytest (303 tests, 65% branch coverage), mypy strict, ruff, gitleaks, pip-audit, Docker (non-root, hash-pinned deps) |
 
 ## Docs
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): design decisions and component-level limitations
-- [PROVENANCE.md](PROVENANCE.md): source, pinned revision, and license of every model and corpus
-- [SECURITY.md](SECURITY.md): threat model and the controls enforced in code
-- [paper/main.pdf](paper/main.pdf): the full study with per-metric tables, CIs, and p-values
+| Doc | Purpose |
+|-----|---------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design decisions and component-level limitations |
+| [PROVENANCE.md](PROVENANCE.md) | Source, pinned revision, and license of every model and corpus |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Local setup, checks, how to reproduce the benchmark |
+| [SECURITY.md](SECURITY.md) | Threat model and private vulnerability reporting |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
+| [paper/main.pdf](paper/main.pdf) | The full study: per-metric tables, CIs, p-values |
 
 ## References
 
@@ -136,4 +187,4 @@ The full ablation is CPU-only, roughly 15 to 25 minutes per dataset on a modern 
 
 ## License
 
-Code is [MIT](LICENSE). Downloaded models keep their own licenses: the default generator llama3.2:3b is under the Llama 3.2 Community License, which is not OSI-approved and carries an acceptable-use policy. [PROVENANCE.md](PROVENANCE.md) lists every model and corpus license.
+Code is [MIT](LICENSE). Downloaded models keep their own licenses: the default generator llama3.2:3b is under the Llama 3.2 Community License, which is not OSI-approved and carries an acceptable-use policy. Full catalogue: [PROVENANCE.md](PROVENANCE.md).
