@@ -109,7 +109,7 @@ On every push, [`nexusrag.eval.gate`](src/nexusrag/eval/gate.py) reruns a determ
 | Faithfulness ROC-AUC, NLI | 0.752 | 0.737 |
 | Faithfulness ROC-AUC, cross-encoder | 0.774 | 0.759 |
 
-The same CI runs gitleaks, pip-audit against hash-pinned lockfiles, ruff, strict mypy, and 303 tests on Python 3.11 and 3.12.
+The same CI runs gitleaks, pip-audit against hash-pinned lockfiles, ruff, strict mypy, and 309 tests on Python 3.11 and 3.12.
 
 ## Core ideas in 30 seconds
 

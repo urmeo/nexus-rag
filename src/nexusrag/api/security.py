@@ -6,7 +6,7 @@ import hmac
 import io
 import zipfile
 
-from fastapi import Header, HTTPException, status
+from fastapi import Header, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -82,6 +82,40 @@ async def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",
             headers={"WWW-Authenticate": "ApiKey"},
+        )
+
+
+# Sec-Fetch-Site values that are NOT a hostile cross-origin initiator. Modern
+# browsers stamp this on every request; "none" means the user drove it directly
+# (address bar, bookmark), "same-site"/"same-origin" mean our own frontend.
+_SAFE_FETCH_SITES = {"same-origin", "same-site", "none"}
+
+
+async def require_same_site(request: Request) -> None:
+    """Reject cross-site browser requests to state-changing routes (CSRF).
+
+    API-key auth does not help in no-key local mode: a page the user merely
+    visits can submit an HTML form to 127.0.0.1 and poison the corpus, because
+    a form POST is a CORS "simple request" that runs without a preflight. The
+    browser labels the initiator via Sec-Fetch-Site, so we trust that first and
+    fall back to an Origin allowlist for older browsers. A request carrying
+    neither header (curl, the CLI, server-to-server) has no ambient-credential
+    CSRF surface and is allowed through.
+    """
+    fetch_site = request.headers.get("sec-fetch-site")
+    if fetch_site is not None:
+        if fetch_site.lower() in _SAFE_FETCH_SITES:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cross-site request rejected",
+        )
+
+    origin = request.headers.get("origin")
+    if origin and origin not in get_settings().api.cors_origins:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cross-site request rejected",
         )
 
 

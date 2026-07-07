@@ -14,6 +14,7 @@ from nexusrag.api.security import (
     limiter,
     query_limit,
     require_api_key,
+    require_same_site,
     upload_limit,
     validate_upload,
 )
@@ -154,7 +155,11 @@ async def health_check() -> HealthResponse:
         return HealthResponse(status="error", llm_available=False)
 
 
-@router.post("/ingest", response_model=UploadResponse)
+@router.post(
+    "/ingest",
+    response_model=UploadResponse,
+    dependencies=[Depends(require_same_site)],
+)
 @limiter.limit(upload_limit)
 async def ingest_document(
     request: Request,
@@ -230,7 +235,11 @@ async def ingest_document(
         raise HTTPException(status_code=500, detail="Failed to process document") from None
 
 
-@router.post("/query", response_model=QueryResponse)
+@router.post(
+    "/query",
+    response_model=QueryResponse,
+    dependencies=[Depends(require_same_site)],
+)
 @limiter.limit(query_limit)
 async def query_documents(request: Request, payload: QueryRequest) -> QueryResponse:
     """
@@ -359,7 +368,11 @@ async def get_status() -> StatusResponse:
         raise HTTPException(status_code=500, detail="Failed to retrieve status") from None
 
 
-@router.delete("/documents/{document_id}", response_model=DeleteResponse)
+@router.delete(
+    "/documents/{document_id}",
+    response_model=DeleteResponse,
+    dependencies=[Depends(require_same_site)],
+)
 async def delete_document(document_id: str) -> DeleteResponse:
     """Delete a specific document."""
     # Basic validation of document_id format
@@ -385,7 +398,11 @@ async def delete_document(document_id: str) -> DeleteResponse:
         raise HTTPException(status_code=500, detail="Failed to delete document") from None
 
 
-@router.delete("/documents", response_model=DeleteResponse)
+@router.delete(
+    "/documents",
+    response_model=DeleteResponse,
+    dependencies=[Depends(require_same_site)],
+)
 async def clear_all_documents() -> DeleteResponse:
     """Delete all documents and reset the system."""
     try:

@@ -82,6 +82,46 @@ class TestRateLimiter:
         assert [client.get("/x").status_code for _ in range(3)] == [200, 200, 429]
 
 
+class TestSameSiteGuard:
+    @staticmethod
+    def _request(headers: dict[str, str]):
+        from starlette.datastructures import Headers
+
+        req = _FakeRequest()
+        req.headers = Headers(headers)
+        return req
+
+    async def test_cross_site_fetch_rejected(self) -> None:
+        with pytest.raises(HTTPException) as exc:
+            await security.require_same_site(self._request({"sec-fetch-site": "cross-site"}))
+        assert exc.value.status_code == 403
+
+    async def test_same_origin_fetch_allowed(self) -> None:
+        assert (
+            await security.require_same_site(self._request({"sec-fetch-site": "same-origin"}))
+            is None
+        )
+
+    async def test_user_initiated_allowed(self) -> None:
+        # Sec-Fetch-Site: none == typed URL / bookmark, not an attack surface.
+        assert await security.require_same_site(self._request({"sec-fetch-site": "none"})) is None
+
+    async def test_non_browser_client_allowed(self) -> None:
+        # curl / the CLI send neither header; no ambient-credential CSRF risk.
+        assert await security.require_same_site(self._request({})) is None
+
+    async def test_foreign_origin_fallback_rejected(self, monkeypatch) -> None:
+        monkeypatch.setattr(security, "get_settings", lambda: _settings())
+        with pytest.raises(HTTPException) as exc:
+            await security.require_same_site(self._request({"origin": "http://evil.example"}))
+        assert exc.value.status_code == 403
+
+    async def test_allowlisted_origin_fallback_allowed(self, monkeypatch) -> None:
+        monkeypatch.setattr(security, "get_settings", lambda: _settings())
+        allowed = _settings().api.cors_origins[0]
+        assert await security.require_same_site(self._request({"origin": allowed})) is None
+
+
 class TestValidateUpload:
     def test_pdf_magic_required(self, monkeypatch) -> None:
         monkeypatch.setattr(security, "get_settings", lambda: _settings())
