@@ -24,7 +24,6 @@ from nexusrag.retrieval.dense import RetrievalResult
 
 RESULTS_DIR = Path("benchmarks/results")
 NDCG = M.METRIC_FNS["nDCG@10"]
-R20 = M.METRIC_FNS["R@20"]
 
 # Held-out split used to pick tau, so the reported test numbers never tune on
 # themselves. NFCorpus ships a validation split; SciFact only has train/test.

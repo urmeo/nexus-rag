@@ -190,10 +190,6 @@ class DocumentStore:
         """Check if a document exists."""
         return doc_id in self.index
 
-    def list_all(self) -> list[str]:
-        """Get all document IDs."""
-        return list(self.index.keys())
-
     def list_with_metadata(self) -> dict[str, dict[str, Any]]:
         """Get all documents with their index metadata."""
         return dict(self.index)
