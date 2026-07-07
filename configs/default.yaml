@@ -51,5 +51,3 @@ api:
 
 logging:
   level: ${LOG_LEVEL:INFO}
-  format: json
-  file: null
