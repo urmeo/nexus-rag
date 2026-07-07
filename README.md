@@ -115,7 +115,7 @@ The full ablation is CPU-only, roughly 15 to 25 minutes per dataset on a modern 
 | Retrieval | sentence-transformers (BGE-small), rank-bm25, RRF (k=60), cross-encoder reranker, DeBERTa NLI, LanceDB (cosine, exact) |
 | Serving | FastAPI, Uvicorn, Ollama (llama3.2:3b, pinned) |
 | Evaluation | SciFact, NFCorpus (BEIR, revisions pinned), bootstrap CIs, paired randomization + delta CIs, Holm correction |
-| Quality | pytest (302 tests, 65% branch coverage), ruff, mypy strict, GitHub Actions, gitleaks, pip-audit, Docker |
+| Quality | pytest (303 tests, 65% branch coverage), ruff, mypy strict, GitHub Actions, gitleaks, pip-audit, Docker |
 
 ## Docs
 
