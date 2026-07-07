@@ -242,3 +242,28 @@ class TestNoDeadConfig:
             elif not re.search(rf"\b{name}\b", code):
                 dead.append(name)
         assert not dead, f"config fields never read in src/: {dead}"
+
+
+class TestDotenvLoading:
+    def test_env_file_in_cwd_is_loaded(self, tmp_path):
+        # load_dotenv runs at config-import time from the working directory,
+        # so the promise ".env is read" must be verified in a subprocess.
+        import os
+        import subprocess
+        import sys
+
+        (tmp_path / ".env").write_text("LLM_MODEL=dotenv-model\n")
+        env = {k: v for k, v in os.environ.items() if k != "LLM_MODEL"}
+        out = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from nexusrag.config import Settings; print(Settings().llm.model)",
+            ],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert out.stdout.strip() == "dotenv-model"

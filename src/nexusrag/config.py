@@ -4,8 +4,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# One load covers every settings section below: each BaseSettings subclass
+# reads the process environment independently, so .env must be in os.environ
+# before any of them is instantiated.
+load_dotenv()
 
 # Pinned HF revisions for every model the project loads (supply chain): the
 # loaders resolve through this map, so reported numbers reference fixed weights.
