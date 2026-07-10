@@ -168,14 +168,25 @@ class DocumentParser:
 
         return self._clean_text(full_text), sections
 
+    @staticmethod
+    def _read_text(path: Path) -> str:
+        """Read a text/markdown file as UTF-8, surfacing an actionable error
+        rather than a bare UnicodeDecodeError on non-UTF-8 uploads."""
+        try:
+            return path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise DocumentParseError(
+                "File is not valid UTF-8 text; re-save it as UTF-8 and upload again"
+            ) from exc
+
     def _parse_text(self, path: Path) -> tuple[str, list[Section]]:
-        content = path.read_text(encoding="utf-8")
+        content = self._read_text(path)
         sections = self._extract_sections_from_text(content)
         return self._clean_text(content), sections
 
     def _parse_markdown(self, path: Path) -> tuple[str, list[Section]]:
         """Parse Markdown file, extracting headers as sections."""
-        content = path.read_text(encoding="utf-8")
+        content = self._read_text(path)
         sections: list[Section] = []
         current_section: Section | None = None
         preamble: list[str] = []
@@ -260,10 +271,12 @@ class DocumentParser:
         return text.strip()
 
     def _generate_id(self, path: Path, content: str) -> str:
-        """Stable id from name + normalized content, so whitespace-only
-        edits do not slip past duplicate detection as a "new" document."""
+        """Stable id from name + full normalized content, so whitespace-only
+        edits do not slip past duplicate detection as a "new" document, while
+        two documents that merely share a long prefix stay distinct (hashing
+        only the first 500 chars collided them, silently dropping the second)."""
         normalized = re.sub(r"\s+", " ", content).strip()
-        hash_input = f"{path.name}:{len(normalized)}:{normalized[:500]}"
+        hash_input = f"{path.name}:{normalized}"
         return hashlib.sha256(hash_input.encode()).hexdigest()[:16]
 
     def _extract_metadata(self, path: Path) -> dict[str, Any]:

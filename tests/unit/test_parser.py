@@ -46,6 +46,29 @@ class TestDocumentParser:
         with pytest.raises(ValueError, match="Unsupported format"):
             parser.parse(unsupported)
 
+    def test_non_utf8_text_raises_parse_error(self, parser, temp_dir):
+        # A non-UTF-8 upload must surface an actionable DocumentParseError,
+        # not a bare UnicodeDecodeError.
+        bad = temp_dir / "latin1.txt"
+        bad.write_bytes("café résumé".encode("latin-1"))  # 0xe9 is invalid UTF-8
+        with pytest.raises(DocumentParseError, match="UTF-8"):
+            parser.parse(bad)
+
+    def test_non_utf8_markdown_raises_parse_error(self, parser, temp_dir):
+        bad = temp_dir / "latin1.md"
+        bad.write_bytes("# café".encode("latin-1"))
+        with pytest.raises(DocumentParseError, match="UTF-8"):
+            parser.parse(bad)
+
+    def test_documents_sharing_long_prefix_are_not_duplicates(self, parser):
+        # Same filename and identical >500-char prefix, differing only in the
+        # tail: hashing just the prefix collided them and silently dropped the
+        # second. The id must hash the full content so both survive.
+        prefix = "alpha " * 200  # ~1200 chars, well over the old 500-char window
+        a = parser.parse_bytes((prefix + "ending one").encode(), "paper.txt", ".txt")
+        b = parser.parse_bytes((prefix + "ending two").encode(), "paper.txt", ".txt")
+        assert a.id != b.id
+
     def test_generate_document_id(self, parser, sample_text_file):
         doc1 = parser.parse(sample_text_file)
         doc2 = parser.parse(sample_text_file)
