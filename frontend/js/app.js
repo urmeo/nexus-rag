@@ -5,13 +5,19 @@
 
 const API_BASE = '';
 
+// When the server enforces API-key auth, attach the key so the bundled UI still
+// works. With no key configured this adds no header, leaving local use unchanged.
+function apiHeaders(extra = {}) {
+    const key = localStorage.getItem('nexusrag_api_key');
+    return key ? { ...extra, 'X-API-Key': key } : { ...extra };
+}
+
 // State
 const state = {
     documents: [],
     sources: [],
     llmModel: '',
     embeddingModel: '',
-    isConnected: false,
     lastResponse: null,
     lastQuery: '',
     isProcessing: false
@@ -130,17 +136,15 @@ function autoResize() {
 // Health Check
 async function checkHealth() {
     try {
-        const res = await fetch(`${API_BASE}/api/health`);
+        const res = await fetch(`${API_BASE}/api/health`, { headers: apiHeaders() });
         const data = await res.json();
 
-        state.isConnected = res.ok && data.llm_available;
         state.llmModel = data.llm_model || '';
         state.embeddingModel = data.embedding_model || '';
 
         updateConnectionStatus(data);
         updateStatusBar(data);
     } catch (e) {
-        state.isConnected = false;
         updateConnectionStatus({ llm_available: false });
         updateStatusBar({});
     }
@@ -169,7 +173,7 @@ function updateStatusBar(data) {
 // Documents
 async function loadDocuments() {
     try {
-        const res = await fetch(`${API_BASE}/api/documents`);
+        const res = await fetch(`${API_BASE}/api/documents`, { headers: apiHeaders() });
         const data = await res.json();
 
         state.documents = data.documents || [];
@@ -293,6 +297,7 @@ async function uploadFile(file) {
     try {
         const res = await fetch(`${API_BASE}/api/ingest`, {
             method: 'POST',
+            headers: apiHeaders(),
             body: formData
         });
 
@@ -303,7 +308,7 @@ async function uploadFile(file) {
             await loadDocuments();
             await checkHealth();
         } else {
-            showToast(data.error || 'Upload failed', 'error');
+            showToast(data.detail || data.error || 'Upload failed', 'error');
         }
     } catch (e) {
         showToast('Upload error - check server connection', 'error');
@@ -317,7 +322,8 @@ async function deleteDocument(docId) {
 
     try {
         const res = await fetch(`${API_BASE}/api/documents/${docId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: apiHeaders()
         });
 
         if (res.ok) {
@@ -412,7 +418,7 @@ async function sendMessage() {
     try {
         const res = await fetch(`${API_BASE}/api/query`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: apiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ question })
         });
 
@@ -714,7 +720,6 @@ function esc(text) {
 }
 
 // Global function exports for onclick handlers
-window.deleteDocument = deleteDocument;
 window.highlightSource = highlightSource;
 window.toggleSourceExpand = toggleSourceExpand;
 window.openSources = openSources;

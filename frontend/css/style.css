@@ -232,9 +232,6 @@ body {
     gap: var(--space-sm);
 }
 
-.upload-zone.uploading .upload-content { display: none; }
-.upload-zone.uploading .upload-progress { display: flex; }
-
 .progress-bar {
     width: 100%;
     height: 4px;
