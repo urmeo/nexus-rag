@@ -3,7 +3,7 @@
 [![CI](https://github.com/urmeo/nexus-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/urmeo/nexus-rag/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-303-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-319-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-65%25-green.svg)](tests/)
 [![Typed](https://img.shields.io/badge/mypy-strict-blue.svg)](pyproject.toml)
 
@@ -43,7 +43,7 @@ Three findings:
 
 - **The embedding model is the biggest lever.** Swapping the common `all-MiniLM-L6-v2` for `bge-small-en-v1.5` lifts dense retrieval from below BM25 to clearly above it (+0.060 nDCG@10, p < 0.001)
 - **Hybrid fusion wins, modestly but provably.** RRF beats BM25 by +0.037 [+0.014, +0.061] on SciFact and +0.040 [+0.025, +0.055] on NFCorpus. Both 95% CIs exclude zero
-- **The cross-encoder reranker hurts here.** Lower nDCG@10 (0.702 vs 0.734), lower Recall@20, at ~67x the latency on these abstract-level corpora
+- **The cross-encoder reranker hurts here.** Lower nDCG@10 (0.702 vs 0.734 on the 120-query cost/latency subset), lower Recall@20, at ~67x the latency on these abstract-level corpora
 
 Full tables with CIs and p-values: [paper/main.pdf](paper/main.pdf). Raw per-query scores: [`benchmarks/results/`](benchmarks/results).
 
@@ -109,7 +109,7 @@ On every push, [`nexusrag.eval.gate`](src/nexusrag/eval/gate.py) reruns a determ
 | Faithfulness ROC-AUC, NLI | 0.752 | 0.737 |
 | Faithfulness ROC-AUC, cross-encoder | 0.774 | 0.759 |
 
-The same CI runs gitleaks, pip-audit against hash-pinned lockfiles, ruff, strict mypy, and 309 tests on Python 3.11 and 3.12.
+The same CI runs gitleaks, pip-audit against hash-pinned lockfiles, ruff, strict mypy, and 319 tests on Python 3.11 and 3.12.
 
 ## Core ideas in 30 seconds
 
@@ -137,7 +137,7 @@ The same CI runs gitleaks, pip-audit against hash-pinned lockfiles, ruff, strict
 - Two abstract-level BEIR datasets only; the 300-query SciFact set is BEIR's maximum
 - Exact dense search, no ANN index; fine at this scale, not tuned for millions of chunks
 - BM25 index lives in memory and rebuilds on cold start
-- Corrective PRF is roughly neutral on nDCG here; kept because it is cheap and helps recall on hard queries
+- Corrective PRF is roughly neutral here; it only fires on low-confidence queries and leaves aggregate nDCG and recall unchanged on these corpora, kept because it is cheap and a no-op rather than a regression
 - Component-level limits: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Model sources, pinned revisions, licenses: [PROVENANCE.md](PROVENANCE.md)
 
 ## Roadmap
