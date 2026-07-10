@@ -32,6 +32,13 @@ class BM25Retriever:
             return 0
 
         tokenized = [self.tokenize(chunk.content) for chunk in chunks]
+        if not any(tokenized):
+            # A wholly degenerate corpus (every chunk is stop-words / single
+            # chars) has average document length 0, which makes BM25Okapi divide
+            # by zero. Give each doc a sentinel token no real query can produce
+            # (tokenize() keeps only len>1 alphanumerics), so the index builds
+            # and simply matches nothing instead of crashing ingestion.
+            tokenized = [["\x00"] for _ in chunks]
 
         self._index = BM25Index(bm25=BM25Okapi(tokenized), chunks=chunks)
         return len(chunks)

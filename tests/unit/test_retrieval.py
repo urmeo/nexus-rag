@@ -4,7 +4,13 @@ import numpy as np
 import pytest
 
 from nexusrag.ingestion import Chunk
-from nexusrag.retrieval import BM25Retriever, DenseRetriever, HybridRetriever, RetrievalResult
+from nexusrag.retrieval import (
+    BM25Retriever,
+    DenseRetriever,
+    HybridRetriever,
+    Reranker,
+    RetrievalResult,
+)
 
 
 @pytest.fixture
@@ -65,6 +71,56 @@ class TestBM25Retriever:
         assert r.count() == 3
         r.add_incremental(sample_chunks[2:])  # 1 overlap + 2 new
         assert r.count() == 5
+
+    def test_add_survives_all_empty_tokenization(self):
+        # A wholly degenerate corpus (stop-words / single chars) tokenizes to
+        # nothing; BM25's average-doc-length term would divide by zero. Ingestion
+        # must survive and simply match nothing rather than crash.
+        chunks = [
+            Chunk(id=f"c{i}", content=c, document_id="d")
+            for i, c in enumerate(["the a is", "of to in", "x y z"])
+        ]
+        r = BM25Retriever()
+        assert r.add(chunks) == 3
+        assert r.count() == 3
+        assert r.retrieve("machine learning", top_k=5) == []
+
+
+class TestReranker:
+    def _results(self):
+        return [
+            RetrievalResult(
+                chunk=Chunk(id=f"c{i}", content=t, document_id="d"), score=0.0, source="hybrid"
+            )
+            for i, t in enumerate(["alpha", "beta", "gamma"])
+        ]
+
+    def _reranker(self, scores):
+        r = Reranker()
+        model = MagicMock()
+        model.predict.return_value = np.array(scores, dtype=np.float32)
+        r._model = model
+        return r
+
+    def test_empty_results_returns_empty(self):
+        assert self._reranker([]).rerank("q", []) == []
+
+    def test_orders_by_cross_encoder_score_desc(self):
+        out = self._reranker([0.1, 0.9, 0.5]).rerank("q", self._results())
+        assert [x.chunk.id for x in out] == ["c1", "c2", "c0"]
+        assert out[0].score == 1.0 and out[-1].score == 0.0  # min-max normalized
+        assert all(x.source == "hybrid+rerank" for x in out)
+
+    def test_all_equal_scores_map_to_neutral_one(self):
+        out = self._reranker([0.4, 0.4, 0.4]).rerank("q", self._results())
+        assert all(x.score == 1.0 for x in out)
+
+    def test_top_k_zero_returns_empty_not_all(self):
+        assert self._reranker([0.1, 0.9, 0.5]).rerank("q", self._results(), top_k=0) == []
+
+    def test_top_k_truncates(self):
+        out = self._reranker([0.1, 0.9, 0.5]).rerank("q", self._results(), top_k=2)
+        assert [x.chunk.id for x in out] == ["c1", "c2"]
 
 
 class TestDenseRetriever:

@@ -63,7 +63,9 @@ class Reranker:
 
         reranked.sort(key=lambda x: x.score, reverse=True)
 
-        if top_k:
+        # `is not None` (not truthiness) so an explicit top_k=0 returns [],
+        # matching rrf_fuse rather than silently returning everything.
+        if top_k is not None:
             reranked = reranked[:top_k]
 
         return reranked
