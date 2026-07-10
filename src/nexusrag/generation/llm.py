@@ -93,7 +93,13 @@ class LLMClient:
             payload["options"]["stop"] = stop  # type: ignore[index]
 
         response = self._post("/api/generate", payload)
-        return str(response.json()["response"])
+        try:
+            data = response.json()
+        except json.JSONDecodeError as exc:
+            raise LLMError(f"LLM returned non-JSON body ({self._where()})") from exc
+        if "response" not in data:
+            raise LLMError(f"LLM response missing 'response' field ({self._where()})")
+        return str(data["response"])
 
     def stream(
         self,

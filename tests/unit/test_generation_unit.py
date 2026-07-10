@@ -240,6 +240,14 @@ class TestLLMRetry:
         assert client.generate("hi") == "ok"
         assert fake.posts == 2
 
+    def test_missing_response_field_raises_llmerror(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # A 200 that lacks the 'response' key must stay inside the LLMError
+        # contract instead of leaking a raw KeyError to the caller.
+        client, fake = _client_with([_Resp(200, {"done": True})], monkeypatch)
+        with pytest.raises(LLMError, match="response"):
+            client.generate("hi")
+        assert fake.posts == 1
+
 
 class TestStripCitations:
     def test_preserves_line_structure(self) -> None:
