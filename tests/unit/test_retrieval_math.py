@@ -1,6 +1,6 @@
 import math
 
-from nexusrag.eval.metrics import ece, holm_correction, pr_auc, risk_coverage_auc, roc_auc
+from nexusrag.eval.metrics import holm_correction, pr_auc, risk_coverage_auc, roc_auc
 from nexusrag.ingestion import Chunk
 from nexusrag.retrieval import CorrectiveRetriever, RetrievalResult, rrf_fuse
 
@@ -49,11 +49,6 @@ def test_risk_coverage_auc_rewards_confident_correct():
     assert risk_coverage_auc([0.9, 0.8, 0.7], [1, 1, 1]) == 0.0
     assert risk_coverage_auc([0.9, 0.8, 0.7], [0, 0, 0]) == 1.0
     assert math.isclose(risk_coverage_auc([0.9, 0.8], [1, 0]), 0.25)
-
-
-def test_ece_perfect_and_overconfident():
-    assert ece([0.0, 1.0], [0, 1]) == 0.0
-    assert math.isclose(ece([1.0, 1.0], [0, 1]), 0.5)
 
 
 class _FakeDense:

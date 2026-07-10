@@ -167,22 +167,6 @@ def risk_coverage_auc(confidence: ArrayLike, correct: ArrayLike) -> float:
     return float(risk.mean())
 
 
-def ece(probs: ArrayLike, labels: ArrayLike, n_bins: int = 10) -> float:
-    """Expected calibration error over equal-width probability bins."""
-    p = np.asarray(probs, dtype=np.float64)
-    y = np.asarray(labels, dtype=np.float64)
-    if p.size == 0:
-        return float("nan")
-    edges = np.linspace(0.0, 1.0, n_bins + 1)
-    total = 0.0
-    for i in range(n_bins):
-        hi = p <= edges[i + 1] if i == n_bins - 1 else p < edges[i + 1]
-        mask = (p >= edges[i]) & hi
-        if mask.any():
-            total += mask.mean() * abs(y[mask].mean() - p[mask].mean())
-    return float(total)
-
-
 def bootstrap_ci(
     values: Sequence[float], n_boot: int = 10000, ci: float = 0.95, seed: int = 0
 ) -> tuple[float, float, float]:

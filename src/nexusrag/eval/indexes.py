@@ -2,10 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 
 from nexusrag.ingestion import Chunk, Embedder
 from nexusrag.retrieval.dense import RetrievalResult
+
+
+def unique_document_ids(results: Sequence[RetrievalResult]) -> list[str]:
+    """Document ids from ranked results, de-duplicated, first-seen order kept."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for r in results:
+        d = r.chunk.document_id
+        if d not in seen:
+            seen.add(d)
+            out.append(d)
+    return out
 
 
 def corpus_to_chunks(corpus_text: dict[str, str]) -> list[Chunk]:

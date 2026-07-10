@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 
 from nexusrag.eval.indexes import ExactDenseRetriever
+from nexusrag.eval.indexes import unique_document_ids as _ids
 from nexusrag.ingestion import Chunk, Embedder
 from nexusrag.retrieval import (
     AdaptiveHybridRetriever,
@@ -13,20 +14,8 @@ from nexusrag.retrieval import (
     HybridRetriever,
     Reranker,
 )
-from nexusrag.retrieval.dense import RetrievalResult
 
 RetrieveFn = Callable[[str, int], list[str]]
-
-
-def _ids(results: Sequence[RetrievalResult]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for r in results:
-        d = r.chunk.document_id
-        if d not in seen:
-            seen.add(d)
-            out.append(d)
-    return out
 
 
 def build_systems(

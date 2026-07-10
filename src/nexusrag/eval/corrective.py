@@ -13,6 +13,7 @@ import numpy as np
 from nexusrag.eval import datasets as D
 from nexusrag.eval import metrics as M
 from nexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
+from nexusrag.eval.indexes import unique_document_ids as _ids
 from nexusrag.ingestion import Embedder
 from nexusrag.retrieval import (
     AdaptiveHybridRetriever,
@@ -20,7 +21,6 @@ from nexusrag.retrieval import (
     CorrectiveRetriever,
     Reranker,
 )
-from nexusrag.retrieval.dense import RetrievalResult
 
 RESULTS_DIR = Path("benchmarks/results")
 NDCG = M.METRIC_FNS["nDCG@10"]
@@ -29,17 +29,6 @@ NDCG = M.METRIC_FNS["nDCG@10"]
 # themselves. NFCorpus ships a validation split; SciFact only has train/test.
 TUNE_SPLITS = {"nfcorpus": "validation", "scifact": "train"}
 TUNE_LIMIT = 250  # cap tuning queries for a tractable, deterministic sweep
-
-
-def _ids(results: list[RetrievalResult]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for r in results:
-        d = r.chunk.document_id
-        if d not in seen:
-            seen.add(d)
-            out.append(d)
-    return out
 
 
 def _sweep_tau(
