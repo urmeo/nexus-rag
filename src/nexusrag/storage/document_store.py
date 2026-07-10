@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 # Safe filename pattern - only alphanumeric and limited special chars
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 MAX_ID_LENGTH = 64
+# Stem of the on-disk index file; reserved so a document id cannot alias it.
+INDEX_STEM = "_index"
 
 
 class DocumentStore:
@@ -27,7 +29,7 @@ class DocumentStore:
     def __init__(self, path: str | Path = "./data/documents"):
         self.path = Path(path).resolve()  # Resolve to absolute path
         self.path.mkdir(parents=True, exist_ok=True)
-        self._index_path = self.path / "_index.json"
+        self._index_path = self.path / f"{INDEX_STEM}.json"
         self._index: dict[str, dict[str, Any]] | None = None
 
     def _validate_doc_id(self, doc_id: str) -> str:
@@ -40,6 +42,9 @@ class DocumentStore:
 
         if not SAFE_ID_PATTERN.match(doc_id):
             raise ValueError("Document ID contains invalid characters")
+
+        if doc_id == INDEX_STEM:
+            raise ValueError(f"Document ID '{INDEX_STEM}' is reserved for the store index")
 
         # Additional safety: ensure no path components
         if ".." in doc_id or "/" in doc_id or "\\" in doc_id:

@@ -1,5 +1,7 @@
 """DocumentStore crash recovery: index and doc files reconcile on load."""
 
+import pytest
+
 from nexusrag.ingestion import ParsedDocument
 from nexusrag.storage.document_store import DocumentStore
 
@@ -49,3 +51,11 @@ def test_delete_survives_reload(temp_dir) -> None:
 
     assert not reloaded.exists("abc123def456")
     assert reloaded.count() == 0
+
+
+def test_reserved_index_id_is_rejected(temp_dir) -> None:
+    # A document whose id is "_index" would resolve to the same file as the
+    # store's index and clobber it on add(); the id must be rejected.
+    store = DocumentStore(path=temp_dir)
+    with pytest.raises(ValueError, match="reserved"):
+        store.add(_doc(doc_id="_index"))
