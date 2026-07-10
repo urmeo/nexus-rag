@@ -100,8 +100,10 @@ the instance is a process singleton.
   asyncio's default executor, capped at `min(32, cpu + 4)` threads. The slowapi
   limits are per-minute windows, not concurrency caps, so a burst beyond the
   pool queues in-process with no 503 backpressure. A hung Ollama holds a thread
-  for up to ~3 minutes per request (three attempts at the configured 60 s
-  timeout plus backoff). Acceptable for localhost use; if exposed beyond
+  for up to one request timeout: the read-timeout path fails fast after a
+  single attempt (the retry policy covers only connection/5xx errors, not
+  timeouts, since retrying a slow model only multiplies the wall-clock hang).
+  Acceptable for localhost use; if exposed beyond
   localhost, bound query/ingest with an `asyncio.Semaphore` that returns 503
   when full. The app-level `/health` probe bypasses the executor and stays
   responsive either way.
