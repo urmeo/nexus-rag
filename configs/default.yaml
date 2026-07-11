@@ -19,11 +19,6 @@ ingestion:
   chunk_size: 1200
   chunk_overlap: 300
   min_chunk_size: 200
-  supported_formats:
-    - .pdf
-    - .docx
-    - .txt
-    - .md
 
 retrieval:
   top_k: 8
