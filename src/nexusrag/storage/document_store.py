@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from nexusrag.ingestion import ParsedDocument, Section
+from nexusrag.ingestion import ParsedDocument
 from nexusrag.utils.filenames import resolve_display_name
 
 logger = logging.getLogger(__name__)
@@ -168,20 +168,6 @@ class DocumentStore:
         self._save_index()
 
         return document.id
-
-    def get(self, doc_id: str) -> ParsedDocument | None:
-        doc_path = self._doc_path(doc_id)
-        if not doc_path.exists():
-            return None
-
-        data = json.loads(doc_path.read_text(encoding="utf-8"))
-
-        return ParsedDocument(
-            id=data["id"],
-            content=data["content"],
-            metadata=data["metadata"],
-            sections=[Section(**s) for s in data["sections"]],
-        )
 
     def update_metadata(self, doc_id: str, key: str, value: Any) -> bool:
         """Update a single metadata field for a document in the index."""
