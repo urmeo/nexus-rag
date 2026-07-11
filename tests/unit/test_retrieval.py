@@ -178,11 +178,6 @@ class TestHybridRetriever:
         with pytest.raises(ValueError):
             HybridRetriever(dense, sparse, dense_weight=-0.1, sparse_weight=0.3)
 
-    def test_single_retriever_paths_skip_fusion(self, dense, sparse):
-        hybrid = HybridRetriever(dense, sparse)
-        assert all(r.source == "dense" for r in hybrid.retrieve_dense_only("q", 3))
-        sparse.retrieve.assert_not_called()
-
     def test_empty_results(self, dense, sparse):
         dense.retrieve.return_value = []
         sparse.retrieve.return_value = []

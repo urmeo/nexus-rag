@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 import string
 from collections import defaultdict
 from collections.abc import Sequence
 
 from nexusrag.retrieval.dense import DenseSearcher, RetrievalResult
 from nexusrag.retrieval.sparse import BM25Retriever
-
-logger = logging.getLogger(__name__)
 
 
 def rrf_fuse(
@@ -74,9 +71,6 @@ class HybridRetriever:
     ) -> tuple[list[RetrievalResult], float]:
         """Fused results plus the top dense cosine score, from one dense pass."""
         return self._run(query, top_k, depth)
-
-    def retrieve_dense_only(self, query: str, top_k: int = 10) -> list[RetrievalResult]:
-        return self.dense.retrieve(query, top_k)
 
 
 class AdaptiveHybridRetriever(HybridRetriever):
