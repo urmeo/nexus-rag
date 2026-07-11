@@ -3,7 +3,7 @@
 [![CI](https://github.com/urmeo/nexus-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/urmeo/nexus-rag/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-319-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-318-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-65%25-green.svg)](tests/)
 [![Typed](https://img.shields.io/badge/mypy-strict-blue.svg)](pyproject.toml)
 
@@ -109,7 +109,7 @@ On every push, [`nexusrag.eval.gate`](src/nexusrag/eval/gate.py) reruns a determ
 | Faithfulness ROC-AUC, NLI | 0.752 | 0.737 |
 | Faithfulness ROC-AUC, cross-encoder | 0.774 | 0.759 |
 
-The same CI runs gitleaks, pip-audit against hash-pinned lockfiles, ruff, strict mypy, and 319 tests on Python 3.11 and 3.12.
+The same CI runs gitleaks, pip-audit against hash-pinned lockfiles, ruff, strict mypy, and 318 tests on Python 3.11 and 3.12.
 
 ## Core ideas in 30 seconds
 
