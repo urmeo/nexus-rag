@@ -3,7 +3,9 @@ requires = ["setuptools>=75.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nexusrag"
+# Distribution (PyPI) name; the import package stays `nexusrag` (see below).
+# `nexusrag` itself is blocked on PyPI as too similar to the existing `nexus-rag`.
+name = "scinexusrag"
 dynamic = ["version"]
 description = "Local hybrid retrieval and faithfulness benchmark for scientific papers"
 readme = "README.md"
