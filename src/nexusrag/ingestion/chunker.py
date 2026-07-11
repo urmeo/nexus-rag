@@ -323,16 +323,6 @@ class FixedSizeChunker:
         self.chunk_overlap = chunk_overlap
         self.length_function = length_function
 
-    def _measure(self, text: str) -> int:
-        if self.length_function == "words":
-            return len(text.split())
-        return len(text)
-
-    def _split_text(self, text: str) -> list[str]:
-        if self.length_function == "words":
-            return text.split()
-        return list(text)
-
     def chunk(self, document: ParsedDocument) -> list[Chunk]:
         text = document.content.strip()
         if not text:
