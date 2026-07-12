@@ -9,8 +9,7 @@ headline table can be audited row by row.
     python -m nexusrag.eval        # or: make reproduce
 
 The full run downloads the BEIR corpora and small models on first use and takes
-~15-25 min per dataset on CPU. The runtime environment is pinned in
-``requirements-runtime.lock``; seeds are 0 throughout.
+~15-25 min per dataset on CPU; seeds are 0 throughout.
 """
 
 from __future__ import annotations

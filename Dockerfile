@@ -11,14 +11,10 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 WORKDIR /app
 
-# Pinned, hash-verified dependencies first (reproducible, supply-chain safe)
-COPY requirements-runtime.lock .
-RUN pip install --no-cache-dir --require-hashes -r requirements-runtime.lock
-
-# The application itself (deps already satisfied above)
+# Install the app and its dependencies from pyproject
 COPY pyproject.toml .
 COPY src/ src/
-RUN pip install --no-cache-dir --no-deps .
+RUN pip install --no-cache-dir .
 
 # ---- runtime: slim image, no compiler shipped ----
 FROM python:3.11-slim AS runtime

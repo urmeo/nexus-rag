@@ -35,13 +35,15 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: "3.11"
-      - name: Install pip-audit
-        run: python -m pip install pip-audit
-      - name: Audit pinned runtime dependencies
+      - name: Install project and pip-audit
+        run: |
+          python -m pip install .
+          python -m pip install pip-audit
+      - name: Audit resolved dependencies
         # CVE-2025-3000: unpatched torch.jit.script advisory (transitive via
         # sentence-transformers). NexusRAG never calls torch.jit.script and no
         # fixed torch release exists yet; the ignore is revisited when one ships.
-        run: pip-audit -r requirements-runtime.lock --strict --ignore-vuln CVE-2025-3000
+        run: pip-audit --strict --ignore-vuln CVE-2025-3000
 
   quality:
     name: lint, type-check, test
