@@ -62,20 +62,19 @@ NexusRAG is **local-first** and keeps your data on your machine.
 - Docker binds the app to host loopback (`127.0.0.1:8000`); Ollama has **no
   host port** and is reachable only on the internal compose network.
 - Container CPU/memory limits are set in `docker-compose.yml`.
-- The image installs **hash-pinned** dependencies (`requirements-runtime.lock`,
-  `pip install --require-hashes`).
+- The image runs as a non-root user (`app`, uid 1000).
 
 ## Secret scanning
 
 - `gitleaks` runs in CI on every push/PR and as a local pre-commit hook
   (`.gitleaks.toml`, `.pre-commit-config.yaml`).
 - The full commit history has been scanned; no secrets are present.
-- `pip-audit` runs in CI against the hash-pinned runtime lock.
+- `pip-audit` runs in CI against the project's resolved dependencies.
 
 ## Known advisories
 
 - **CVE-2025-3000** (`torch`, transitive via `sentence-transformers`): memory
   corruption in `torch.jit.script`. NexusRAG never calls `torch.jit.script`, and
   no fixed `torch` release exists yet, so it is accepted and ignored in the CI
-  audit. The pinned lockfiles are re-audited by `pip-audit` on every CI run, and
+  audit. The dependency set is re-audited by `pip-audit` on every CI run, and
   the ignore is revisited when a fixed `torch` release ships.
