@@ -2,7 +2,7 @@
 
 import pytest
 
-from nexusrag.ingestion import (
+from scinexusrag.ingestion import (
     Chunk,
     FixedSizeChunker,
     ParsedDocument,
@@ -10,7 +10,7 @@ from nexusrag.ingestion import (
     SemanticChunker,
     get_chunker,
 )
-from nexusrag.ingestion.chunker import HierarchicalChunker
+from scinexusrag.ingestion.chunker import HierarchicalChunker
 
 
 class TestFixedSizeChunker:

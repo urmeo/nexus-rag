@@ -16,7 +16,7 @@ Every component is measured on public benchmarks. CI fails the build if quality 
 
 </div>
 
-![NexusRAG web UI: upload a paper, ask a question, get a cited answer with sources and confidence](screenshots/nexusrag-ui.png)
+![NexusRAG web UI: upload a paper, ask a question, get a cited answer with sources and confidence](screenshots/scinexusrag-ui.png)
 
 | 🔒 Fully local | 🧪 Measured | 🔁 Reproducible | 🚦 Gated | 🧾 Cited |
 |:---:|:---:|:---:|:---:|:---:|
@@ -159,16 +159,16 @@ flowchart LR
 
 | Stage | What happens | Code |
 |-------|--------------|------|
-| Ingest | Parse PDF/DOCX/MD/TXT → section-aware chunks (1,200 chars, 300 overlap) → embed | [`ingestion/`](src/nexusrag/ingestion) |
-| Index | Vectors in LanceDB (exact cosine) + in-memory BM25, kept in lock-step | [`storage/`](src/nexusrag/storage) |
-| Retrieve | Reciprocal rank fusion (k = 60); adaptive dense/sparse weights by query shape | [`retrieval/hybrid.py`](src/nexusrag/retrieval/hybrid.py) |
-| Correct | If top dense cosine < τ = 0.55: one PRF pass expands the query, re-retrieves, fuses | [`retrieval/corrective.py`](src/nexusrag/retrieval/corrective.py) |
-| Generate | Local LLM answers from retrieved passages only, with inline citations | [`generation/`](src/nexusrag/generation) |
-| Verify | Out-of-range citations stripped; optional per-sentence NLI entailment check | [`generation/verifier.py`](src/nexusrag/generation/verifier.py) |
+| Ingest | Parse PDF/DOCX/MD/TXT → section-aware chunks (1,200 chars, 300 overlap) → embed | [`ingestion/`](src/scinexusrag/ingestion) |
+| Index | Vectors in LanceDB (exact cosine) + in-memory BM25, kept in lock-step | [`storage/`](src/scinexusrag/storage) |
+| Retrieve | Reciprocal rank fusion (k = 60); adaptive dense/sparse weights by query shape | [`retrieval/hybrid.py`](src/scinexusrag/retrieval/hybrid.py) |
+| Correct | If top dense cosine < τ = 0.55: one PRF pass expands the query, re-retrieves, fuses | [`retrieval/corrective.py`](src/scinexusrag/retrieval/corrective.py) |
+| Generate | Local LLM answers from retrieved passages only, with inline citations | [`generation/`](src/scinexusrag/generation) |
+| Verify | Out-of-range citations stripped; optional per-sentence NLI entailment check | [`generation/verifier.py`](src/scinexusrag/generation/verifier.py) |
 
 ## Quality gate in CI
 
-Every push reruns a deterministic vendored sample (50 queries, 651 abstracts, 60 claims — CPU, seed 0) via [`nexusrag.eval.gate`](src/nexusrag/eval/gate.py); the build fails below any floor in [`benchmarks/thresholds.json`](benchmarks/thresholds.json):
+Every push reruns a deterministic vendored sample (50 queries, 651 abstracts, 60 claims — CPU, seed 0) via [`scinexusrag.eval.gate`](src/scinexusrag/eval/gate.py); the build fails below any floor in [`benchmarks/thresholds.json`](benchmarks/thresholds.json):
 
 | Metric | Sample value | Floor |
 |--------|:---:|:---:|
@@ -244,7 +244,7 @@ curl -X POST http://localhost:8000/api/query -H "Content-Type: application/json"
 ```
 
 ```python
-from nexusrag import NexusRAG
+from scinexusrag import NexusRAG
 
 rag = NexusRAG()
 rag.ingest("paper.pdf")
@@ -285,7 +285,7 @@ More: [`notebooks/01_quickstart.ipynb`](notebooks/01_quickstart.ipynb) · [`exam
 <summary><b>Repository layout</b></summary>
 
 ```text
-src/nexusrag/
+src/scinexusrag/
 ├── ingestion/     parser, section-aware chunker, embedder
 ├── retrieval/     dense, BM25, RRF hybrid, corrective PRF, reranker, SPLADE
 ├── generation/    Ollama client, synthesizer, citation verifier, NLI grounding
@@ -333,7 +333,7 @@ If you use NexusRAG, please cite it ([CITATION.cff](CITATION.cff)):
   author  = {Bose, Urme},
   title   = {NexusRAG: Local Hybrid Retrieval and Faithfulness
              Evaluation for Scientific Papers},
-  version = {1.0.1},
+  version = {1.0.2},
   year    = {2026},
   url     = {https://github.com/urmeo/nexus-rag},
   license = {MIT}

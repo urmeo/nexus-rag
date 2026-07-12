@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use NexusRAG, please cite it as below."
 type: software
 title: "NexusRAG: Local Hybrid Retrieval and Faithfulness Evaluation for Scientific Papers"
-version: 1.0.1
+version: 1.0.2
 date-released: 2026-07-03
 url: "https://github.com/urmeo/nexus-rag"
 repository-code: "https://github.com/urmeo/nexus-rag"

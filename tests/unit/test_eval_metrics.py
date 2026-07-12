@@ -1,6 +1,6 @@
 """Tests for retrieval metrics."""
 
-from nexusrag.eval import metrics as M
+from scinexusrag.eval import metrics as M
 
 
 class TestRankingMetrics:

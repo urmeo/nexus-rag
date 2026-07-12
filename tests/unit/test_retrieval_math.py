@@ -1,8 +1,8 @@
 import math
 
-from nexusrag.eval.metrics import holm_correction, pr_auc, risk_coverage_auc, roc_auc
-from nexusrag.ingestion import Chunk
-from nexusrag.retrieval import CorrectiveRetriever, RetrievalResult, rrf_fuse
+from scinexusrag.eval.metrics import holm_correction, pr_auc, risk_coverage_auc, roc_auc
+from scinexusrag.ingestion import Chunk
+from scinexusrag.retrieval import CorrectiveRetriever, RetrievalResult, rrf_fuse
 
 
 def _result(cid: str, score: float = 0.0) -> RetrievalResult:
@@ -149,7 +149,7 @@ def test_corrective_confident_query_does_one_dense_pass():
 
 
 def test_hybrid_retrieve_with_dense_top_single_pass():
-    from nexusrag.retrieval.hybrid import HybridRetriever
+    from scinexusrag.retrieval.hybrid import HybridRetriever
 
     class _Dense:
         def __init__(self):
@@ -171,7 +171,7 @@ def test_hybrid_retrieve_with_dense_top_single_pass():
 
 
 def test_looks_technical_ignores_trailing_punctuation():
-    from nexusrag.retrieval.hybrid import _looks_technical
+    from scinexusrag.retrieval.hybrid import _looks_technical
 
     assert _looks_technical("classification.") is False  # 14 chars + period
     assert _looks_technical("immunodeficiency,") is True  # 16 chars, genuinely long

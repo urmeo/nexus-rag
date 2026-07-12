@@ -19,7 +19,7 @@ test-integration:
 	$(PYTHON) -m pytest tests/integration/ -v
 
 test-cov:
-	$(PYTHON) -m pytest tests/ --cov=src/nexusrag --cov-report=html --cov-report=term
+	$(PYTHON) -m pytest tests/ --cov=src/scinexusrag --cov-report=html --cov-report=term
 
 lint:
 	$(PYTHON) -m ruff check src/ tests/
@@ -32,37 +32,37 @@ type-check:
 	$(PYTHON) -m mypy src/
 
 eval:
-	$(PYTHON) -m nexusrag.eval.run --dataset scifact --split test
-	$(PYTHON) -m nexusrag.eval.run --dataset nfcorpus --split test
+	$(PYTHON) -m scinexusrag.eval.run --dataset scifact --split test
+	$(PYTHON) -m scinexusrag.eval.run --dataset nfcorpus --split test
 
 eval-sample:
-	$(PYTHON) -m nexusrag.eval.run --sample
+	$(PYTHON) -m scinexusrag.eval.run --sample
 
 eval-gate:
-	$(PYTHON) -m nexusrag.eval.gate
+	$(PYTHON) -m scinexusrag.eval.gate
 
 corrective:
-	$(PYTHON) -m nexusrag.eval.corrective --dataset scifact --split test
-	$(PYTHON) -m nexusrag.eval.corrective --dataset nfcorpus --split test
+	$(PYTHON) -m scinexusrag.eval.corrective --dataset scifact --split test
+	$(PYTHON) -m scinexusrag.eval.corrective --dataset nfcorpus --split test
 
 faithfulness:
-	$(PYTHON) -m nexusrag.eval.faithfulness
+	$(PYTHON) -m scinexusrag.eval.faithfulness
 
 ragtruth:
-	$(PYTHON) -m nexusrag.eval.ragtruth
+	$(PYTHON) -m scinexusrag.eval.ragtruth
 
 generation:
-	$(PYTHON) -m nexusrag.eval.generation
+	$(PYTHON) -m scinexusrag.eval.generation
 
 reproduce:
-	$(PYTHON) -m nexusrag.eval
+	$(PYTHON) -m scinexusrag.eval
 
 paper:
-	$(PYTHON) -m nexusrag.eval.report --paper paper
+	$(PYTHON) -m scinexusrag.eval.report --paper paper
 	cd paper && tectonic main.tex
 
 run:
-	$(PYTHON) -m uvicorn nexusrag.api:app --reload --port 8000
+	$(PYTHON) -m uvicorn scinexusrag.api:app --reload --port 8000
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

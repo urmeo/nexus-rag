@@ -16,7 +16,7 @@ Data flow:
   corrective pseudo-relevance-feedback (PRF) re-retrieval -> LLM synthesis ->
   citation verification + optional NLI grounding.
 
-The pipeline is wired in `src/nexusrag/pipeline.py`; components are lazy-loaded and
+The pipeline is wired in `src/scinexusrag/pipeline.py`; components are lazy-loaded and
 the instance is a process singleton.
 
 ## 2. Retrieval
@@ -26,17 +26,17 @@ the instance is a process singleton.
 - The product path uses LanceDB. Search calls `.metric("cosine")`, so the stored
   `_distance` is cosine distance and the returned score is `max(0, 1 - distance)`,
   clamped to `[0, 1]`. See `VectorStore.search` in
-  `src/nexusrag/storage/vector_store.py`.
+  `src/scinexusrag/storage/vector_store.py`.
 - LanceDB does **exact brute-force** search; no ANN index is built, so production
   retrieval is exact. This is fine at the current corpus scale but means query cost
   grows linearly with corpus size.
 - The reproducible benchmark uses a separate in-memory `ExactDenseRetriever`
-  (`src/nexusrag/eval/indexes.py`) that does brute-force cosine over a precomputed
+  (`src/scinexusrag/eval/indexes.py`) that does brute-force cosine over a precomputed
   embedding matrix, for determinism independent of the LanceDB store.
 
 ### Sparse
 
-- BM25 via `rank-bm25` (`BM25Okapi`), in `src/nexusrag/retrieval/sparse.py`.
+- BM25 via `rank-bm25` (`BM25Okapi`), in `src/scinexusrag/retrieval/sparse.py`.
 - The index is **in-memory and rebuilt per process**. Incremental add and remove
   both rebuild the whole index internally.
 - This is acceptable for the small benchmark corpora but does not scale.
@@ -46,7 +46,7 @@ the instance is a process singleton.
 ### Fusion
 
 - Weighted reciprocal rank fusion with `k = 60` (`rrf_fuse` in
-  `src/nexusrag/retrieval/hybrid.py`).
+  `src/scinexusrag/retrieval/hybrid.py`).
 - `AdaptiveHybridRetriever` shifts the dense/sparse weight split by query shape:
   short or notation-heavy queries lean lexical, long natural-language queries lean
   dense, with a base 0.5/0.5 split otherwise.
@@ -54,7 +54,7 @@ the instance is a process singleton.
 ### Corrective
 
 - A **single** confidence-gated PRF re-retrieval pass — not iterative
-  (`CorrectiveRetriever` in `src/nexusrag/retrieval/corrective.py`).
+  (`CorrectiveRetriever` in `src/scinexusrag/retrieval/corrective.py`).
 - Confidence is the top dense cosine similarity. If it is at or above `tau`
   (default 0.55), the first pass is returned unchanged.
 - Below `tau`, the query is expanded with frequent terms from the first-pass
@@ -63,7 +63,7 @@ the instance is a process singleton.
 
 ## 3. Generation
 
-- `LLMClient` (`src/nexusrag/generation/llm.py`) targets Ollama's HTTP API:
+- `LLMClient` (`src/scinexusrag/generation/llm.py`) targets Ollama's HTTP API:
   `/api/generate` (sync + streaming) and `/api/chat`.
 - Retries with exponential backoff on transient and 5xx errors; no retry on 4xx.
   Streaming is not retried because a partially consumed stream cannot be safely
@@ -75,24 +75,24 @@ the instance is a process singleton.
 
 ## 4. Verification / Grounding
 
-- `AnswerVerifier` (`src/nexusrag/generation/verifier.py`) strips any `[n]`
+- `AnswerVerifier` (`src/scinexusrag/generation/verifier.py`) strips any `[n]`
   citation whose index falls outside the source range and records the removals as
   warnings.
-- `GroundingVerifier` (`src/nexusrag/generation/grounding.py`) runs per-sentence NLI
+- `GroundingVerifier` (`src/scinexusrag/generation/grounding.py`) runs per-sentence NLI
   entailment of each answer sentence against each source, using a cross-encoder NLI
   model (`cross-encoder/nli-deberta-v3-small`). A sentence is grounded when some
   source entails it above `threshold`; faithfulness is the grounded fraction.
 - Grounding is **off by default** (`SelfCorrectionSettings.grounding_enabled = False`).
 - **Cost / limitation:** grounding is O(sentences x sources) NLI calls and is
   currently **not batched or cached**. The RAGTruth evaluation
-  (`src/nexusrag/eval/ragtruth.py`) caps work explicitly to keep it tractable:
+  (`src/scinexusrag/eval/ragtruth.py`) caps work explicitly to keep it tractable:
   `MAX_OUT_SENTS = 12` output sentences and `MAX_CTX_SENTS = 50` context sentences.
   Batching and caching are open performance work.
 
 ## 5. Serving
 
-- Single-process FastAPI app served by uvicorn (`src/nexusrag/api/__init__.py`,
-  `src/nexusrag/api/routes.py`).
+- Single-process FastAPI app served by uvicorn (`src/scinexusrag/api/__init__.py`,
+  `src/scinexusrag/api/routes.py`).
 - Blocking work (parsing, embedding, query, stats) is offloaded with
   `asyncio.to_thread`, so the event loop is **not** blocked during ingestion or
   query. Verify in `routes.py` (`ingest_document`, `query_documents`, etc.).
@@ -120,7 +120,7 @@ the instance is a process singleton.
 - Health endpoints: `/health` (app-level liveness, no pipeline init) and
   `/api/health` (reports `llm_available`, i.e. Ollama readiness, plus model and
   corpus stats).
-- Security controls live in `src/nexusrag/api/security.py`: optional API-key auth
+- Security controls live in `src/scinexusrag/api/security.py`: optional API-key auth
   (default-deny when a key is set, open in local no-key mode), per-IP slowapi rate
   limits, and upload validation (content-type, magic bytes, libmagic sniff, UTF-8
   and zip-bomb checks). See `SECURITY.md` for details — not duplicated here.
@@ -128,7 +128,7 @@ the instance is a process singleton.
 ## 6. Configuration
 
 - Configuration is `pydantic-settings`, sourced **only from environment variables**
-  (`src/nexusrag/config.py`). Each section has its own env prefix or explicit
+  (`src/scinexusrag/config.py`). Each section has its own env prefix or explicit
   validation aliases (e.g. `OLLAMA_BASE_URL`, `LLM_MODEL`, `LANCEDB_PATH`,
   `NEXUSRAG_API_KEY`).
 - `configs/default.yaml` is an annotated **reference** of these settings, validated

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from nexusrag.ingestion import Embedder
+from scinexusrag.ingestion import Embedder
 
 
 class TestEmbedder:

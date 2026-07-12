@@ -8,7 +8,7 @@ import yaml
 
 class TestSettings:
     def test_default_settings(self):
-        from nexusrag.config import Settings
+        from scinexusrag.config import Settings
 
         settings = Settings()
 
@@ -21,7 +21,7 @@ class TestSettings:
         assert settings.log_level == "INFO"
 
     def test_nested_settings_types(self):
-        from nexusrag.config import (
+        from scinexusrag.config import (
             APISettings,
             EmbeddingSettings,
             IngestionSettings,
@@ -47,7 +47,7 @@ class TestSettings:
         monkeypatch.setenv("LLM_MODEL", "mistral:7b")
 
         # Need to reimport to pick up new env vars
-        from nexusrag.config import LLMSettings
+        from scinexusrag.config import LLMSettings
 
         llm = LLMSettings()
 
@@ -58,7 +58,7 @@ class TestSettings:
         monkeypatch.setenv("EMBEDDING_MODEL", "custom-embedding-model")
         monkeypatch.setenv("EMBEDDING_DEVICE", "cuda")
 
-        from nexusrag.config import EmbeddingSettings
+        from scinexusrag.config import EmbeddingSettings
 
         embedding = EmbeddingSettings()
 
@@ -68,14 +68,14 @@ class TestSettings:
     def test_env_override_log_level(self, monkeypatch):
         monkeypatch.setenv("LOG_LEVEL", "DEBUG")
 
-        from nexusrag.config import Settings
+        from scinexusrag.config import Settings
 
         settings = Settings()
 
         assert settings.log_level == "DEBUG"
 
     def test_storage_path_types(self):
-        from nexusrag.config import Settings
+        from scinexusrag.config import Settings
 
         settings = Settings()
 
@@ -83,7 +83,7 @@ class TestSettings:
         assert isinstance(settings.data_dir, Path)
 
     def test_api_settings(self):
-        from nexusrag.config import APISettings
+        from scinexusrag.config import APISettings
 
         api = APISettings()
 
@@ -91,7 +91,7 @@ class TestSettings:
         assert api.port == 8000
 
     def test_ingestion_settings_values(self):
-        from nexusrag.config import IngestionSettings
+        from scinexusrag.config import IngestionSettings
 
         ingestion = IngestionSettings()
 
@@ -101,7 +101,7 @@ class TestSettings:
         assert ingestion.min_chunk_size > 0
 
     def test_retrieval_settings_values(self):
-        from nexusrag.config import RetrievalSettings
+        from scinexusrag.config import RetrievalSettings
 
         retrieval = RetrievalSettings()
 
@@ -109,7 +109,7 @@ class TestSettings:
         assert retrieval.max_query_length > 0
 
     def test_self_correction_settings(self):
-        from nexusrag.config import SelfCorrectionSettings
+        from scinexusrag.config import SelfCorrectionSettings
 
         correction = SelfCorrectionSettings()
 
@@ -118,7 +118,7 @@ class TestSettings:
         assert correction.feedback_docs > 0 and correction.feedback_terms > 0
 
     def test_get_settings_caching(self):
-        from nexusrag.config import get_settings
+        from scinexusrag.config import get_settings
 
         # Clear cache first
         get_settings.cache_clear()
@@ -133,7 +133,7 @@ class TestSettings:
         monkeypatch.setenv("OLLAMA_BASE_URL", "http://env-file:1234")
         monkeypatch.setenv("LLM_MODEL", "from-env-file")
 
-        from nexusrag.config import Settings
+        from scinexusrag.config import Settings
 
         settings = Settings()
 
@@ -145,7 +145,7 @@ class TestConfigPrecedence:
     """Config is environment-variable driven; configs/default.yaml is a reference."""
 
     def test_env_var_overrides_default(self, monkeypatch):
-        from nexusrag.config import Settings
+        from scinexusrag.config import Settings
 
         monkeypatch.setenv("LLM_MODEL", "env-wins")
         assert Settings().llm.model == "env-wins"
@@ -153,7 +153,7 @@ class TestConfigPrecedence:
     def test_llm_settings_ignore_bare_env_names(self, monkeypatch):
         # temperature/timeout must read LLM_TEMPERATURE/LLM_TIMEOUT, never bare
         # TEMPERATURE/TIMEOUT which collide with unrelated environment vars.
-        from nexusrag.config import LLMSettings
+        from scinexusrag.config import LLMSettings
 
         monkeypatch.setenv("TEMPERATURE", "0.99")
         monkeypatch.setenv("TIMEOUT", "999")
@@ -170,7 +170,7 @@ class TestConfigPrecedence:
     def test_yaml_is_not_a_runtime_source(self, monkeypatch):
         # default.yaml is documentation only: settings come from env + code
         # defaults, never from the YAML file, so there is no precedence ambiguity.
-        from nexusrag.config import Settings
+        from scinexusrag.config import Settings
 
         monkeypatch.delenv("LLM_MODEL", raising=False)
         assert Settings().llm.model == "llama3.2:3b"  # the code default, not YAML
@@ -183,7 +183,7 @@ class TestYAMLDocMatchesSettings:
     def test_documented_sections_match_settings_submodels(self):
         from pydantic import BaseModel
 
-        from nexusrag.config import Settings
+        from scinexusrag.config import Settings
 
         with open("configs/default.yaml") as f:
             documented = set(yaml.safe_load(f))
@@ -203,7 +203,7 @@ class TestConfigValidation:
 
         from pydantic import ValidationError
 
-        from nexusrag.config import Settings
+        from scinexusrag.config import Settings
 
         with pytest.raises(ValidationError):
             Settings()
@@ -213,7 +213,7 @@ class TestConfigValidation:
 
         from pydantic import ValidationError
 
-        from nexusrag.config import EmbeddingSettings
+        from scinexusrag.config import EmbeddingSettings
 
         with pytest.raises(ValidationError):
             EmbeddingSettings()
@@ -226,10 +226,10 @@ class TestNoDeadConfig:
 
         from pydantic import BaseModel
 
-        import nexusrag
-        from nexusrag.config import Settings
+        import scinexusrag
+        from scinexusrag.config import Settings
 
-        src = Path(nexusrag.__file__).parent
+        src = Path(scinexusrag.__file__).parent
         code = "\n".join(p.read_text() for p in src.rglob("*.py") if p.name != "config.py")
 
         dead: list[str] = []
@@ -258,7 +258,7 @@ class TestDotenvLoading:
             [
                 sys.executable,
                 "-c",
-                "from nexusrag.config import Settings; print(Settings().llm.model)",
+                "from scinexusrag.config import Settings; print(Settings().llm.model)",
             ],
             cwd=tmp_path,
             env=env,

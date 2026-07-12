@@ -2,8 +2,8 @@
 
 import pytest
 
-from nexusrag.ingestion import ParsedDocument
-from nexusrag.storage.document_store import DocumentStore
+from scinexusrag.ingestion import ParsedDocument
+from scinexusrag.storage.document_store import DocumentStore
 
 
 def _doc(doc_id: str = "abc123def456", name: str = "paper.pdf") -> ParsedDocument:

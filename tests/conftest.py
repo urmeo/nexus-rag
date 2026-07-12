@@ -10,7 +10,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def _disable_rate_limits() -> Generator[None, None, None]:
     """Disable the slowapi limiter so route tests are not throttled."""
-    from nexusrag.api.security import limiter
+    from scinexusrag.api.security import limiter
 
     limiter.enabled = False
     yield
@@ -18,9 +18,9 @@ def _disable_rate_limits() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def _reset_nexusrag_singleton() -> Generator[None, None, None]:
+def _reset_scinexusrag_singleton() -> Generator[None, None, None]:
     """Keep the global singleton from leaking a stale instance across tests."""
-    import nexusrag.pipeline as _p
+    import scinexusrag.pipeline as _p
 
     _p._instance = None
     yield
@@ -109,7 +109,7 @@ def empty_file(temp_dir: Path) -> Path:
 @pytest.fixture
 def parsed_document(sample_text_file):
     """Provide a parsed document for testing."""
-    from nexusrag.ingestion import DocumentParser
+    from scinexusrag.ingestion import DocumentParser
 
     parser = DocumentParser()
     return parser.parse(sample_text_file)

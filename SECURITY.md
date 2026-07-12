@@ -41,7 +41,7 @@ NexusRAG is **local-first** and keeps your data on your machine.
   requires a matching `X-API-Key` header (constant-time comparison). Empty in
   local mode; **required for any network-exposed deployment**.
 - **Rate limiting** — per-IP fixed-window limits on `/api/query` and
-  `/api/ingest` (`src/nexusrag/api/security.py`). Counters live in process
+  `/api/ingest` (`src/scinexusrag/api/security.py`). Counters live in process
   memory: they reset on restart and are not shared across replicas, matching
   the single-worker deployment this project ships. Behind a reverse proxy,
   run uvicorn with `--proxy-headers` and `--forwarded-allow-ips` set to the

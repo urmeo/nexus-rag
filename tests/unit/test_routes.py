@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from nexusrag.api.routes import (
+from scinexusrag.api.routes import (
     MAX_FILENAME_LENGTH,
     DeleteResponse,
     DocumentListResponse,
@@ -20,9 +20,9 @@ from nexusrag.api.routes import (
     UploadResponse,
     router,
 )
-from nexusrag.config import Settings, get_settings
-from nexusrag.generation import RAGResponse, Source
-from nexusrag.pipeline import IngestResult, NexusRAG, SystemStats
+from scinexusrag.config import Settings, get_settings
+from scinexusrag.generation import RAGResponse, Source
+from scinexusrag.pipeline import IngestResult, NexusRAG, SystemStats
 
 # Limits under test come from Settings, same source the routes read.
 MAX_FILE_SIZE_MB = get_settings().api.max_upload_mb
@@ -55,7 +55,7 @@ def client(app):
 
 
 @pytest.fixture
-def mock_nexusrag():
+def mock_scinexusrag():
     mock = MagicMock(spec=NexusRAG)
 
     # Default stats response
@@ -63,7 +63,7 @@ def mock_nexusrag():
         total_documents=2,
         total_chunks=10,
         total_words=5000,
-        storage_path="/tmp/nexusrag",
+        storage_path="/tmp/scinexusrag",
         llm_model="llama3.2:3b",
         embedding_model="all-MiniLM-L6-v2",
         llm_available=True,
@@ -76,13 +76,13 @@ def mock_nexusrag():
 
 
 @pytest.fixture
-def patch_get_nexusrag(mock_nexusrag):
-    with patch("nexusrag.api.routes.get_nexusrag", return_value=mock_nexusrag):
-        yield mock_nexusrag
+def patch_get_scinexusrag(mock_scinexusrag):
+    with patch("scinexusrag.api.routes.get_scinexusrag", return_value=mock_scinexusrag):
+        yield mock_scinexusrag
 
 
 class TestHealthCheck:
-    def test_health_check_success(self, client, patch_get_nexusrag, mock_nexusrag):
+    def test_health_check_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
         response = client.get("/api/health")
 
         assert response.status_code == 200
@@ -96,7 +96,7 @@ class TestHealthCheck:
         assert data["total_chunks"] == 10
 
     def test_health_check_with_error(self, client):
-        with patch("nexusrag.api.routes.get_nexusrag", side_effect=Exception("Test error")):
+        with patch("scinexusrag.api.routes.get_scinexusrag", side_effect=Exception("Test error")):
             response = client.get("/api/health")
 
             assert response.status_code == 200
@@ -106,7 +106,7 @@ class TestHealthCheck:
             assert data["status"] == "error"
             assert data["llm_available"] is False
 
-    def test_health_check_response_model(self, client, patch_get_nexusrag):
+    def test_health_check_response_model(self, client, patch_get_scinexusrag):
         response = client.get("/api/health")
         data = response.json()
 
@@ -116,8 +116,8 @@ class TestHealthCheck:
 
 
 class TestIngestDocument:
-    def test_ingest_pdf_success(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_ingest_pdf_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_123",
             filename="test.pdf",
             chunk_count=5,
@@ -142,8 +142,8 @@ class TestIngestDocument:
         assert data["word_count"] == 1000
         assert data["error"] is None
 
-    def test_ingest_txt_success(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_ingest_txt_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_456",
             filename="test.txt",
             chunk_count=3,
@@ -160,8 +160,8 @@ class TestIngestDocument:
         data = response.json()
         assert data["success"] is True
 
-    def test_ingest_docx_success(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_ingest_docx_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_789",
             filename="test.docx",
             chunk_count=4,
@@ -184,8 +184,8 @@ class TestIngestDocument:
         data = response.json()
         assert data["success"] is True
 
-    def test_ingest_md_success(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_ingest_md_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_md",
             filename="test.md",
             chunk_count=2,
@@ -202,7 +202,7 @@ class TestIngestDocument:
         data = response.json()
         assert data["success"] is True
 
-    def test_ingest_no_filename(self, client, patch_get_nexusrag):
+    def test_ingest_no_filename(self, client, patch_get_scinexusrag):
         response = client.post(
             "/api/ingest",
             files={"file": ("", io.BytesIO(b"content"), "text/plain")},
@@ -210,7 +210,7 @@ class TestIngestDocument:
 
         assert response.status_code in (400, 422)
 
-    def test_ingest_filename_too_long(self, client, patch_get_nexusrag):
+    def test_ingest_filename_too_long(self, client, patch_get_scinexusrag):
         long_filename = "a" * (MAX_FILENAME_LENGTH + 1) + ".txt"
 
         response = client.post(
@@ -221,7 +221,7 @@ class TestIngestDocument:
         assert response.status_code == 400
         assert "Filename too long" in response.json()["detail"]
 
-    def test_ingest_unsupported_file_type(self, client, patch_get_nexusrag):
+    def test_ingest_unsupported_file_type(self, client, patch_get_scinexusrag):
         response = client.post(
             "/api/ingest",
             files={"file": ("test.xyz", io.BytesIO(b"content"), "application/octet-stream")},
@@ -230,7 +230,7 @@ class TestIngestDocument:
         assert response.status_code == 400
         assert "Unsupported file type" in response.json()["detail"]
 
-    def test_ingest_empty_file(self, client, patch_get_nexusrag):
+    def test_ingest_empty_file(self, client, patch_get_scinexusrag):
         response = client.post(
             "/api/ingest",
             files={"file": ("test.txt", io.BytesIO(b""), "text/plain")},
@@ -239,7 +239,7 @@ class TestIngestDocument:
         assert response.status_code == 400
         assert "File is empty" in response.json()["detail"]
 
-    def test_ingest_file_too_large(self, client, patch_get_nexusrag):
+    def test_ingest_file_too_large(self, client, patch_get_scinexusrag):
         # Create content larger than MAX_FILE_SIZE_BYTES
         oversized_content = b"x" * (MAX_FILE_SIZE_BYTES + 1)
 
@@ -252,8 +252,8 @@ class TestIngestDocument:
         assert "File too large" in response.json()["detail"]
         assert f"{MAX_FILE_SIZE_MB}MB" in response.json()["detail"]
 
-    def test_ingest_file_at_size_limit(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_ingest_file_at_size_limit(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_large",
             filename="large.pdf",
             chunk_count=100,
@@ -272,9 +272,9 @@ class TestIngestDocument:
         assert response.status_code == 200
         assert response.json()["success"] is True
 
-    def test_ingest_path_traversal_in_filename(self, client, patch_get_nexusrag):
-        mock_nexusrag = MagicMock(spec=NexusRAG)
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_ingest_path_traversal_in_filename(self, client, patch_get_scinexusrag):
+        mock_scinexusrag = MagicMock(spec=NexusRAG)
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_traversal",
             filename="test.txt",
             chunk_count=1,
@@ -282,7 +282,7 @@ class TestIngestDocument:
             success=True,
         )
 
-        with patch("nexusrag.api.routes.get_nexusrag", return_value=mock_nexusrag):
+        with patch("scinexusrag.api.routes.get_scinexusrag", return_value=mock_scinexusrag):
             response = client.post(
                 "/api/ingest",
                 files={"file": ("../../etc/passwd.txt", io.BytesIO(b"content"), "text/plain")},
@@ -290,11 +290,11 @@ class TestIngestDocument:
 
         assert response.status_code == 200
         # Verify that the actual filename passed to ingest_bytes is sanitized
-        call_args = mock_nexusrag.ingest_bytes.call_args
+        call_args = mock_scinexusrag.ingest_bytes.call_args
         assert call_args[0][1] == "passwd.txt"  # Should be sanitized
 
-    def test_ingest_ingestion_failure(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_ingest_ingestion_failure(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="",
             filename="test.txt",
             chunk_count=0,
@@ -313,8 +313,8 @@ class TestIngestDocument:
         assert data["success"] is False
         assert data["error"] == "Failed to parse document"
 
-    def test_ingest_exception_returns_500(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.side_effect = Exception("Database error")
+    def test_ingest_exception_returns_500(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.side_effect = Exception("Database error")
 
         response = client.post(
             "/api/ingest",
@@ -324,8 +324,8 @@ class TestIngestDocument:
         assert response.status_code == 500
         assert "Failed to process document" in response.json()["detail"]
 
-    def test_ingest_response_model(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_ingest_response_model(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_123",
             filename="test.pdf",
             chunk_count=5,
@@ -344,8 +344,8 @@ class TestIngestDocument:
 
 
 class TestQueryDocuments:
-    def test_query_success(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.generation import RAGResponse
+    def test_query_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        from scinexusrag.generation import RAGResponse
 
         source = Source(
             index=1,
@@ -365,8 +365,8 @@ class TestQueryDocuments:
             reasoning_trace=[],
             processing_time_ms=150.5,
         )
-        mock_nexusrag.query.return_value = mock_response
-        mock_nexusrag.list_documents.return_value = [
+        mock_scinexusrag.query.return_value = mock_response
+        mock_scinexusrag.list_documents.return_value = [
             {"id": "doc_123", "filename": "test.pdf", "original_filename": "test.pdf"}
         ]
 
@@ -384,8 +384,8 @@ class TestQueryDocuments:
         assert data["sources"][0]["filename"] == "test.pdf"
         assert data["processing_time_ms"] == 150.5
 
-    def test_query_surfaces_warnings(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.query.return_value = RAGResponse(
+    def test_query_surfaces_warnings(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.query.return_value = RAGResponse(
             answer="Ungrounded answer.",
             sources=[],
             confidence=0.3,
@@ -393,13 +393,13 @@ class TestQueryDocuments:
             processing_time_ms=12.0,
             warnings=["answer cites no sources"],
         )
-        mock_nexusrag.list_documents.return_value = []
+        mock_scinexusrag.list_documents.return_value = []
 
         data = client.post("/api/query", json={"question": "q?"}).json()
 
         assert data["warnings"] == ["answer cites no sources"]
 
-    def test_query_empty_question(self, client, patch_get_nexusrag):
+    def test_query_empty_question(self, client, patch_get_scinexusrag):
         response = client.post(
             "/api/query",
             json={"question": ""},
@@ -408,7 +408,7 @@ class TestQueryDocuments:
         assert response.status_code == 422  # Validation error
         assert "cannot be empty" in response.json().get("detail", [{}])[0].get("msg", "").lower()
 
-    def test_query_whitespace_only_question(self, client, patch_get_nexusrag):
+    def test_query_whitespace_only_question(self, client, patch_get_scinexusrag):
         response = client.post(
             "/api/query",
             json={"question": "   \n\t   "},
@@ -416,7 +416,7 @@ class TestQueryDocuments:
 
         assert response.status_code == 422
 
-    def test_query_question_too_long(self, client, patch_get_nexusrag):
+    def test_query_question_too_long(self, client, patch_get_scinexusrag):
         long_question = "a" * (MAX_QUERY_LENGTH + 1)
 
         response = client.post(
@@ -427,7 +427,7 @@ class TestQueryDocuments:
         assert response.status_code == 422
         assert "too long" in response.json().get("detail", [{}])[0].get("msg", "").lower()
 
-    def test_query_at_max_length(self, client, patch_get_nexusrag, mock_nexusrag):
+    def test_query_at_max_length(self, client, patch_get_scinexusrag, mock_scinexusrag):
         max_length_question = "a" * MAX_QUERY_LENGTH
 
         mock_response = RAGResponse(
@@ -437,7 +437,7 @@ class TestQueryDocuments:
             reasoning_trace=[],
             processing_time_ms=100.0,
         )
-        mock_nexusrag.query.return_value = mock_response
+        mock_scinexusrag.query.return_value = mock_response
 
         response = client.post(
             "/api/query",
@@ -446,7 +446,7 @@ class TestQueryDocuments:
 
         assert response.status_code == 200
 
-    def test_query_missing_question_field(self, client, patch_get_nexusrag):
+    def test_query_missing_question_field(self, client, patch_get_scinexusrag):
         response = client.post(
             "/api/query",
             json={},
@@ -454,8 +454,8 @@ class TestQueryDocuments:
 
         assert response.status_code == 422
 
-    def test_query_no_documents(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.generation import RAGResponse
+    def test_query_no_documents(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        from scinexusrag.generation import RAGResponse
 
         mock_response = RAGResponse(
             answer="No documents have been uploaded yet.",
@@ -464,8 +464,8 @@ class TestQueryDocuments:
             reasoning_trace=[],
             processing_time_ms=10.0,
         )
-        mock_nexusrag.query.return_value = mock_response
-        mock_nexusrag.list_documents.return_value = []
+        mock_scinexusrag.query.return_value = mock_response
+        mock_scinexusrag.list_documents.return_value = []
 
         response = client.post(
             "/api/query",
@@ -479,8 +479,8 @@ class TestQueryDocuments:
         assert data["sources"] == []
         assert data["processing_time_ms"] == 10.0
 
-    def test_query_multiple_sources(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.generation import RAGResponse
+    def test_query_multiple_sources(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        from scinexusrag.generation import RAGResponse
 
         sources = [
             Source(
@@ -512,8 +512,8 @@ class TestQueryDocuments:
             reasoning_trace=[],
             processing_time_ms=200.0,
         )
-        mock_nexusrag.query.return_value = mock_response
-        mock_nexusrag.list_documents.return_value = [
+        mock_scinexusrag.query.return_value = mock_response
+        mock_scinexusrag.list_documents.return_value = [
             {"id": "doc_1", "filename": "paper1.pdf", "original_filename": "paper1.pdf"},
             {"id": "doc_2", "filename": "paper2.pdf", "original_filename": "paper2.pdf"},
         ]
@@ -529,8 +529,8 @@ class TestQueryDocuments:
         assert data["sources"][0]["score"] == 0.95
         assert data["sources"][1]["score"] == 0.87
 
-    def test_query_long_source_content_truncated(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.generation import RAGResponse
+    def test_query_long_source_content_truncated(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        from scinexusrag.generation import RAGResponse
 
         long_content = "x" * 1000  # 1000 characters
         source = Source(
@@ -551,8 +551,8 @@ class TestQueryDocuments:
             reasoning_trace=[],
             processing_time_ms=100.0,
         )
-        mock_nexusrag.query.return_value = mock_response
-        mock_nexusrag.list_documents.return_value = []
+        mock_scinexusrag.query.return_value = mock_response
+        mock_scinexusrag.list_documents.return_value = []
 
         response = client.post(
             "/api/query",
@@ -564,8 +564,8 @@ class TestQueryDocuments:
         assert len(data["sources"][0]["content"]) <= 503  # 500 + "..."
         assert data["sources"][0]["content"].endswith("...")
 
-    def test_query_exception_returns_500(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.query.side_effect = Exception("LLM error")
+    def test_query_exception_returns_500(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.query.side_effect = Exception("LLM error")
 
         response = client.post(
             "/api/query",
@@ -575,8 +575,8 @@ class TestQueryDocuments:
         assert response.status_code == 500
         assert "Failed to process query" in response.json()["detail"]
 
-    def test_query_response_model(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.generation import RAGResponse
+    def test_query_response_model(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        from scinexusrag.generation import RAGResponse
 
         mock_response = RAGResponse(
             answer="Test answer",
@@ -585,7 +585,7 @@ class TestQueryDocuments:
             reasoning_trace=[],
             processing_time_ms=120.0,
         )
-        mock_nexusrag.query.return_value = mock_response
+        mock_scinexusrag.query.return_value = mock_response
 
         response = client.post(
             "/api/query",
@@ -598,8 +598,8 @@ class TestQueryDocuments:
 
 
 class TestListDocuments:
-    def test_list_documents_empty(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.list_documents.return_value = []
+    def test_list_documents_empty(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.list_documents.return_value = []
 
         response = client.get("/api/documents")
 
@@ -610,8 +610,8 @@ class TestListDocuments:
         assert data["total_documents"] == 2
         assert data["total_chunks"] == 10
 
-    def test_list_documents_with_documents(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.list_documents.return_value = [
+    def test_list_documents_with_documents(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.list_documents.return_value = [
             {
                 "id": "doc_1",
                 "filename": "paper1.pdf",
@@ -642,8 +642,8 @@ class TestListDocuments:
         assert data["documents"][0]["word_count"] == 1000
         assert data["documents"][1]["id"] == "doc_2"
 
-    def test_list_documents_pagination(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.list_documents.return_value = [
+    def test_list_documents_pagination(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.list_documents.return_value = [
             {"id": f"doc_{i}", "filename": f"p{i}.pdf", "word_count": 10} for i in range(5)
         ]
 
@@ -655,8 +655,8 @@ class TestListDocuments:
         assert client.get("/api/documents?limit=0").status_code == 422
         assert client.get("/api/documents?offset=-1").status_code == 422
 
-    def test_list_documents_response_model(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.list_documents.return_value = [
+    def test_list_documents_response_model(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.list_documents.return_value = [
             {
                 "id": "doc_1",
                 "filename": "test.pdf",
@@ -675,8 +675,8 @@ class TestListDocuments:
         assert len(doc_list_response.documents) == 1
         assert doc_list_response.total_documents == 2
 
-    def test_list_documents_exception_returns_500(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.list_documents.side_effect = Exception("Storage error")
+    def test_list_documents_exception_returns_500(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.list_documents.side_effect = Exception("Storage error")
 
         response = client.get("/api/documents")
 
@@ -685,7 +685,7 @@ class TestListDocuments:
 
 
 class TestGetStatus:
-    def test_get_status_success(self, client, patch_get_nexusrag, mock_nexusrag):
+    def test_get_status_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
         response = client.get("/api/status")
 
         assert response.status_code == 200
@@ -698,15 +698,15 @@ class TestGetStatus:
         assert data["llm_model"] == "llama3.2:3b"
         assert data["embedding_model"] == "all-MiniLM-L6-v2"
 
-    def test_get_status_response_model(self, client, patch_get_nexusrag):
+    def test_get_status_response_model(self, client, patch_get_scinexusrag):
         response = client.get("/api/status")
         data = response.json()
 
         status_response = StatusResponse(**data)
         assert status_response.total_documents == 2
 
-    def test_get_status_exception_returns_500(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.get_stats.side_effect = Exception("Database error")
+    def test_get_status_exception_returns_500(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.get_stats.side_effect = Exception("Database error")
 
         response = client.get("/api/status")
 
@@ -715,8 +715,8 @@ class TestGetStatus:
 
 
 class TestDeleteDocument:
-    def test_delete_document_success(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.delete_document.return_value = True
+    def test_delete_document_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.delete_document.return_value = True
 
         response = client.delete("/api/documents/doc_123")
 
@@ -725,23 +725,23 @@ class TestDeleteDocument:
 
         assert data["success"] is True
         assert data["message"] == "Document deleted"
-        mock_nexusrag.delete_document.assert_called_once_with("doc_123")
+        mock_scinexusrag.delete_document.assert_called_once_with("doc_123")
 
-    def test_delete_document_not_found(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.delete_document.return_value = False
+    def test_delete_document_not_found(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.delete_document.return_value = False
 
         response = client.delete("/api/documents/nonexistent")
 
         assert response.status_code == 404
         assert "Document not found" in response.json()["detail"]
 
-    def test_delete_document_empty_id(self, client, patch_get_nexusrag):
+    def test_delete_document_empty_id(self, client, patch_get_scinexusrag):
         response = client.delete("/api/documents/")
 
         # FastAPI routing matches the clear_all endpoint (DELETE /api/documents)
         assert response.status_code == 200
 
-    def test_delete_document_id_too_long(self, client, patch_get_nexusrag):
+    def test_delete_document_id_too_long(self, client, patch_get_scinexusrag):
         long_id = "a" * 65  # Exceeds 64-char limit
 
         response = client.delete(f"/api/documents/{long_id}")
@@ -749,24 +749,24 @@ class TestDeleteDocument:
         assert response.status_code == 400
         assert "Invalid document ID" in response.json()["detail"]
 
-    def test_delete_document_exception_returns_500(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.delete_document.side_effect = Exception("Deletion error")
+    def test_delete_document_exception_returns_500(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.delete_document.side_effect = Exception("Deletion error")
 
         response = client.delete("/api/documents/doc_123")
 
         assert response.status_code == 500
         assert "Failed to delete document" in response.json()["detail"]
 
-    def test_delete_document_validation_error(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.delete_document.side_effect = ValueError("Invalid ID format")
+    def test_delete_document_validation_error(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.delete_document.side_effect = ValueError("Invalid ID format")
 
         response = client.delete("/api/documents/invalid-id-format")
 
         assert response.status_code == 400
         assert "Invalid document ID format" in response.json()["detail"]
 
-    def test_delete_document_response_model(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.delete_document.return_value = True
+    def test_delete_document_response_model(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.delete_document.return_value = True
 
         response = client.delete("/api/documents/doc_123")
         data = response.json()
@@ -776,7 +776,7 @@ class TestDeleteDocument:
 
 
 class TestClearAllDocuments:
-    def test_clear_all_documents_success(self, client, patch_get_nexusrag, mock_nexusrag):
+    def test_clear_all_documents_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
         response = client.delete("/api/documents")
 
         assert response.status_code == 200
@@ -784,19 +784,19 @@ class TestClearAllDocuments:
 
         assert data["success"] is True
         assert data["message"] == "All documents cleared"
-        mock_nexusrag.clear_all.assert_called_once()
+        mock_scinexusrag.clear_all.assert_called_once()
 
     def test_clear_all_documents_exception_returns_500(
-        self, client, patch_get_nexusrag, mock_nexusrag
+        self, client, patch_get_scinexusrag, mock_scinexusrag
     ):
-        mock_nexusrag.clear_all.side_effect = Exception("Clear error")
+        mock_scinexusrag.clear_all.side_effect = Exception("Clear error")
 
         response = client.delete("/api/documents")
 
         assert response.status_code == 500
         assert "Failed to clear documents" in response.json()["detail"]
 
-    def test_clear_all_documents_response_model(self, client, patch_get_nexusrag, mock_nexusrag):
+    def test_clear_all_documents_response_model(self, client, patch_get_scinexusrag, mock_scinexusrag):
         response = client.delete("/api/documents")
         data = response.json()
 
@@ -805,10 +805,10 @@ class TestClearAllDocuments:
 
 
 class TestIntegration:
-    def test_workflow_ingest_query_list(self, client, patch_get_nexusrag, mock_nexusrag):
-        from nexusrag.generation import RAGResponse
+    def test_workflow_ingest_query_list(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        from scinexusrag.generation import RAGResponse
 
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_1",
             filename="research.pdf",
             chunk_count=5,
@@ -840,8 +840,8 @@ class TestIntegration:
             reasoning_trace=[],
             processing_time_ms=150.0,
         )
-        mock_nexusrag.query.return_value = mock_response
-        mock_nexusrag.list_documents.return_value = [
+        mock_scinexusrag.query.return_value = mock_response
+        mock_scinexusrag.list_documents.return_value = [
             {
                 "id": "doc_1",
                 "filename": "research.pdf",
@@ -864,9 +864,9 @@ class TestIntegration:
         assert list_response.status_code == 200
         assert len(list_response.json()["documents"]) == 1
 
-    def test_workflow_ingest_delete(self, client, patch_get_nexusrag, mock_nexusrag):
+    def test_workflow_ingest_delete(self, client, patch_get_scinexusrag, mock_scinexusrag):
         # Ingest
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_to_delete",
             filename="temp.txt",
             chunk_count=2,
@@ -881,7 +881,7 @@ class TestIntegration:
         assert ingest_response.status_code == 200
 
         # Delete
-        mock_nexusrag.delete_document.return_value = True
+        mock_scinexusrag.delete_document.return_value = True
 
         delete_response = client.delete("/api/documents/doc_to_delete")
         assert delete_response.status_code == 200
@@ -919,8 +919,8 @@ class TestPydanticValidation:
 
 
 class TestErrorHandling:
-    def test_missing_content_type_header(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_missing_content_type_header(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_1",
             filename="test.txt",
             chunk_count=1,
@@ -935,8 +935,8 @@ class TestErrorHandling:
 
         assert response.status_code == 200
 
-    def test_concurrent_ingest_requests(self, client, patch_get_nexusrag, mock_nexusrag):
-        mock_nexusrag.ingest_bytes.return_value = IngestResult(
+    def test_concurrent_ingest_requests(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_1",
             filename="test.txt",
             chunk_count=1,
@@ -955,7 +955,7 @@ class TestErrorHandling:
         for response in responses:
             assert response.status_code == 200
 
-    def test_invalid_json_in_query(self, client, patch_get_nexusrag):
+    def test_invalid_json_in_query(self, client, patch_get_scinexusrag):
         response = client.post(
             "/api/query",
             content="{invalid json}",
@@ -975,17 +975,17 @@ def _settings(**api_overrides) -> Settings:
 class TestApiKeyAuth:
     """Default-deny auth must be enforced end-to-end, not just unit-tested."""
 
-    def test_missing_key_rejected(self, client, patch_get_nexusrag):
-        with patch("nexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
+    def test_missing_key_rejected(self, client, patch_get_scinexusrag):
+        with patch("scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
             assert client.get("/api/status").status_code == 401
 
-    def test_wrong_key_rejected(self, client, patch_get_nexusrag):
-        with patch("nexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
+    def test_wrong_key_rejected(self, client, patch_get_scinexusrag):
+        with patch("scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
             r = client.get("/api/status", headers={"X-API-Key": "wrong"})
             assert r.status_code == 401
 
-    def test_correct_key_allowed(self, client, patch_get_nexusrag):
-        with patch("nexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
+    def test_correct_key_allowed(self, client, patch_get_scinexusrag):
+        with patch("scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
             r = client.get("/api/status", headers={"X-API-Key": "secret"})
             assert r.status_code == 200
 
@@ -993,15 +993,15 @@ class TestApiKeyAuth:
 class TestUploadValidationThroughRoute:
     """The magic-byte / zip-bomb guard must fire via the HTTP layer."""
 
-    def test_wrong_magic_bytes_rejected(self, client, patch_get_nexusrag):
+    def test_wrong_magic_bytes_rejected(self, client, patch_get_scinexusrag):
         files = {"file": ("bad.pdf", b"this is not a pdf at all", "application/pdf")}
         r = client.post("/api/ingest", files=files)
         assert r.status_code == 415
 
-    def test_zip_bomb_rejected(self, client, patch_get_nexusrag):
+    def test_zip_bomb_rejected(self, client, patch_get_scinexusrag):
         # A real (tiny) docx zip trips the guard once the decompressed cap is 0.
         with patch(
-            "nexusrag.api.security.get_settings", return_value=_settings(max_uncompressed_mb=0)
+            "scinexusrag.api.security.get_settings", return_value=_settings(max_uncompressed_mb=0)
         ):
             files = {
                 "file": (

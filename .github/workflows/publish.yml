@@ -3,7 +3,7 @@ name: Publish to PyPI
 # Publishes a wheel + sdist to PyPI when a version tag is pushed (e.g. v1.0.0).
 # Authentication is via PyPI Trusted Publishing (OIDC) — no API token is stored.
 # The project owner must first configure a Trusted Publisher for project
-# "nexusrag" on PyPI (repo urme-b/NexusRAG, workflow publish.yml, environment
+# "scinexusrag" on PyPI (repo urme-b/NexusRAG, workflow publish.yml, environment
 # pypi) before the first tag will publish.
 
 on:

@@ -4,8 +4,8 @@ import logging
 
 from fastapi.testclient import TestClient
 
-from nexusrag.api import create_app
-from nexusrag.config import get_settings
+from scinexusrag.api import create_app
+from scinexusrag.config import get_settings
 
 
 class TestHealthProbe:
@@ -25,7 +25,7 @@ class TestLogLevel:
         get_settings.cache_clear()
         try:
             create_app()
-            assert logging.getLogger("nexusrag").level == logging.WARNING
+            assert logging.getLogger("scinexusrag").level == logging.WARNING
         finally:
             get_settings.cache_clear()
-            logging.getLogger("nexusrag").setLevel(logging.NOTSET)
+            logging.getLogger("scinexusrag").setLevel(logging.NOTSET)

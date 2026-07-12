@@ -2,7 +2,7 @@
 
 import pytest
 
-from nexusrag.ingestion import DocumentParseError, DocumentParser, ParsedDocument
+from scinexusrag.ingestion import DocumentParseError, DocumentParser, ParsedDocument
 
 
 class TestDocumentParser:
@@ -174,7 +174,7 @@ class TestPdfEdgeCases:
                 self.pages = [FakePage()]
                 self.is_encrypted = False
 
-        monkeypatch.setattr("nexusrag.ingestion.parser.PdfReader", FakeReader)
+        monkeypatch.setattr("scinexusrag.ingestion.parser.PdfReader", FakeReader)
         pdf_path = temp_dir / "scan.pdf"
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 

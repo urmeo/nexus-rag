@@ -9,14 +9,14 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from nexusrag.config import (
+from scinexusrag.config import (
     EmbeddingSettings,
     IngestionSettings,
     LLMSettings,
     Settings,
     StorageSettings,
 )
-from nexusrag.pipeline import IngestResult, NexusRAG, SystemStats, get_nexusrag
+from scinexusrag.pipeline import IngestResult, NexusRAG, SystemStats, get_scinexusrag
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ def mock_llm():
 
 
 @pytest.fixture
-def nexusrag_instance(test_settings: Settings, mock_embedder, mock_llm) -> NexusRAG:
+def scinexusrag_instance(test_settings: Settings, mock_embedder, mock_llm) -> NexusRAG:
     rag = NexusRAG(settings=test_settings)
 
     # Inject mocks before any properties are accessed
@@ -215,8 +215,8 @@ def docs_directory(temp_data_dir: Path) -> Path:
 
 
 class TestBasicPipelineWorkflow:
-    def test_ingest_single_text_file(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
-        result = nexusrag_instance.ingest(sample_text_file)
+    def test_ingest_single_text_file(self, scinexusrag_instance: NexusRAG, sample_text_file: Path):
+        result = scinexusrag_instance.ingest(sample_text_file)
 
         assert result.success is True
         assert result.filename == "test_document.txt"
@@ -225,8 +225,8 @@ class TestBasicPipelineWorkflow:
         assert result.document_id
         assert result.error is None
 
-    def test_ingest_markdown_file(self, nexusrag_instance: NexusRAG, sample_markdown_file: Path):
-        result = nexusrag_instance.ingest(sample_markdown_file)
+    def test_ingest_markdown_file(self, scinexusrag_instance: NexusRAG, sample_markdown_file: Path):
+        result = scinexusrag_instance.ingest(sample_markdown_file)
 
         assert result.success is True
         assert result.filename == "test_paper.md"
@@ -234,75 +234,75 @@ class TestBasicPipelineWorkflow:
         assert result.word_count > 0
 
     def test_full_workflow_ingest_and_query(
-        self, nexusrag_instance: NexusRAG, sample_text_file: Path
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
     ):
         # Ingest
-        ingest_result = nexusrag_instance.ingest(sample_text_file)
+        ingest_result = scinexusrag_instance.ingest(sample_text_file)
         assert ingest_result.success is True
         document_id = ingest_result.document_id
 
         # Verify document is stored
-        docs = nexusrag_instance.list_documents()
+        docs = scinexusrag_instance.list_documents()
         assert len(docs) == 1
         assert docs[0]["id"] == document_id
 
         # Verify stats updated
-        stats = nexusrag_instance.get_stats()
+        stats = scinexusrag_instance.get_stats()
         assert stats.total_documents == 1
         assert stats.total_chunks == ingest_result.chunk_count
 
-    def test_delete_document_workflow(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
+    def test_delete_document_workflow(self, scinexusrag_instance: NexusRAG, sample_text_file: Path):
         # Ingest
-        ingest_result = nexusrag_instance.ingest(sample_text_file)
+        ingest_result = scinexusrag_instance.ingest(sample_text_file)
         document_id = ingest_result.document_id
 
         # Verify ingested
-        assert len(nexusrag_instance.list_documents()) == 1
+        assert len(scinexusrag_instance.list_documents()) == 1
 
         # Delete
-        deleted = nexusrag_instance.delete_document(document_id)
+        deleted = scinexusrag_instance.delete_document(document_id)
         assert deleted is True
 
         # Verify deleted
-        assert len(nexusrag_instance.list_documents()) == 0
+        assert len(scinexusrag_instance.list_documents()) == 0
 
         # Verify chunk count reset
-        stats = nexusrag_instance.get_stats()
+        stats = scinexusrag_instance.get_stats()
         assert stats.total_documents == 0
         assert stats.total_chunks == 0
 
-    def test_delete_nonexistent_document(self, nexusrag_instance: NexusRAG):
-        deleted = nexusrag_instance.delete_document("nonexistent_id")
+    def test_delete_nonexistent_document(self, scinexusrag_instance: NexusRAG):
+        deleted = scinexusrag_instance.delete_document("nonexistent_id")
         assert deleted is False
 
 
 class TestMultiFileIngestion:
-    def test_ingest_directory(self, nexusrag_instance: NexusRAG, docs_directory: Path):
-        results = nexusrag_instance.ingest_directory(docs_directory)
+    def test_ingest_directory(self, scinexusrag_instance: NexusRAG, docs_directory: Path):
+        results = scinexusrag_instance.ingest_directory(docs_directory)
 
         assert len(results) == 3
         assert all(r.success for r in results)
 
         # Verify all documents are tracked
-        docs = nexusrag_instance.list_documents()
+        docs = scinexusrag_instance.list_documents()
         assert len(docs) == 3
 
         # Verify chunks were created
         for result in results:
             assert result.chunk_count > 0
 
-    def test_ingest_directory_stats(self, nexusrag_instance: NexusRAG, docs_directory: Path):
-        results = nexusrag_instance.ingest_directory(docs_directory)
+    def test_ingest_directory_stats(self, scinexusrag_instance: NexusRAG, docs_directory: Path):
+        results = scinexusrag_instance.ingest_directory(docs_directory)
         total_chunks = sum(r.chunk_count for r in results)
         total_words = sum(r.word_count for r in results)
 
-        stats = nexusrag_instance.get_stats()
+        stats = scinexusrag_instance.get_stats()
         assert stats.total_documents == 3
         assert stats.total_chunks == total_chunks
         assert stats.total_words == total_words
 
     def test_ingest_directory_with_unsupported_format(
-        self, nexusrag_instance: NexusRAG, temp_data_dir: Path
+        self, scinexusrag_instance: NexusRAG, temp_data_dir: Path
     ):
         test_dir = temp_data_dir / "mixed_docs"
         test_dir.mkdir()
@@ -311,7 +311,7 @@ class TestMultiFileIngestion:
         (test_dir / "valid.txt").write_text("Valid content here.\n" * 10)
         (test_dir / "unsupported.xyz").write_text("This should be skipped.\n")
 
-        results = nexusrag_instance.ingest_directory(test_dir)
+        results = scinexusrag_instance.ingest_directory(test_dir)
 
         # Both files are reported: one ingested, one explicitly skipped
         assert len(results) == 2
@@ -323,7 +323,7 @@ class TestMultiFileIngestion:
 
 class TestConcurrentWrites:
     def test_parallel_ingest_keeps_indexes_consistent(
-        self, nexusrag_instance: NexusRAG, temp_data_dir: Path
+        self, scinexusrag_instance: NexusRAG, temp_data_dir: Path
     ):
         # Without the pipeline write lock, simultaneous ingests interleave
         # BM25 read-rebuild-swap and silently drop documents (lost update).
@@ -340,7 +340,7 @@ class TestConcurrentWrites:
 
         def worker(fp: Path) -> None:
             barrier.wait()
-            results.append(nexusrag_instance.ingest(fp))
+            results.append(scinexusrag_instance.ingest(fp))
 
         threads = [threading.Thread(target=worker, args=(f,)) for f in files]
         for t in threads:
@@ -350,27 +350,27 @@ class TestConcurrentWrites:
 
         assert all(r.success for r in results)
         total_chunks = sum(r.chunk_count for r in results)
-        assert nexusrag_instance.vector_store.count() == total_chunks
-        assert nexusrag_instance.bm25.count() == total_chunks
+        assert scinexusrag_instance.vector_store.count() == total_chunks
+        assert scinexusrag_instance.bm25.count() == total_chunks
 
 
 class TestDuplicateDetection:
-    def test_duplicate_file_detection(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
+    def test_duplicate_file_detection(self, scinexusrag_instance: NexusRAG, sample_text_file: Path):
         # First ingestion should succeed
-        result1 = nexusrag_instance.ingest(sample_text_file)
+        result1 = scinexusrag_instance.ingest(sample_text_file)
         assert result1.success is True
 
         # Second ingestion should be rejected
-        result2 = nexusrag_instance.ingest(sample_text_file)
+        result2 = scinexusrag_instance.ingest(sample_text_file)
         assert result2.success is False
         assert result2.error == "Document already exists"
         assert result2.chunk_count == 0
 
         # Verify only one document exists
-        docs = nexusrag_instance.list_documents()
+        docs = scinexusrag_instance.list_documents()
         assert len(docs) == 1
 
-    def test_duplicate_in_batch_ingest(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
+    def test_duplicate_in_batch_ingest(self, scinexusrag_instance: NexusRAG, temp_data_dir: Path):
         docs_dir = temp_data_dir / "dup_test"
         docs_dir.mkdir()
 
@@ -379,7 +379,7 @@ class TestDuplicateDetection:
         (docs_dir / "doc_v1.txt").write_text(content)
         (docs_dir / "doc_v2.txt").write_text(content)
 
-        results = nexusrag_instance.ingest_directory(docs_dir)
+        results = scinexusrag_instance.ingest_directory(docs_dir)
 
         # Both should be processed, but second might be marked as duplicate
         # due to content hash matching
@@ -391,35 +391,35 @@ class TestDuplicateDetection:
 
 
 class TestClearOperations:
-    def test_clear_all_documents(self, nexusrag_instance: NexusRAG, docs_directory: Path):
+    def test_clear_all_documents(self, scinexusrag_instance: NexusRAG, docs_directory: Path):
         # Ingest multiple documents
-        nexusrag_instance.ingest_directory(docs_directory)
-        assert nexusrag_instance.get_stats().total_documents == 3
+        scinexusrag_instance.ingest_directory(docs_directory)
+        assert scinexusrag_instance.get_stats().total_documents == 3
 
         # Clear all
-        nexusrag_instance.clear_all()
+        scinexusrag_instance.clear_all()
 
         # Verify everything cleared
-        assert nexusrag_instance.get_stats().total_documents == 0
-        assert nexusrag_instance.get_stats().total_chunks == 0
-        assert len(nexusrag_instance.list_documents()) == 0
+        assert scinexusrag_instance.get_stats().total_documents == 0
+        assert scinexusrag_instance.get_stats().total_chunks == 0
+        assert len(scinexusrag_instance.list_documents()) == 0
 
-    def test_clear_all_then_reingest(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
+    def test_clear_all_then_reingest(self, scinexusrag_instance: NexusRAG, sample_text_file: Path):
         # Ingest, clear, then ingest again
-        result1 = nexusrag_instance.ingest(sample_text_file)
+        result1 = scinexusrag_instance.ingest(sample_text_file)
         assert result1.success is True
 
-        nexusrag_instance.clear_all()
-        assert nexusrag_instance.get_stats().total_documents == 0
+        scinexusrag_instance.clear_all()
+        assert scinexusrag_instance.get_stats().total_documents == 0
 
         # Should be able to ingest the same file again
-        result2 = nexusrag_instance.ingest(sample_text_file)
+        result2 = scinexusrag_instance.ingest(sample_text_file)
         assert result2.success is True
 
 
 class TestStatisticsAndMetadata:
-    def test_get_stats_empty_system(self, nexusrag_instance: NexusRAG):
-        stats = nexusrag_instance.get_stats()
+    def test_get_stats_empty_system(self, scinexusrag_instance: NexusRAG):
+        stats = scinexusrag_instance.get_stats()
 
         assert stats.total_documents == 0
         assert stats.total_chunks == 0
@@ -428,35 +428,35 @@ class TestStatisticsAndMetadata:
         assert stats.embedding_model == "test-model"
         assert stats.llm_model == "test-llm"
 
-    def test_get_stats_after_ingestion(self, nexusrag_instance: NexusRAG, sample_text_file: Path):
-        result = nexusrag_instance.ingest(sample_text_file)
+    def test_get_stats_after_ingestion(self, scinexusrag_instance: NexusRAG, sample_text_file: Path):
+        result = scinexusrag_instance.ingest(sample_text_file)
 
-        stats = nexusrag_instance.get_stats()
+        stats = scinexusrag_instance.get_stats()
         assert stats.total_documents == 1
         assert stats.total_chunks == result.chunk_count
         assert stats.total_words > 0
         assert "tmp" in str(stats.storage_path).lower()  # Temp directory
 
-    def test_list_documents_empty(self, nexusrag_instance: NexusRAG):
-        docs = nexusrag_instance.list_documents()
+    def test_list_documents_empty(self, scinexusrag_instance: NexusRAG):
+        docs = scinexusrag_instance.list_documents()
         assert docs == []
 
     def test_list_documents_with_metadata(
-        self, nexusrag_instance: NexusRAG, sample_text_file: Path
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
     ):
-        ingest_result = nexusrag_instance.ingest(sample_text_file)
+        ingest_result = scinexusrag_instance.ingest(sample_text_file)
 
-        docs = nexusrag_instance.list_documents()
+        docs = scinexusrag_instance.list_documents()
         assert len(docs) == 1
 
         doc = docs[0]
         assert doc["id"] == ingest_result.document_id
         assert "filename" in doc or "original_filename" in doc
 
-    def test_stats_with_multiple_documents(self, nexusrag_instance: NexusRAG, docs_directory: Path):
-        results = nexusrag_instance.ingest_directory(docs_directory)
+    def test_stats_with_multiple_documents(self, scinexusrag_instance: NexusRAG, docs_directory: Path):
+        results = scinexusrag_instance.ingest_directory(docs_directory)
 
-        stats = nexusrag_instance.get_stats()
+        stats = scinexusrag_instance.get_stats()
         assert stats.total_documents == len(results)
 
         total_chunks_expected = sum(r.chunk_count for r in results)
@@ -464,53 +464,53 @@ class TestStatisticsAndMetadata:
 
 
 class TestErrorHandling:
-    def test_ingest_empty_file(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
+    def test_ingest_empty_file(self, scinexusrag_instance: NexusRAG, temp_data_dir: Path):
         empty_file = temp_data_dir / "empty.txt"
         empty_file.write_text("")
 
-        result = nexusrag_instance.ingest(empty_file)
+        result = scinexusrag_instance.ingest(empty_file)
 
         assert result.success is False
         assert result.error == "No content extracted"
         assert result.chunk_count == 0
 
-    def test_ingest_nonexistent_file(self, nexusrag_instance: NexusRAG):
-        result = nexusrag_instance.ingest("/nonexistent/path/file.txt")
+    def test_ingest_nonexistent_file(self, scinexusrag_instance: NexusRAG):
+        result = scinexusrag_instance.ingest("/nonexistent/path/file.txt")
 
         assert result.success is False
         assert "Ingestion failed" in result.error or "FileNotFoundError" in result.error
 
-    def test_ingest_unsupported_format(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
+    def test_ingest_unsupported_format(self, scinexusrag_instance: NexusRAG, temp_data_dir: Path):
         unsupported = temp_data_dir / "file.xyz"
         unsupported.write_text("Some content")
 
-        result = nexusrag_instance.ingest(unsupported)
+        result = scinexusrag_instance.ingest(unsupported)
 
         assert result.success is False
         assert "Ingestion failed" in result.error
 
-    def test_ingest_directory_nonexistent(self, nexusrag_instance: NexusRAG):
+    def test_ingest_directory_nonexistent(self, scinexusrag_instance: NexusRAG):
         with pytest.raises(ValueError, match="Not a directory"):
-            nexusrag_instance.ingest_directory("/nonexistent/directory")
+            scinexusrag_instance.ingest_directory("/nonexistent/directory")
 
-    def test_ingest_bytes_empty(self, nexusrag_instance: NexusRAG):
-        result = nexusrag_instance.ingest_bytes(b"", "empty.txt", ".txt")
+    def test_ingest_bytes_empty(self, scinexusrag_instance: NexusRAG):
+        result = scinexusrag_instance.ingest_bytes(b"", "empty.txt", ".txt")
 
         assert result.success is False
         assert result.chunk_count == 0
 
-    def test_ingest_bytes_valid(self, nexusrag_instance: NexusRAG):
+    def test_ingest_bytes_valid(self, scinexusrag_instance: NexusRAG):
         content = b"This is test content for bytes ingestion.\n" * 5
-        result = nexusrag_instance.ingest_bytes(content, "test.txt", ".txt")
+        result = scinexusrag_instance.ingest_bytes(content, "test.txt", ".txt")
 
         assert result.success is True
         assert result.filename == "test.txt"
         assert result.chunk_count > 0
 
-    def test_ingest_bytes_without_extension(self, nexusrag_instance: NexusRAG):
+    def test_ingest_bytes_without_extension(self, scinexusrag_instance: NexusRAG):
         content = b"Test content.\n" * 5
         # Should handle both ".txt" and "txt" formats
-        result = nexusrag_instance.ingest_bytes(content, "test.txt", "txt")
+        result = scinexusrag_instance.ingest_bytes(content, "test.txt", "txt")
 
         assert result.success is True
 
@@ -579,59 +579,59 @@ class TestSystemStats:
 
 
 class TestLazyLoading:
-    def test_components_not_loaded_initially(self, nexusrag_instance: NexusRAG):
+    def test_components_not_loaded_initially(self, scinexusrag_instance: NexusRAG):
         # Only _embedder and _llm are pre-loaded by fixture for mocking
         # Others should be None initially
-        assert nexusrag_instance._parser is None
-        assert nexusrag_instance._chunker is None
-        assert nexusrag_instance._vector_store is None
-        assert nexusrag_instance._document_store is None
-        assert nexusrag_instance._bm25 is None
+        assert scinexusrag_instance._parser is None
+        assert scinexusrag_instance._chunker is None
+        assert scinexusrag_instance._vector_store is None
+        assert scinexusrag_instance._document_store is None
+        assert scinexusrag_instance._bm25 is None
 
-    def test_parser_lazy_loads_on_access(self, nexusrag_instance: NexusRAG):
-        assert nexusrag_instance._parser is None
-        parser = nexusrag_instance.parser
+    def test_parser_lazy_loads_on_access(self, scinexusrag_instance: NexusRAG):
+        assert scinexusrag_instance._parser is None
+        parser = scinexusrag_instance.parser
         assert parser is not None
-        assert nexusrag_instance._parser is parser
+        assert scinexusrag_instance._parser is parser
 
-    def test_chunker_lazy_loads_on_access(self, nexusrag_instance: NexusRAG):
-        assert nexusrag_instance._chunker is None
-        chunker = nexusrag_instance.chunker
+    def test_chunker_lazy_loads_on_access(self, scinexusrag_instance: NexusRAG):
+        assert scinexusrag_instance._chunker is None
+        chunker = scinexusrag_instance.chunker
         assert chunker is not None
-        assert nexusrag_instance._chunker is chunker
+        assert scinexusrag_instance._chunker is chunker
 
-    def test_document_store_lazy_loads_on_access(self, nexusrag_instance: NexusRAG):
-        assert nexusrag_instance._document_store is None
-        store = nexusrag_instance.document_store
+    def test_document_store_lazy_loads_on_access(self, scinexusrag_instance: NexusRAG):
+        assert scinexusrag_instance._document_store is None
+        store = scinexusrag_instance.document_store
         assert store is not None
-        assert nexusrag_instance._document_store is store
+        assert scinexusrag_instance._document_store is store
 
 
 class TestSingletonBehavior:
-    def test_get_nexusrag_returns_same_instance(self):
+    def test_get_scinexusrag_returns_same_instance(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings = Settings(data_dir=Path(tmpdir))
-            instance1 = get_nexusrag(settings)
-            instance2 = get_nexusrag()
+            instance1 = get_scinexusrag(settings)
+            instance2 = get_scinexusrag()
 
             assert instance1 is instance2
 
-    def test_get_nexusrag_with_different_settings(self):
+    def test_get_scinexusrag_with_different_settings(self):
         with tempfile.TemporaryDirectory() as tmpdir1, tempfile.TemporaryDirectory() as tmpdir2:
             settings1 = Settings(data_dir=Path(tmpdir1))
             settings2 = Settings(data_dir=Path(tmpdir2))
 
             # Note: Singleton pattern means second call returns first instance
             # This is expected behavior - singleton is global
-            instance1 = get_nexusrag(settings1)
-            instance2 = get_nexusrag(settings2)
+            instance1 = get_scinexusrag(settings1)
+            instance2 = get_scinexusrag(settings2)
 
             # Both should be same due to singleton pattern
             assert instance1 is instance2
 
 
 class TestIngestBytes:
-    def test_ingest_bytes_text(self, nexusrag_instance: NexusRAG):
+    def test_ingest_bytes_text(self, scinexusrag_instance: NexusRAG):
         content = b"""
         # Test Document
 
@@ -642,13 +642,13 @@ class TestIngestBytes:
         Testing the bytes ingestion pipeline thoroughly.
         """
 
-        result = nexusrag_instance.ingest_bytes(content, "bytes_doc.txt", ".txt")
+        result = scinexusrag_instance.ingest_bytes(content, "bytes_doc.txt", ".txt")
 
         assert result.success is True
         assert result.filename == "bytes_doc.txt"
         assert result.chunk_count > 0
 
-    def test_ingest_bytes_md_format(self, nexusrag_instance: NexusRAG):
+    def test_ingest_bytes_md_format(self, scinexusrag_instance: NexusRAG):
         content = b"""# Markdown Test
 
 ## Section 1
@@ -658,46 +658,46 @@ Content here for testing.
 More content for proper chunking.
 """
 
-        result = nexusrag_instance.ingest_bytes(content, "test.md", ".md")
+        result = scinexusrag_instance.ingest_bytes(content, "test.md", ".md")
 
         assert result.success is True
         assert result.chunk_count > 0
 
-    def test_ingest_bytes_duplicate_detection(self, nexusrag_instance: NexusRAG):
+    def test_ingest_bytes_duplicate_detection(self, scinexusrag_instance: NexusRAG):
         content = b"Unique test content for duplicate detection.\n" * 5
 
-        result1 = nexusrag_instance.ingest_bytes(content, "dup.txt", ".txt")
+        result1 = scinexusrag_instance.ingest_bytes(content, "dup.txt", ".txt")
         assert result1.success is True
 
         # Same bytes and name must dedup, not slip through under a fresh temp id.
-        result2 = nexusrag_instance.ingest_bytes(content, "dup.txt", ".txt")
+        result2 = scinexusrag_instance.ingest_bytes(content, "dup.txt", ".txt")
         assert result2.success is False
         assert result2.document_id == result1.document_id
         assert "already exists" in (result2.error or "")
 
 
 class TestEdgeCases:
-    def test_ingest_very_short_document(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
+    def test_ingest_very_short_document(self, scinexusrag_instance: NexusRAG, temp_data_dir: Path):
         short_file = temp_data_dir / "short.txt"
         short_file.write_text("Short content.")
 
-        result = nexusrag_instance.ingest(short_file)
+        result = scinexusrag_instance.ingest(short_file)
 
         # Might fail if below minimum chunk size
         assert isinstance(result.success, bool)
 
-    def test_ingest_large_document(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
+    def test_ingest_large_document(self, scinexusrag_instance: NexusRAG, temp_data_dir: Path):
         large_file = temp_data_dir / "large.txt"
 
         large_content = "This is a test sentence that will be repeated many times. " * 200
         large_file.write_text(large_content)
 
-        result = nexusrag_instance.ingest(large_file)
+        result = scinexusrag_instance.ingest(large_file)
 
         assert result.success is True
         assert result.chunk_count > 1  # Should be split into multiple chunks
 
-    def test_concurrent_operations_sequence(self, nexusrag_instance: NexusRAG, temp_data_dir: Path):
+    def test_concurrent_operations_sequence(self, scinexusrag_instance: NexusRAG, temp_data_dir: Path):
         file1 = temp_data_dir / "doc1.txt"
         file2 = temp_data_dir / "doc2.txt"
 
@@ -708,21 +708,21 @@ class TestEdgeCases:
         file2.write_text(content2)
 
         # Ingest both
-        result1 = nexusrag_instance.ingest(file1)
-        result2 = nexusrag_instance.ingest(file2)
+        result1 = scinexusrag_instance.ingest(file1)
+        result2 = scinexusrag_instance.ingest(file2)
 
         assert result1.success is True
         assert result2.success is True
 
         # Verify both are tracked
-        docs = nexusrag_instance.list_documents()
+        docs = scinexusrag_instance.list_documents()
         assert len(docs) == 2
 
         # Delete first
-        deleted = nexusrag_instance.delete_document(result1.document_id)
+        deleted = scinexusrag_instance.delete_document(result1.document_id)
         assert deleted is True
 
-        docs = nexusrag_instance.list_documents()
+        docs = scinexusrag_instance.list_documents()
         assert len(docs) == 1
 
 
@@ -772,12 +772,12 @@ class TestParametrized:
         ],
     )
     def test_ingest_multiple_variations(
-        self, nexusrag_instance: NexusRAG, temp_data_dir: Path, filename: str, content: str
+        self, scinexusrag_instance: NexusRAG, temp_data_dir: Path, filename: str, content: str
     ):
         file_path = temp_data_dir / filename
         file_path.write_text(content)
 
-        result = nexusrag_instance.ingest(file_path)
+        result = scinexusrag_instance.ingest(file_path)
 
         assert result.success is True
         assert result.filename == filename
@@ -790,7 +790,7 @@ class TestParametrized:
         ],
     )
     def test_various_formats(
-        self, nexusrag_instance: NexusRAG, temp_data_dir: Path, format_ext: str, format_name: str
+        self, scinexusrag_instance: NexusRAG, temp_data_dir: Path, format_ext: str, format_name: str
     ):
         file_path = temp_data_dir / f"doc{format_ext}"
 
@@ -801,53 +801,53 @@ class TestParametrized:
 
         file_path.write_text(content)
 
-        result = nexusrag_instance.ingest(file_path)
+        result = scinexusrag_instance.ingest(file_path)
 
         assert result.success is True
 
 
 class TestIngestRollback:
     def test_vector_failure_rolls_back_document_store(
-        self, nexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
     ):
         def boom(chunks, embeddings):
             raise RuntimeError("simulated storage failure")
 
-        monkeypatch.setattr(nexusrag_instance.vector_store, "add", boom)
+        monkeypatch.setattr(scinexusrag_instance.vector_store, "add", boom)
 
-        result = nexusrag_instance.ingest(sample_text_file)
+        result = scinexusrag_instance.ingest(sample_text_file)
 
         assert result.success is False
-        assert nexusrag_instance.document_store.count() == 0
-        assert nexusrag_instance.bm25.count() == 0
+        assert scinexusrag_instance.document_store.count() == 0
+        assert scinexusrag_instance.bm25.count() == 0
 
     def test_bm25_failure_rolls_back_all_stores(
-        self, nexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
     ):
         def boom(chunks):
             raise RuntimeError("simulated index failure")
 
-        monkeypatch.setattr(nexusrag_instance.bm25, "add_incremental", boom)
+        monkeypatch.setattr(scinexusrag_instance.bm25, "add_incremental", boom)
 
-        result = nexusrag_instance.ingest(sample_text_file)
+        result = scinexusrag_instance.ingest(sample_text_file)
 
         assert result.success is False
-        assert nexusrag_instance.document_store.count() == 0
-        assert nexusrag_instance.vector_store.count() == 0
+        assert scinexusrag_instance.document_store.count() == 0
+        assert scinexusrag_instance.vector_store.count() == 0
 
 
 class TestUnloadModels:
-    def test_unload_resets_lazy_handles(self, nexusrag_instance: NexusRAG):
+    def test_unload_resets_lazy_handles(self, scinexusrag_instance: NexusRAG):
         # Force the lazy components to instantiate, then unload.
-        assert nexusrag_instance.embedder is not None
-        _ = nexusrag_instance.llm
-        _ = nexusrag_instance.orchestrator
+        assert scinexusrag_instance.embedder is not None
+        _ = scinexusrag_instance.llm
+        _ = scinexusrag_instance.orchestrator
 
-        nexusrag_instance.unload_models()
+        scinexusrag_instance.unload_models()
 
-        assert nexusrag_instance._embedder is None
-        assert nexusrag_instance._llm is None
-        assert nexusrag_instance._orchestrator is None
+        assert scinexusrag_instance._embedder is None
+        assert scinexusrag_instance._llm is None
+        assert scinexusrag_instance._orchestrator is None
 
 
 class _ImmediateVisibilityStore:
@@ -872,9 +872,9 @@ class _ImmediateVisibilityStore:
 
 class TestBM25NoDoubleCount:
     def test_ingest_does_not_double_count_bm25_on_lazy_init(
-        self, nexusrag_instance: NexusRAG, sample_text_file: Path
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
     ):
-        rag = nexusrag_instance
+        rag = scinexusrag_instance
         # Force the vector store to expose freshly-written chunks to the rebuild.
         rag._vector_store = _ImmediateVisibilityStore(rag.vector_store)
 
@@ -884,23 +884,23 @@ class TestBM25NoDoubleCount:
         assert rag.bm25.count() == result.chunk_count  # not 2x
 
     def test_first_ingest_keeps_bm25_and_vector_in_sync(
-        self, nexusrag_instance: NexusRAG, sample_text_file: Path
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
     ):
         # Sequential, deterministic guard for the exact double-count bug: the
         # very first ingest must leave the sparse and dense indexes equal.
-        r = nexusrag_instance.ingest(sample_text_file)
+        r = scinexusrag_instance.ingest(sample_text_file)
         assert r.success
-        assert nexusrag_instance.bm25.count() == r.chunk_count
-        assert nexusrag_instance.vector_store.count() == r.chunk_count
+        assert scinexusrag_instance.bm25.count() == r.chunk_count
+        assert scinexusrag_instance.vector_store.count() == r.chunk_count
 
 
 class TestEndToEnd:
     def test_ingest_query_cites_a_real_source(
-        self, nexusrag_instance: NexusRAG, sample_text_file: Path
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
     ):
         # Full seam: parse -> chunk -> embed -> index -> retrieve -> synthesize
         # -> verify. The LLM cites [1]; the response must carry a real source.
-        rag = nexusrag_instance
+        rag = scinexusrag_instance
         rag._llm.generate = lambda prompt, **kw: "The methodology was rigorous [1]."
         rag._embedder.embed_query = lambda q: np.random.rand(384).astype(np.float32)
 

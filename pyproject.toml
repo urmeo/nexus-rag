@@ -3,8 +3,8 @@ requires = ["setuptools>=75.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# Distribution (PyPI) name; the import package stays `nexusrag` (see below).
-# `nexusrag` itself is blocked on PyPI as too similar to the existing `nexus-rag`.
+# `nexusrag` was blocked on PyPI as too similar to the existing `nexus-rag`, so
+# the distribution and import package are both named `scinexusrag`.
 name = "scinexusrag"
 dynamic = ["version"]
 description = "Local hybrid retrieval and faithfulness benchmark for scientific papers"
@@ -63,15 +63,15 @@ Homepage = "https://github.com/urmeo/nexus-rag"
 Repository = "https://github.com/urmeo/nexus-rag"
 
 [project.scripts]
-nexusrag = "nexusrag.cli:main"
-nexusrag-eval = "nexusrag.eval.run:main"
-nexusrag-report = "nexusrag.eval.report:main"
+scinexusrag = "scinexusrag.cli:main"
+scinexusrag-eval = "scinexusrag.eval.run:main"
+scinexusrag-report = "scinexusrag.eval.report:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.dynamic]
-version = {attr = "nexusrag.__version__"}
+version = {attr = "scinexusrag.__version__"}
 
 [tool.ruff]
 target-version = "py311"
@@ -98,10 +98,10 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ARG001", "ARG002", "ARG005"]
 # slowapi's @limiter.limit requires a `request: Request` route param it reads reflectively.
-"src/nexusrag/api/routes.py" = ["ARG001"]
+"src/scinexusrag/api/routes.py" = ["ARG001"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["nexusrag"]
+known-first-party = ["scinexusrag"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -139,7 +139,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["src/nexusrag"]
+source = ["src/scinexusrag"]
 branch = true
 
 [tool.coverage.report]

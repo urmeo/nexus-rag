@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from nexusrag.ingestion import Chunk
-from nexusrag.retrieval import (
+from scinexusrag.ingestion import Chunk
+from scinexusrag.retrieval import (
     BM25Retriever,
     DenseRetriever,
     HybridRetriever,
@@ -129,7 +129,7 @@ class TestDenseRetriever:
         embedder = MagicMock()
         embedder.embed_query.return_value = np.random.rand(384).astype(np.float32)
         store = MagicMock()
-        from nexusrag.storage import SearchResult
+        from scinexusrag.storage import SearchResult
 
         store.search.return_value = [
             SearchResult(chunk=sample_chunks[1], score=0.9),
@@ -186,7 +186,7 @@ class TestHybridRetriever:
 
 class TestSpladeEmptyCorpus:
     def test_empty_corpus_does_not_crash(self):
-        from nexusrag.retrieval.splade import SpladeRetriever
+        from scinexusrag.retrieval.splade import SpladeRetriever
 
         r = SpladeRetriever([])  # sparse.vstack([]) used to crash here
         assert r.retrieve("query") == []

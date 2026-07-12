@@ -1,8 +1,8 @@
 """Tests for vendored dataset loaders and sentence splitting."""
 
-from nexusrag.eval import datasets as D
-from nexusrag.eval import faithfulness as F
-from nexusrag.generation.grounding import split_sentences
+from scinexusrag.eval import datasets as D
+from scinexusrag.eval import faithfulness as F
+from scinexusrag.generation.grounding import split_sentences
 
 
 class TestVendoredIR:
@@ -54,9 +54,9 @@ class TestSentenceSplit:
 
     def test_grounding_and_chunker_share_one_boundary(self) -> None:
         # Both modules must resolve to the single canonical boundary.
-        from nexusrag.generation import grounding
-        from nexusrag.ingestion import chunker
-        from nexusrag.utils.text import SENTENCE_BOUNDARY
+        from scinexusrag.generation import grounding
+        from scinexusrag.ingestion import chunker
+        from scinexusrag.utils.text import SENTENCE_BOUNDARY
 
-        assert grounding.split_sentences.__module__ == "nexusrag.utils.text"
+        assert grounding.split_sentences.__module__ == "scinexusrag.utils.text"
         assert chunker.SENTENCE_BOUNDARY is SENTENCE_BOUNDARY

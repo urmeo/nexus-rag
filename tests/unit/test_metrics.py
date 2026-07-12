@@ -2,7 +2,7 @@
 
 import threading
 
-from nexusrag.api.metrics import MetricsCollector
+from scinexusrag.api.metrics import MetricsCollector
 
 
 class TestMetricsCollector:

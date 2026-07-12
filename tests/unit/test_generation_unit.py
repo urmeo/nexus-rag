@@ -10,13 +10,13 @@ from typing import Any
 import httpx
 import pytest
 
-from nexusrag.generation.grounding import GroundingReport
-from nexusrag.generation.llm import LLMClient, LLMError
-from nexusrag.generation.orchestrator import Orchestrator, RAGResponse
-from nexusrag.generation.synthesizer import Source, Synthesizer
-from nexusrag.generation.verifier import AnswerVerifier
-from nexusrag.ingestion.chunker import Chunk
-from nexusrag.retrieval import RetrievalResult
+from scinexusrag.generation.grounding import GroundingReport
+from scinexusrag.generation.llm import LLMClient, LLMError
+from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
+from scinexusrag.generation.synthesizer import Source, Synthesizer
+from scinexusrag.generation.verifier import AnswerVerifier
+from scinexusrag.ingestion.chunker import Chunk
+from scinexusrag.retrieval import RetrievalResult
 
 
 def _result(idx: int, content: str, score: float = 0.9) -> RetrievalResult:
@@ -205,7 +205,7 @@ class FakeHttpClient:
 
 def _client_with(behaviors: list[Any], monkeypatch: pytest.MonkeyPatch) -> tuple[Any, Any]:
     """LLMClient wired to a fake http client; no real network or sleeps."""
-    monkeypatch.setattr("nexusrag.generation.llm.time.sleep", lambda *_: None)
+    monkeypatch.setattr("scinexusrag.generation.llm.time.sleep", lambda *_: None)
     fake = FakeHttpClient(behaviors)
     client = LLMClient(max_retries=2, backoff=0.0)
     client._client = fake  # type: ignore[assignment]
@@ -251,7 +251,7 @@ class TestLLMRetry:
 
 class TestStripCitations:
     def test_preserves_line_structure(self) -> None:
-        from nexusrag.generation.citations import strip_citations
+        from scinexusrag.generation.citations import strip_citations
 
         text = "Main finding [1].\n\nDetails:\n1. First [2]\n2. Second [3]"
         out = strip_citations(text, {1, 2, 3})
@@ -259,7 +259,7 @@ class TestStripCitations:
         assert out.count("\n") >= 2
 
     def test_drops_out_of_range(self) -> None:
-        from nexusrag.generation.citations import strip_citations
+        from scinexusrag.generation.citations import strip_citations
 
         out = strip_citations("a [1] b [9].", {1})
         assert "[9]" not in out and "[1]" in out

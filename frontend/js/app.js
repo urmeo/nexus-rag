@@ -8,7 +8,7 @@ const API_BASE = '';
 // When the server enforces API-key auth, attach the key so the bundled UI still
 // works. With no key configured this adds no header, leaving local use unchanged.
 function apiHeaders(extra = {}) {
-    const key = localStorage.getItem('nexusrag_api_key');
+    const key = localStorage.getItem('scinexusrag_api_key');
     return key ? { ...extra, 'X-API-Key': key } : { ...extra };
 }
 

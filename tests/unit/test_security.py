@@ -6,8 +6,8 @@ import zipfile
 import pytest
 from fastapi import HTTPException
 
-from nexusrag.api import security
-from nexusrag.config import Settings
+from scinexusrag.api import security
+from scinexusrag.config import Settings
 
 
 class _FakeRequest:
@@ -177,7 +177,7 @@ class TestValidateUpload:
 
 class TestAppConfig:
     def test_cors_default_is_not_wildcard(self) -> None:
-        from nexusrag.config import APISettings
+        from scinexusrag.config import APISettings
 
         origins = APISettings().cors_origins
         assert "*" not in origins
@@ -186,7 +186,7 @@ class TestAppConfig:
     def test_docs_disabled_when_api_key_set(self, monkeypatch) -> None:
         from fastapi.testclient import TestClient
 
-        import nexusrag.api as api
+        import scinexusrag.api as api
 
         monkeypatch.setattr(api, "get_settings", lambda: _settings(api_key="k"))
         client = TestClient(api.create_app())
@@ -196,7 +196,7 @@ class TestAppConfig:
     def test_docs_enabled_in_local_mode(self, monkeypatch) -> None:
         from fastapi.testclient import TestClient
 
-        import nexusrag.api as api
+        import scinexusrag.api as api
 
         monkeypatch.setattr(api, "get_settings", lambda: _settings(api_key="", docs_enabled=True))
         client = TestClient(api.create_app())
@@ -207,14 +207,14 @@ class TestIdSanitizer:
     """Proves the SECURITY.md claims: traversal blocked, allowlist is linear-time."""
 
     def test_path_traversal_and_injection_rejected(self) -> None:
-        from nexusrag.storage.vector_store import _sanitize_id
+        from scinexusrag.storage.vector_store import _sanitize_id
 
         for bad in ["../../etc/passwd", "a/b", "a\\b", "id; DROP TABLE x", "a' OR '1'='1", "a b"]:
             with pytest.raises(ValueError):
                 _sanitize_id(bad)
 
     def test_safe_ids_accepted(self) -> None:
-        from nexusrag.storage.vector_store import _sanitize_id
+        from scinexusrag.storage.vector_store import _sanitize_id
 
         for ok in ["doc_123", "chunk-abc", "AaZz09_-"]:
             assert _sanitize_id(ok) == ok
@@ -223,7 +223,7 @@ class TestIdSanitizer:
         # A pathological input must not cause catastrophic backtracking (ReDoS).
         import time
 
-        from nexusrag.storage.vector_store import SAFE_ID_PATTERN
+        from scinexusrag.storage.vector_store import SAFE_ID_PATTERN
 
         adversarial = "a" * 200_000 + "!"  # long valid run then a rejecting char
         start = time.perf_counter()

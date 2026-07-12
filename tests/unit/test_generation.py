@@ -1,4 +1,4 @@
-from nexusrag.eval.generation import _format_sources, _mean
+from scinexusrag.eval.generation import _format_sources, _mean
 
 
 class TestFormatSources:

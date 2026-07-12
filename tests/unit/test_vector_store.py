@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from nexusrag.ingestion import Chunk
-from nexusrag.storage.vector_store import VectorStore
+from scinexusrag.ingestion import Chunk
+from scinexusrag.storage.vector_store import VectorStore
 
 
 def _store(tmp_path, dim: int = 4) -> VectorStore:

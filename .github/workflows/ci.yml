@@ -74,7 +74,7 @@ jobs:
         run: mypy src/
 
       - name: Test
-        run: pytest tests/ -q --cov=nexusrag --cov-branch --cov-fail-under=60
+        run: pytest tests/ -q --cov=scinexusrag --cov-branch --cov-fail-under=60
 
       - name: README test count in sync
         run: |
@@ -102,4 +102,4 @@ jobs:
       # (seed 0, CPU, deterministic) and fails if any metric drops below the
       # committed floor in benchmarks/thresholds.json.
       - name: Run eval regression gate
-        run: python -m nexusrag.eval.gate
+        run: python -m scinexusrag.eval.gate

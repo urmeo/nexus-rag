@@ -1,0 +1,163 @@
+"""Does the faithfulness-gated corrective loop reduce ungrounded answers?
+
+Generates answers over retrieved scientific passages with a local instruct
+model, scores each answer's grounding with the NLI verifier, and re-retrieves +
+regenerates when grounding is weak. Reports baseline vs corrective faithfulness.
+
+Runs in three phases (retrieve, generate, score) loading one model at a time,
+so it fits on a CPU laptop.
+"""
+
+from __future__ import annotations
+
+import argparse
+import gc
+import json
+from pathlib import Path
+from typing import Any
+
+from scinexusrag.eval import datasets as D
+from scinexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
+from scinexusrag.generation.grounding import GroundingVerifier
+from scinexusrag.ingestion import Embedder
+from scinexusrag.retrieval import AdaptiveHybridRetriever, BM25Retriever, CorrectiveRetriever
+
+RESULTS_DIR = Path("benchmarks/results")
+DEFAULT_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
+
+PROMPT = """You are a precise scientific assistant. Using ONLY the numbered \
+sources, answer the question in two or three sentences and cite with [1], [2].
+
+Question: {question}
+
+Sources:
+{sources}
+
+Answer:"""
+
+
+class LocalGenerator:
+    """Small CPU instruct model (no API keys, no Ollama)."""
+
+    def __init__(self, model_name: str = DEFAULT_MODEL):
+        from transformers import pipeline
+
+        self.model_name = model_name
+        self.pipe = pipeline("text-generation", model=model_name, dtype="auto")
+
+    def generate(self, prompt: str, max_new_tokens: int = 130) -> str:
+        out = self.pipe(
+            [{"role": "user", "content": prompt}],
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+        )
+        return str(out[0]["generated_text"][-1]["content"]).strip()
+
+    def close(self) -> None:
+        del self.pipe
+        gc.collect()
+
+
+def _mean(values: list[float]) -> float:
+    return sum(values) / len(values) if values else 0.0
+
+
+def _format_sources(passages: list[str]) -> str:
+    return "\n".join(f"[{i}] {p[:400]}" for i, p in enumerate(passages, 1))
+
+
+def evaluate(
+    n: int = 15, top_k: int = 4, tau: float = 0.5, model_name: str | None = None
+) -> dict[str, Any]:
+    ds = D.load("scifact", prefer_vendored=True)
+    qids = list(ds.queries)[:n]
+
+    # phase 1: retrieve (embedder only)
+    chunks = corpus_to_chunks({d: ds.doc_text(d) for d in ds.corpus})
+    embedder = Embedder(device="cpu")
+    dense = ExactDenseRetriever(embedder, chunks)
+    bm25 = BM25Retriever()
+    bm25.add(chunks)
+    hybrid = AdaptiveHybridRetriever(dense, bm25, 0.5, 0.5)
+    corrective = CorrectiveRetriever(hybrid, tau=tau)
+
+    initial: dict[str, list[str]] = {}
+    reformed: dict[str, list[str]] = {}
+    for qid in qids:
+        q = ds.queries[qid]
+        initial[qid] = [r.chunk.content for r in hybrid.retrieve(q, top_k=top_k)]
+        reformed[qid] = [r.chunk.content for r in corrective.retrieve(q, top_k=top_k)]
+    del embedder, dense, bm25, hybrid, corrective
+    gc.collect()
+
+    # phase 2: generate (generator only)
+    generator = LocalGenerator(model_name or DEFAULT_MODEL)
+    model_used = generator.model_name
+    base_answer: dict[str, str] = {}
+    corr_answer: dict[str, str] = {}
+    for qid in qids:
+        q = ds.queries[qid]
+        base_answer[qid] = generator.generate(
+            PROMPT.format(question=q, sources=_format_sources(initial[qid]))
+        )
+        corr_answer[qid] = generator.generate(
+            PROMPT.format(question=q, sources=_format_sources(reformed[qid]))
+        )
+    generator.close()
+    del generator
+    gc.collect()
+
+    # phase 3: score grounding (NLI verifier only); apply faithfulness gate
+    verifier = GroundingVerifier(device="cpu")
+    base_scores: list[float] = []
+    corr_scores: list[float] = []
+    corrected = 0
+    for qid in qids:
+        f0 = verifier.verify(base_answer[qid], initial[qid]).faithfulness
+        gated = f0
+        if f0 < tau:
+            # commit to the corrected answer when the gate fires (no oracle)
+            gated = verifier.verify(corr_answer[qid], reformed[qid]).faithfulness
+            corrected += 1
+        base_scores.append(f0)
+        corr_scores.append(gated)
+
+    return {
+        "dataset": "scifact-claims",
+        "split": "sample",
+        "generator": model_used,
+        "metric": "NLI sentence-grounding faithfulness",
+        "num_queries": len(qids),
+        "top_k": top_k,
+        "gate_tau": tau,
+        "num_corrected": corrected,
+        "baseline_faithfulness": _mean(base_scores),
+        "corrective_faithfulness": _mean(corr_scores),
+        "improvement": _mean(corr_scores) - _mean(base_scores),
+    }
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="Corrective-loop generation faithfulness")
+    p.add_argument("--n", type=int, default=15)
+    p.add_argument("--top-k", type=int, default=4)
+    p.add_argument("--tau", type=float, default=0.5)
+    p.add_argument("--model", default=None)
+    p.add_argument("--out", default=None)
+    args = p.parse_args()
+
+    res = evaluate(n=args.n, top_k=args.top_k, tau=args.tau, model_name=args.model)
+    print(f"generator={res['generator']}  n={res['num_queries']}  corrected={res['num_corrected']}")
+    print(f"baseline faithfulness   = {res['baseline_faithfulness']:.3f}")
+    print(f"corrective faithfulness = {res['corrective_faithfulness']:.3f}")
+    print(f"improvement             = {res['improvement']:+.3f}")
+
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    out = Path(args.out) if args.out else RESULTS_DIR / "generation_sample.json"
+    with open(out, "w") as f:
+        json.dump(res, f, indent=2)
+    print(f"Saved: {out}")
+
+
+if __name__ == "__main__":
+    main()
