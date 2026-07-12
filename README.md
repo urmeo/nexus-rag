@@ -178,13 +178,13 @@ Every push reruns a deterministic vendored sample (50 queries, 651 abstracts, 60
 | Faithfulness ROC-AUC — NLI | 0.752 | 0.737 |
 | Faithfulness ROC-AUC — cross-encoder | 0.774 | 0.759 |
 
-Same CI: 318 tests on Python 3.11 & 3.12 · 60% branch-coverage floor · ruff · strict mypy · gitleaks · pip-audit on hash-pinned lockfiles.
+Same CI: 318 tests on Python 3.11 & 3.12 · 60% branch-coverage floor · ruff · strict mypy · gitleaks · pip-audit.
 
 ## Reproduce the benchmark
 
 | Command | What it does |
 |---------|--------------|
-| `make reproduce` | Regenerates every number above from scratch — pinned env, seed 0 |
+| `make reproduce` | Regenerates every number above from scratch — deterministic, seed 0 |
 | `make eval` | SciFact + NFCorpus retrieval ablation (downloads BGE-small once) |
 | `make faithfulness` | Evidence-detection eval (NLI + cross-encoder) |
 | `make eval-sample` | Vendored offline subset — no downloads, minutes on a laptop |
@@ -201,7 +201,7 @@ Same CI: 318 tests on Python 3.11 & 3.12 · 60% branch-coverage floor · ruff ·
 | Verification | Citation validator · DeBERTa NLI cross-encoder (opt-in grounding) |
 | Serving | FastAPI · Uvicorn · slowapi rate limits · static JS web UI |
 | Evaluation | BEIR SciFact + NFCorpus (revision-pinned) · NumPy/SciPy · bootstrap CIs · paired randomization + Holm |
-| Quality & supply chain | pytest · GitHub Actions · gitleaks · pip-audit · hash-pinned lockfiles · non-root Docker |
+| Quality & supply chain | pytest · GitHub Actions · gitleaks · pip-audit · non-root Docker |
 
 ## Models & footprint
 
