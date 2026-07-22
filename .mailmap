@@ -1,2 +1,5 @@
-urme-b <148221893+urme-b@users.noreply.github.com> Urme Bose <148221893+urme-b@users.noreply.github.com>
-urme-b <148221893+urme-b@users.noreply.github.com> Urme <148221893+urme-b@users.noreply.github.com>
+# Canonicalise all historical commit identities to the current account (urmeo).
+# Right-hand emails are the ORIGINAL committed identities and must stay as-is to match history.
+urmeo <148221893+urmeo@users.noreply.github.com> urme-b <148221893+urme-b@users.noreply.github.com>
+urmeo <148221893+urmeo@users.noreply.github.com> Urme Bose <148221893+urme-b@users.noreply.github.com>
+urmeo <148221893+urmeo@users.noreply.github.com> Urme <148221893+urme-b@users.noreply.github.com>
