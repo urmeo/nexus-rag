@@ -16,7 +16,7 @@ Every component is measured on public benchmarks. CI fails the build if quality 
 
 </div>
 
-![NexusRAG web UI: upload a paper, ask a question, get a cited answer with sources and confidence](screenshots/scinexusrag-ui.png)
+![NexusRAG web UI: upload a paper, ask a question, get a cited answer with sources and confidence](screenshots/nexusrag-ui.png)
 
 | 🔒 Fully local | 🧪 Measured | 🔁 Reproducible | 🚦 Gated | 🧾 Cited |
 |:---:|:---:|:---:|:---:|:---:|
