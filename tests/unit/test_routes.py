@@ -529,7 +529,9 @@ class TestQueryDocuments:
         assert data["sources"][0]["score"] == 0.95
         assert data["sources"][1]["score"] == 0.87
 
-    def test_query_long_source_content_truncated(self, client, patch_get_scinexusrag, mock_scinexusrag):
+    def test_query_long_source_content_truncated(
+        self, client, patch_get_scinexusrag, mock_scinexusrag
+    ):
         from scinexusrag.generation import RAGResponse
 
         long_content = "x" * 1000  # 1000 characters
@@ -675,7 +677,9 @@ class TestListDocuments:
         assert len(doc_list_response.documents) == 1
         assert doc_list_response.total_documents == 2
 
-    def test_list_documents_exception_returns_500(self, client, patch_get_scinexusrag, mock_scinexusrag):
+    def test_list_documents_exception_returns_500(
+        self, client, patch_get_scinexusrag, mock_scinexusrag
+    ):
         mock_scinexusrag.list_documents.side_effect = Exception("Storage error")
 
         response = client.get("/api/documents")
@@ -705,7 +709,9 @@ class TestGetStatus:
         status_response = StatusResponse(**data)
         assert status_response.total_documents == 2
 
-    def test_get_status_exception_returns_500(self, client, patch_get_scinexusrag, mock_scinexusrag):
+    def test_get_status_exception_returns_500(
+        self, client, patch_get_scinexusrag, mock_scinexusrag
+    ):
         mock_scinexusrag.get_stats.side_effect = Exception("Database error")
 
         response = client.get("/api/status")
@@ -749,7 +755,9 @@ class TestDeleteDocument:
         assert response.status_code == 400
         assert "Invalid document ID" in response.json()["detail"]
 
-    def test_delete_document_exception_returns_500(self, client, patch_get_scinexusrag, mock_scinexusrag):
+    def test_delete_document_exception_returns_500(
+        self, client, patch_get_scinexusrag, mock_scinexusrag
+    ):
         mock_scinexusrag.delete_document.side_effect = Exception("Deletion error")
 
         response = client.delete("/api/documents/doc_123")
@@ -757,7 +765,9 @@ class TestDeleteDocument:
         assert response.status_code == 500
         assert "Failed to delete document" in response.json()["detail"]
 
-    def test_delete_document_validation_error(self, client, patch_get_scinexusrag, mock_scinexusrag):
+    def test_delete_document_validation_error(
+        self, client, patch_get_scinexusrag, mock_scinexusrag
+    ):
         mock_scinexusrag.delete_document.side_effect = ValueError("Invalid ID format")
 
         response = client.delete("/api/documents/invalid-id-format")
@@ -796,7 +806,9 @@ class TestClearAllDocuments:
         assert response.status_code == 500
         assert "Failed to clear documents" in response.json()["detail"]
 
-    def test_clear_all_documents_response_model(self, client, patch_get_scinexusrag, mock_scinexusrag):
+    def test_clear_all_documents_response_model(
+        self, client, patch_get_scinexusrag, mock_scinexusrag
+    ):
         response = client.delete("/api/documents")
         data = response.json()
 
@@ -976,16 +988,22 @@ class TestApiKeyAuth:
     """Default-deny auth must be enforced end-to-end, not just unit-tested."""
 
     def test_missing_key_rejected(self, client, patch_get_scinexusrag):
-        with patch("scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
+        with patch(
+            "scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")
+        ):
             assert client.get("/api/status").status_code == 401
 
     def test_wrong_key_rejected(self, client, patch_get_scinexusrag):
-        with patch("scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
+        with patch(
+            "scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")
+        ):
             r = client.get("/api/status", headers={"X-API-Key": "wrong"})
             assert r.status_code == 401
 
     def test_correct_key_allowed(self, client, patch_get_scinexusrag):
-        with patch("scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")):
+        with patch(
+            "scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")
+        ):
             r = client.get("/api/status", headers={"X-API-Key": "secret"})
             assert r.status_code == 200
 

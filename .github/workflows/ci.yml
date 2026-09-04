@@ -37,6 +37,9 @@ jobs:
           python-version: "3.11"
       - name: Install project and pip-audit
         run: |
+          # The runner's ambient setuptools is audited too; keep it current
+          # (PYSEC-2026-3447 is fixed in 83.0.0).
+          python -m pip install --upgrade pip setuptools
           python -m pip install .
           python -m pip install pip-audit
       - name: Audit resolved dependencies

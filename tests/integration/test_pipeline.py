@@ -428,7 +428,9 @@ class TestStatisticsAndMetadata:
         assert stats.embedding_model == "test-model"
         assert stats.llm_model == "test-llm"
 
-    def test_get_stats_after_ingestion(self, scinexusrag_instance: NexusRAG, sample_text_file: Path):
+    def test_get_stats_after_ingestion(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
+    ):
         result = scinexusrag_instance.ingest(sample_text_file)
 
         stats = scinexusrag_instance.get_stats()
@@ -453,7 +455,9 @@ class TestStatisticsAndMetadata:
         assert doc["id"] == ingest_result.document_id
         assert "filename" in doc or "original_filename" in doc
 
-    def test_stats_with_multiple_documents(self, scinexusrag_instance: NexusRAG, docs_directory: Path):
+    def test_stats_with_multiple_documents(
+        self, scinexusrag_instance: NexusRAG, docs_directory: Path
+    ):
         results = scinexusrag_instance.ingest_directory(docs_directory)
 
         stats = scinexusrag_instance.get_stats()
@@ -697,7 +701,9 @@ class TestEdgeCases:
         assert result.success is True
         assert result.chunk_count > 1  # Should be split into multiple chunks
 
-    def test_concurrent_operations_sequence(self, scinexusrag_instance: NexusRAG, temp_data_dir: Path):
+    def test_concurrent_operations_sequence(
+        self, scinexusrag_instance: NexusRAG, temp_data_dir: Path
+    ):
         file1 = temp_data_dir / "doc1.txt"
         file2 = temp_data_dir / "doc2.txt"
 
