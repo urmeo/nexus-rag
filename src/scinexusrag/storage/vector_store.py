@@ -5,10 +5,12 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import lancedb
 import numpy as np
 import pyarrow as pa
+from lancedb.query import LanceVectorQueryBuilder
 from numpy.typing import NDArray
 
 from scinexusrag.ingestion import Chunk
@@ -111,8 +113,11 @@ class VectorStore:
         top_k: int = 5,
         filter_expr: str | None = None,
     ) -> list[SearchResult]:
-        # cosine, else LanceDB defaults to L2 and the score is not a similarity
-        query = self.table.search(query_embedding.tolist()).metric("cosine").limit(top_k)
+        # cosine, else LanceDB defaults to L2 and the score is not a similarity.
+        # search() is annotated as the base builder; a vector query returns the
+        # vector subclass at runtime, which is what carries metric().
+        vector_query = cast(LanceVectorQueryBuilder, self.table.search(query_embedding.tolist()))
+        query = vector_query.metric("cosine").limit(top_k)
 
         if filter_expr:
             query = query.where(filter_expr)
