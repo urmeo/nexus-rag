@@ -1,4 +1,4 @@
-.PHONY: install install-dev test test-unit test-integration test-cov lint format type-check eval eval-sample eval-gate corrective faithfulness ragtruth generation reproduce paper run clean help docker-build docker-up docker-down docker-logs
+.PHONY: install install-dev test test-unit test-integration test-cov lint format type-check eval eval-sample eval-gate corrective faithfulness ragtruth generation reproduce run clean help docker-build docker-up docker-down docker-logs
 
 PYTHON := python3
 PIP := $(PYTHON) -m pip
@@ -57,10 +57,6 @@ generation:
 reproduce:
 	$(PYTHON) -m scinexusrag.eval
 
-paper:
-	$(PYTHON) -m scinexusrag.eval.report --paper paper
-	cd paper && tectonic main.tex
-
 run:
 	$(PYTHON) -m uvicorn scinexusrag.api:app --reload --port 8000
 
@@ -106,7 +102,6 @@ help:
 	@echo "  faithfulness   Run the evidence-detection evaluation"
 	@echo "  generation     Run the generation-quality evaluation"
 	@echo "  ragtruth       Run the RAGTruth hallucination-detection evaluation"
-	@echo "  paper          Regenerate tables/figures and build the PDF"
 	@echo "  clean          Remove build artifacts"
 	@echo "  docker-build   Build Docker image"
 	@echo "  docker-up      Start services with Docker Compose"

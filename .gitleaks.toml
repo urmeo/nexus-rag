@@ -9,7 +9,6 @@ paths = [
   '''\.env\.example''',
   '''\.gitleaks\.toml''',
   '''benchmarks/.*''',
-  '''paper/.*''',
 ]
 regexTarget = "line"
 regexes = [

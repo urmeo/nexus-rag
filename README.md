@@ -12,7 +12,7 @@ Every component is measured on public benchmarks. CI fails the build if quality 
 [![Coverage](https://img.shields.io/badge/coverage-66%25-green.svg)](tests/)
 [![Typed](https://img.shields.io/badge/mypy-strict-blue.svg)](pyproject.toml)
 
-[Basics](#the-basics-in-four-pictures) · [Methodology](#methodology) · [Results](#results) · [Architecture](#architecture) · [Quick start](#quick-start) · [Tech stack](#tech-stack) · [Paper](paper/main.pdf)
+[Basics](#the-basics-in-four-pictures) · [Methodology](#methodology) · [Results](#results) · [Architecture](#architecture) · [Quick start](#quick-start) · [Tech stack](#tech-stack)
 
 </div>
 
@@ -99,7 +99,6 @@ flowchart LR
 | Hybrid (RRF) | 0.704 | **0.352** |
 | + Corrective PRF | 0.703 | 0.346 |
 
-![Ablation bar charts with 95% bootstrap CIs: BM25, Dense, Hybrid RRF, Adaptive weights, and Corrective PRF on SciFact and NFCorpus](paper/figures/ablation.png)
 
 **Three findings:**
 
@@ -131,7 +130,7 @@ xychart-beta
     bar [0.686, 0.688, 0.755]
 ```
 
-Full tables with CIs and p-values: [paper/main.pdf](paper/main.pdf) · raw per-query scores: [`benchmarks/results/`](benchmarks/results)
+Raw per-query scores: [`benchmarks/results/`](benchmarks/results)
 
 ## Architecture
 
@@ -205,7 +204,7 @@ Same CI: 318 tests on Python 3.11 & 3.12 · 60% branch-coverage floor · ruff ·
 
 ## Models & footprint
 
-Everything is off-the-shelf and revision-pinned — nothing trained or redistributed here ([PROVENANCE.md](PROVENANCE.md)).
+Everything is off-the-shelf and revision-pinned — nothing trained or redistributed here.
 
 | Model | Role | Size | License |
 |-------|------|:---:|---------|
@@ -294,7 +293,6 @@ src/scinexusrag/
 ├── eval/          datasets, metrics, systems, CI gate, reproduce
 └── pipeline.py    wires it all together
 benchmarks/        vendored samples, committed results, CI floors
-paper/             the study (LaTeX + PDF + figures)
 frontend/          static web UI
 ```
 
@@ -321,7 +319,6 @@ frontend/          static web UI
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Local setup, checks, reproducing the benchmark |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Component design, trade-offs, known limits |
 | [SECURITY.md](SECURITY.md) | Private vulnerability reporting |
-| [CHANGELOG.md](CHANGELOG.md) | Release history |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community standards |
 
 ## Citation
