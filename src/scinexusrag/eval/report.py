@@ -223,7 +223,8 @@ def write_paper_bundle(paper_dir: Path, results_dir: Path = RESULTS) -> None:
     nf = _load("nfcorpus_test.json", results_dir)
     if not sci or not nf:
         raise SystemExit(
-            "missing scifact_test.json / nfcorpus_test.json; run `python -m scinexusrag.eval` first"
+            "Missing scifact_test.json / nfcorpus_test.json. Run `python -m scinexusrag.eval`, "
+            "then `python -m scinexusrag.eval.report --results outputs/generated`."
         )
     mini = _load("scifact_minilm.json", results_dir)
     corr_sci = _load("corrective_scifact.json", results_dir)

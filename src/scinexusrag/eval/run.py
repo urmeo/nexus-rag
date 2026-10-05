@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from scinexusrag.config import HF_REVISIONS
 from scinexusrag.eval import datasets as D
 from scinexusrag.eval import metrics as M
 from scinexusrag.eval.indexes import corpus_to_chunks
@@ -28,12 +29,21 @@ def evaluate(
     embedding_model: str = "BAAI/bge-small-en-v1.5",
     limit: int | None = None,
     seed: int = 0,
+    splade_model: str | None = None,
+    splade_revision: str | None = None,
 ) -> dict[str, Any]:
     if depth <= 0:
         raise ValueError("depth must be positive")
     if limit is not None and limit <= 0:
         raise ValueError("limit must be positive")
     provenance = evaluation_provenance()
+    if include_splade:
+        from scinexusrag.retrieval.splade import DEFAULT_MODEL
+
+        splade_model = splade_model or DEFAULT_MODEL
+        if splade_revision is None:
+            splade_revision = HF_REVISIONS.get(splade_model)
+        provenance["models"] = {"splade": {"model": splade_model, "revision": splade_revision}}
     ds = D.load(dataset, split=split, prefer_vendored=use_sample)
     qids = [q for q in ds.queries if ds.qrels.get(q)]
     if limit is not None:
@@ -47,7 +57,12 @@ def evaluate(
 
     embedder = Embedder(model_name=embedding_model, device="cpu")
     systems = build_systems(
-        chunks, embedder, include_rerank=include_rerank, include_splade=include_splade
+        chunks,
+        embedder,
+        include_rerank=include_rerank,
+        include_splade=include_splade,
+        splade_model=splade_model,
+        splade_revision=splade_revision,
     )
 
     results: dict[str, dict[str, Any]] = {}
@@ -127,6 +142,8 @@ def main() -> None:
     p.add_argument("--depth", type=int, default=50)
     p.add_argument("--rerank", action="store_true", help="add the cross-encoder rerank rung")
     p.add_argument("--splade", action="store_true", help="add the SPLADE baseline")
+    p.add_argument("--splade-model", default=None, help="override the SPLADE model repository")
+    p.add_argument("--splade-revision", default=None, help="override the SPLADE model revision")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--embedding-model", default="BAAI/bge-small-en-v1.5")
@@ -140,6 +157,8 @@ def main() -> None:
         depth=args.depth,
         include_rerank=args.rerank,
         include_splade=args.splade,
+        splade_model=args.splade_model,
+        splade_revision=args.splade_revision,
         limit=args.limit,
         seed=args.seed,
         embedding_model=args.embedding_model,

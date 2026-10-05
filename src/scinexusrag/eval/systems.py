@@ -24,6 +24,8 @@ def build_systems(
     include_rerank: bool = False,
     include_splade: bool = False,
     tau: float = 0.55,
+    splade_model: str | None = None,
+    splade_revision: str | None = None,
 ) -> dict[str, RetrieveFn]:
     """Each rung adds exactly one component over the previous."""
     dense = ExactDenseRetriever(embedder, chunks)
@@ -55,9 +57,14 @@ def build_systems(
         systems["+ Rerank (cross-enc)"] = with_rerank
 
     if include_splade:
-        from scinexusrag.retrieval.splade import SpladeRetriever
+        from scinexusrag.retrieval.splade import DEFAULT_MODEL, SpladeRetriever
 
-        splade = SpladeRetriever(chunks, device="cpu")
+        splade = SpladeRetriever(
+            chunks,
+            model_name=splade_model or DEFAULT_MODEL,
+            revision=splade_revision,
+            device="cpu",
+        )
         systems["SPLADE"] = lambda q, k: _ids(splade.retrieve(q, top_k=k))
 
     return systems

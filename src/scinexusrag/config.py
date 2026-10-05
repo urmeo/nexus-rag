@@ -16,6 +16,7 @@ HF_REVISIONS = {
     "sentence-transformers/all-MiniLM-L6-v2": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
     "cross-encoder/ms-marco-MiniLM-L-6-v2": "c5ee24cb16019beea0893ab7796b1df96625c6b8",
     "cross-encoder/nli-deberta-v3-small": "fa2804872c3b4bd748f38c0185cc85775361e735",
+    "naver/splade-cocondenser-ensembledistil": "49cf4c7b0db5b870a401ddf5e2669993ef3699c7",
 }
 
 
