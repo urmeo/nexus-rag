@@ -1,57 +1,51 @@
-# Contributing to NexusRAG
+# Contributing
 
-Thanks for your interest in improving NexusRAG. This guide covers local setup,
-the checks we run, and how to reproduce the benchmark.
+## Setup
 
-## Development setup
-
-NexusRAG targets Python 3.11+ and uses a src-layout package.
+Python 3.11+ and Node 22; run from repository root:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev,eval]"
+python -m pip install -e ".[dev,eval]"
+ruff check src tests
+ruff format --check src tests
+mypy src
+pytest --cov=scinexusrag --cov-branch --cov-fail-under=60
+node --test tests/test_web_ui.js
+python -m scinexusrag.eval.gate
 ```
 
-The `dev` extra brings in the test and lint toolchain; `eval` adds the
-benchmark dependencies (datasets, scipy, matplotlib).
+Test changed behavior; keep commit titles short.
 
-## Checks
+## App and configuration
 
-Run these before opening a pull request. CI runs the same tools.
+Start Ollama and pull `llama3.2:3b`, then:
 
 ```bash
-make lint        # ruff check src/ tests/
-make type-check  # mypy src/
-make test        # pytest tests/
+python -m uvicorn scinexusrag.api:app --host 127.0.0.1 --port 8000
 ```
 
-All three must pass. `make format` will auto-fix style issues.
+Open `http://127.0.0.1:8000`. Upload PDF, DOCX, Markdown or UTF-8 text; enter `NEXUSRAG_API_KEY` through **API key**. Models may download initially; storage defaults to `data/`.
 
-## Reproducing the benchmark
+Copy [.env.example](.env.example) to `.env`; never commit secrets. Runtime uses environment variables; `configs/default.yaml` is reference-only. `NEXUSRAG_FRONTEND_DIR` overrides the UI.
+
+`docker compose up --build` binds to loopback. Configure both services with `LLM_MODEL`; record Ollama digests. Bind-mounted `data/` must be writable by container UID 1000.
+
+For network access, set `NEXUSRAG_API_KEY`, use TLS, restrict `API_CORS_ORIGINS`, and trust forwarded headers only from your proxy. Use one worker: BM25 and rate counters are per process. Default limits: 50 MiB uploads, 200 MiB decompressed DOCX, 60 queries/10 uploads per minute per IP.
+
+## Evaluation
 
 ```bash
-make eval-sample   # offline vendored subset, no downloads
-make eval          # full SciFact + NFCorpus retrieval ablation
+python -m scinexusrag.eval --sample
+python -m scinexusrag.eval
+python -m scinexusrag.eval.report --results outputs/generated
 ```
 
-`make eval-sample` runs the small offline sample used in CI. `make eval` runs
-the full study and downloads the SciFact and NFCorpus splits on first use.
+Samples use packaged data; uncached models need downloads. Full runs require pinned datasets/models and fail if unavailable. New results: `outputs/generated/`; published results: `outputs/results/` (the report's default input).
 
-## Commit style
+Retrieval/evidence scores do not measure generated answers; generation/RAGTruth evaluations are separate. Preserve query IDs, revisions, hashes, environments and raw scores; review before publishing. Never replace published results with samples or lower CI floors. Respect dataset/model licenses.
 
-Commit messages are short, lowercase, and human, describing the change in a few
-words (for example `updated paper` or `fix nfcorpus ndcg`). Keep one logical
-change per commit.
+## Security
 
-## Branch and PR flow
-
-1. Branch off `main`.
-2. Make your change and keep commits focused.
-3. Run `make lint type-check test` and `make eval-gate` locally — CI runs the
-   same eval regression gate and fails the build if any tracked retrieval or
-   faithfulness metric drops below its floor in `benchmarks/thresholds.json`.
-4. Open a pull request against `main` and fill in the template.
-5. CI must be green before merge.
-
-By contributing you agree your work is released under the project's MIT license.
+Report vulnerabilities through [private advisories](https://github.com/urmeo/nexus-rag/security/advisories/new) with version, reproduction and impact. Omit secrets/personal data; keep details private until fixed. Treat contributors respectfully.

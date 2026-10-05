@@ -3,7 +3,7 @@ message: "If you use NexusRAG, please cite it as below."
 type: software
 title: "NexusRAG: Local Hybrid Retrieval and Faithfulness Evaluation for Scientific Papers"
 version: 1.0.2
-date-released: 2026-07-03
+date-released: 2026-07-12
 url: "https://github.com/urmeo/nexus-rag"
 repository-code: "https://github.com/urmeo/nexus-rag"
 license: MIT
@@ -13,25 +13,7 @@ authors:
 keywords:
   - retrieval-augmented-generation
   - information-retrieval
-  - hybrid-retrieval
-  - bm25
-  - cross-encoder
-  - reranking
-  - faithfulness
-  - semantic-search
   - scientific-papers
-  - sentence-transformers
-  - lancedb
-  - ollama
-  - nlp
-  - llm
 abstract: >-
-  NexusRAG is a fully local retrieval-augmented generation system for
-  scientific papers, built around an honest, reproducible benchmark. It
-  fuses dense (BGE-small) and sparse (BM25) retrieval with reciprocal-rank
-  fusion and a confidence-gated corrective re-retrieval, and answers with
-  a local model and inline citations. The accompanying CPU-only study on
-  SciFact and NFCorpus measures each component (bootstrap confidence
-  intervals, paired randomization tests, Holm correction) and evaluates
-  faithfulness as evidence detection (ROC-AUC, PR-AUC) against lexical and
-  cross-encoder baselines.
+  Hybrid BM25 and dense retrieval for scientific papers, with local generation,
+  citation checks, and reproducible retrieval and evidence-detection evaluation.
