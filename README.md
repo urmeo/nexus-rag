@@ -66,6 +66,8 @@ This task identifies supporting **or contradicting** rationale sentences in anno
 | Generate | Ollama **llama3.2:3b**; invalid citation indices removed; sentence grounding optional |
 | Serve | FastAPI API + packaged web UI; one worker; optional API-key authentication, upload guards and rate limits |
 
+Library helper: [`DenseRetriever.retrieve_with_threshold`](src/scinexusrag/retrieval/dense.py#L45) filters the top-k dense matches by `min_score` (default **0.3**).
+
 ## Tech stack
 
 | Layer | Tools |
