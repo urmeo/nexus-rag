@@ -981,6 +981,23 @@ button.sources-link { background: transparent; padding: 0; }
     .model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .logo-icon { display: none; }
 
+    .status-bar {
+        height: auto;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-sm) var(--space-md);
+        padding: var(--space-sm) var(--space-md);
+    }
+    .status-item {
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+        font-size: 0.75rem;
+        line-height: 1.4;
+    }
+    .status-value { max-width: 100%; overflow-wrap: anywhere; }
+
     .sidebar {
         position: absolute;
         left: 0;
