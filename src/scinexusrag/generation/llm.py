@@ -8,7 +8,7 @@ import httpx
 
 
 class LLMError(RuntimeError):
-    """Raised when the LLM backend fails after retries."""
+    """LLM backend or response failure."""
 
 
 class LLMClient:
@@ -43,7 +43,7 @@ class LLMClient:
         return f"model={self.model} base_url={self.base_url}"
 
     def _post(self, path: str, payload: dict[str, object]) -> httpx.Response:
-        """POST with retry on transient errors and 5xx; no retry on 4xx."""
+        """Retry request errors and HTTP 5xx; fail immediately on timeouts and HTTP 4xx."""
         last_exc: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:

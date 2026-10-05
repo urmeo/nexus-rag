@@ -58,7 +58,7 @@ Answer using only the sources above. Cite with [1], [2], etc."""
 
 
 class Synthesizer:
-    """Builds the prompt, calls the LLM, and keeps only valid citations."""
+    """Build cited-source prompts and call the LLM."""
 
     def __init__(
         self,

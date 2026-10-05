@@ -173,7 +173,7 @@ class HierarchicalChunker:
         return [p.strip() for p in paragraphs if p.strip()]
 
     def _split_by_sentences(self, text: str, prefix: str) -> list[str]:
-        "Split text into sentence-based chunks, never breaking mid-sentence."
+        """Pack sentences into chunks, wrapping oversized sentences at whitespace."""
         budget = max(1, self.max_chunk_size - len(prefix))
         sentences: list[str] = []
         for raw in SENTENCE_BOUNDARY.split(text):
@@ -207,7 +207,7 @@ class HierarchicalChunker:
 
     @staticmethod
     def _wrap_on_whitespace(text: str, width: int) -> list[str]:
-        """Wrap text into <=width windows, breaking on spaces where possible."""
+        """Wrap at whitespace; words longer than width remain intact."""
         windows: list[str] = []
         current = ""
         for word in text.split():

@@ -67,7 +67,7 @@ class GroundingVerifier:
         return self._model
 
     def class_probs(self, pairs: list[tuple[str, str]]) -> Any:
-        """Softmax NLI probabilities, shape (N, num_classes)."""
+        """Return NLI class probabilities with shape (N, num_classes)."""
         import numpy as np
 
         if not pairs:

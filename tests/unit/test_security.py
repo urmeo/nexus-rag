@@ -203,7 +203,7 @@ class TestAppConfig:
 
 
 class TestIdSanitizer:
-    """Proves the SECURITY.md claims: traversal blocked, allowlist is linear-time."""
+    """Reject traversal and injection while accepting valid identifiers."""
 
     def test_path_traversal_and_injection_rejected(self) -> None:
         from scinexusrag.storage.vector_store import _sanitize_id
