@@ -1,4 +1,3 @@
-# ---- builder: compile dependencies into a venv (needs a toolchain) ----
 FROM python:3.11-slim AS builder
 
 RUN apt-get update && \
@@ -11,12 +10,10 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 WORKDIR /app
 
-# Install the app and its dependencies from pyproject
 COPY pyproject.toml README.md LICENSE ./
 COPY src/ src/
 RUN pip install --no-cache-dir .
 
-# ---- runtime: slim image, no compiler shipped ----
 FROM python:3.11-slim AS runtime
 
 RUN apt-get update && \
@@ -29,7 +26,6 @@ COPY --from=builder "$VIRTUAL_ENV" "$VIRTUAL_ENV"
 
 WORKDIR /app
 
-# Run as a non-root user
 RUN useradd --create-home --uid 1000 app && chown -R app:app /app
 USER app
 
