@@ -1,0 +1,1501 @@
+query_id,system,ndcg_at_10
+1,BM25,0.0
+100,BM25,1.0
+1012,BM25,1.0
+1014,BM25,1.0
+1019,BM25,0.6309297535714575
+1020,BM25,0.5
+1021,BM25,0.5
+1024,BM25,1.0
+1029,BM25,0.9217868789962071
+1041,BM25,0.4415801103577823
+1049,BM25,0.0
+1062,BM25,1.0
+1086,BM25,1.0
+1088,BM25,0.0
+1089,BM25,1.0
+1099,BM25,0.5
+1100,BM25,0.6309297535714575
+1104,BM25,1.0
+1107,BM25,1.0
+1110,BM25,0.0
+1121,BM25,0.6309297535714575
+113,BM25,1.0
+1130,BM25,1.0
+1132,BM25,0.2640681225725909
+1137,BM25,1.0
+1140,BM25,0.3562071871080222
+1144,BM25,1.0
+1146,BM25,1.0
+115,BM25,1.0
+1150,BM25,1.0
+1163,BM25,1.0
+1175,BM25,0.0
+1179,BM25,0.31546487678572877
+118,BM25,1.0
+1180,BM25,0.38685280723454163
+1185,BM25,1.0
+1187,BM25,1.0
+1191,BM25,0.0
+1194,BM25,0.43067655807339306
+1196,BM25,0.0
+1197,BM25,0.0
+1199,BM25,0.0
+1200,BM25,0.0
+1202,BM25,1.0
+1204,BM25,1.0
+1207,BM25,1.0
+1213,BM25,0.0
+1216,BM25,1.0
+1221,BM25,0.0
+1225,BM25,1.0
+1226,BM25,0.0
+1232,BM25,1.0
+124,BM25,1.0
+1241,BM25,0.0
+1245,BM25,0.3010299956639812
+1259,BM25,0.43067655807339306
+1262,BM25,1.0
+1266,BM25,1.0
+127,BM25,0.6309297535714575
+1270,BM25,1.0
+1271,BM25,1.0
+1272,BM25,0.43067655807339306
+1273,BM25,1.0
+1274,BM25,0.8179809735263114
+1278,BM25,0.0
+1279,BM25,0.0
+128,BM25,0.5
+1280,BM25,0.0
+1281,BM25,0.0
+1282,BM25,1.0
+129,BM25,1.0
+1290,BM25,1.0
+1292,BM25,1.0
+1298,BM25,1.0
+13,BM25,0.0
+130,BM25,1.0
+1303,BM25,1.0
+1316,BM25,0.0
+1319,BM25,0.5
+132,BM25,0.0
+1320,BM25,1.0
+133,BM25,0.24410763567406352
+1332,BM25,0.0
+1335,BM25,1.0
+1336,BM25,1.0
+1337,BM25,1.0
+1339,BM25,1.0
+1344,BM25,1.0
+1352,BM25,1.0
+1359,BM25,1.0
+1362,BM25,0.5
+1363,BM25,1.0
+1368,BM25,0.0
+137,BM25,1.0
+1370,BM25,0.3562071871080222
+1379,BM25,0.45905478457279136
+1382,BM25,0.0
+1385,BM25,1.0
+1389,BM25,1.0
+1395,BM25,0.0
+141,BM25,1.0
+142,BM25,1.0
+143,BM25,1.0
+146,BM25,1.0
+148,BM25,1.0
+163,BM25,1.0
+171,BM25,1.0
+179,BM25,0.7087212693585175
+180,BM25,1.0
+183,BM25,0.3010299956639812
+185,BM25,0.43067655807339306
+198,BM25,0.6309297535714575
+208,BM25,1.0
+212,BM25,0.6309297535714575
+213,BM25,0.3562071871080222
+216,BM25,1.0
+217,BM25,1.0
+218,BM25,1.0
+219,BM25,1.0
+230,BM25,1.0
+232,BM25,0.6309297535714575
+233,BM25,1.0
+236,BM25,1.0
+237,BM25,1.0
+238,BM25,0.0
+239,BM25,0.0
+248,BM25,1.0
+249,BM25,0.6309297535714575
+261,BM25,0.21840743681816419
+268,BM25,0.6309297535714575
+269,BM25,0.6309297535714575
+274,BM25,1.0
+275,BM25,0.46927872602275644
+279,BM25,1.0
+294,BM25,1.0
+295,BM25,1.0
+298,BM25,1.0
+3,BM25,1.0
+300,BM25,0.43067655807339306
+303,BM25,0.6309297535714575
+312,BM25,0.3562071871080222
+314,BM25,0.43067655807339306
+324,BM25,0.0
+327,BM25,1.0
+338,BM25,1.0
+343,BM25,0.6509209298071326
+350,BM25,1.0
+354,BM25,1.0
+36,BM25,0.21840743681816419
+362,BM25,1.0
+380,BM25,1.0
+384,BM25,0.0
+385,BM25,0.3065735963827292
+386,BM25,1.0
+388,BM25,0.5
+399,BM25,1.0
+410,BM25,1.0
+411,BM25,1.0
+415,BM25,0.3333333333333333
+42,BM25,0.6309297535714575
+421,BM25,0.0
+431,BM25,0.0
+436,BM25,1.0
+437,BM25,0.0
+439,BM25,0.6309297535714575
+440,BM25,0.6309297535714575
+443,BM25,1.0
+452,BM25,0.38685280723454163
+475,BM25,0.0
+478,BM25,0.6309297535714575
+48,BM25,0.6309297535714575
+49,BM25,1.0
+491,BM25,1.0
+5,BM25,1.0
+50,BM25,1.0
+501,BM25,1.0
+502,BM25,0.0
+507,BM25,1.0
+508,BM25,0.0
+51,BM25,1.0
+513,BM25,1.0
+514,BM25,0.0
+516,BM25,1.0
+517,BM25,0.0
+521,BM25,1.0
+525,BM25,1.0
+527,BM25,0.6309297535714575
+528,BM25,1.0
+53,BM25,1.0
+532,BM25,1.0
+533,BM25,1.0
+535,BM25,0.0
+536,BM25,1.0
+539,BM25,1.0
+54,BM25,0.3562071871080222
+540,BM25,0.21840743681816419
+544,BM25,0.0
+549,BM25,1.0
+551,BM25,0.3562071871080222
+552,BM25,1.0
+554,BM25,0.3333333333333333
+56,BM25,1.0
+560,BM25,0.0
+569,BM25,1.0
+57,BM25,1.0
+575,BM25,0.0
+577,BM25,0.0
+578,BM25,1.0
+587,BM25,0.38685280723454163
+589,BM25,1.0
+593,BM25,1.0
+597,BM25,0.9134015924715543
+598,BM25,0.3333333333333333
+613,BM25,1.0
+619,BM25,0.2640681225725909
+623,BM25,0.3010299956639812
+628,BM25,0.0
+636,BM25,0.5
+637,BM25,0.3010299956639812
+641,BM25,0.7903864795495061
+644,BM25,0.6309297535714575
+649,BM25,1.0
+659,BM25,1.0
+660,BM25,1.0
+674,BM25,1.0
+684,BM25,1.0
+690,BM25,1.0
+691,BM25,1.0
+692,BM25,0.6309297535714575
+693,BM25,1.0
+70,BM25,1.0
+700,BM25,0.6309297535714575
+702,BM25,0.5
+715,BM25,0.0
+716,BM25,0.0
+718,BM25,1.0
+72,BM25,0.31546487678572877
+721,BM25,1.0
+723,BM25,1.0
+727,BM25,0.6309297535714575
+728,BM25,0.6052602440527057
+729,BM25,0.6309297535714575
+742,BM25,1.0
+743,BM25,1.0
+744,BM25,0.6309297535714575
+75,BM25,1.0
+756,BM25,0.31546487678572877
+759,BM25,1.0
+768,BM25,0.5
+770,BM25,1.0
+775,BM25,0.0
+781,BM25,0.6309297535714575
+783,BM25,0.0
+784,BM25,0.5
+785,BM25,0.6309297535714575
+793,BM25,1.0
+800,BM25,0.0
+805,BM25,1.0
+808,BM25,1.0
+811,BM25,1.0
+814,BM25,1.0
+820,BM25,0.0
+821,BM25,0.0
+823,BM25,1.0
+830,BM25,0.38685280723454163
+831,BM25,0.0
+832,BM25,1.0
+834,BM25,0.0
+837,BM25,1.0
+839,BM25,1.0
+845,BM25,1.0
+847,BM25,1.0
+852,BM25,1.0
+859,BM25,0.6309297535714575
+870,BM25,0.0
+873,BM25,0.10209739512291163
+879,BM25,1.0
+880,BM25,1.0
+882,BM25,1.0
+887,BM25,0.0
+903,BM25,1.0
+904,BM25,1.0
+907,BM25,1.0
+911,BM25,1.0
+913,BM25,0.0
+914,BM25,0.0
+921,BM25,0.6309297535714575
+922,BM25,1.0
+936,BM25,1.0
+94,BM25,1.0
+956,BM25,0.5
+957,BM25,0.6309297535714575
+960,BM25,1.0
+967,BM25,0.9197207891481876
+971,BM25,0.6533933590057491
+975,BM25,0.0
+982,BM25,1.0
+985,BM25,1.0
+99,BM25,1.0
+993,BM25,0.6309297535714575
+1,Dense,0.0
+100,Dense,1.0
+1012,Dense,1.0
+1014,Dense,1.0
+1019,Dense,0.5
+1020,Dense,0.6309297535714575
+1021,Dense,0.6309297535714575
+1024,Dense,0.38685280723454163
+1029,Dense,0.9674679834891693
+1041,Dense,0.448643819352159
+1049,Dense,0.3010299956639812
+1062,Dense,1.0
+1086,Dense,1.0
+1088,Dense,1.0
+1089,Dense,1.0
+1099,Dense,0.3010299956639812
+1100,Dense,0.0
+1104,Dense,1.0
+1107,Dense,1.0
+1110,Dense,0.0
+1121,Dense,0.6309297535714575
+113,Dense,1.0
+1130,Dense,1.0
+1132,Dense,0.21840743681816419
+1137,Dense,1.0
+1140,Dense,1.0
+1144,Dense,1.0
+1146,Dense,1.0
+115,Dense,1.0
+1150,Dense,1.0
+1163,Dense,1.0
+1175,Dense,0.0
+1179,Dense,0.0
+118,Dense,1.0
+1180,Dense,0.6309297535714575
+1185,Dense,0.6309297535714575
+1187,Dense,0.6309297535714575
+1191,Dense,0.0
+1194,Dense,1.0
+1196,Dense,0.43067655807339306
+1197,Dense,0.38685280723454163
+1199,Dense,0.0
+1200,Dense,0.31546487678572877
+1202,Dense,1.0
+1204,Dense,1.0
+1207,Dense,1.0
+1213,Dense,0.0
+1216,Dense,1.0
+1221,Dense,0.0
+1225,Dense,1.0
+1226,Dense,0.0
+1232,Dense,1.0
+124,Dense,1.0
+1241,Dense,1.0
+1245,Dense,0.6309297535714575
+1259,Dense,1.0
+1262,Dense,1.0
+1266,Dense,1.0
+127,Dense,1.0
+1270,Dense,1.0
+1271,Dense,1.0
+1272,Dense,0.0
+1273,Dense,1.0
+1274,Dense,0.8385465274895063
+1278,Dense,1.0
+1279,Dense,1.0
+128,Dense,0.0
+1280,Dense,0.3562071871080222
+1281,Dense,0.3562071871080222
+1282,Dense,1.0
+129,Dense,1.0
+1290,Dense,1.0
+1292,Dense,1.0
+1298,Dense,1.0
+13,Dense,0.0
+130,Dense,1.0
+1303,Dense,1.0
+1316,Dense,0.2890648263178879
+1319,Dense,1.0
+132,Dense,0.0
+1320,Dense,1.0
+133,Dense,0.7860137352654724
+1332,Dense,0.0
+1335,Dense,1.0
+1336,Dense,0.6309297535714575
+1337,Dense,1.0
+1339,Dense,1.0
+1344,Dense,0.6309297535714575
+1352,Dense,1.0
+1359,Dense,1.0
+1362,Dense,0.0
+1363,Dense,0.0
+1368,Dense,1.0
+137,Dense,1.0
+1370,Dense,1.0
+1379,Dense,0.9438661545147249
+1382,Dense,1.0
+1385,Dense,1.0
+1389,Dense,1.0
+1395,Dense,0.6309297535714575
+141,Dense,0.8772153153380493
+142,Dense,1.0
+143,Dense,1.0
+146,Dense,1.0
+148,Dense,1.0
+163,Dense,1.0
+171,Dense,1.0
+179,Dense,0.9828920819566879
+180,Dense,1.0
+183,Dense,0.43067655807339306
+185,Dense,0.43067655807339306
+198,Dense,0.0
+208,Dense,1.0
+212,Dense,0.3333333333333333
+213,Dense,0.31546487678572877
+216,Dense,1.0
+217,Dense,1.0
+218,Dense,1.0
+219,Dense,1.0
+230,Dense,1.0
+232,Dense,0.6309297535714575
+233,Dense,1.0
+236,Dense,1.0
+237,Dense,0.5
+238,Dense,0.5
+239,Dense,0.38685280723454163
+248,Dense,1.0
+249,Dense,1.0
+261,Dense,0.21840743681816419
+268,Dense,1.0
+269,Dense,1.0
+274,Dense,1.0
+275,Dense,0.6364391809889587
+279,Dense,1.0
+294,Dense,0.0
+295,Dense,0.3333333333333333
+298,Dense,0.6309297535714575
+3,Dense,0.38685280723454163
+300,Dense,0.6309297535714575
+303,Dense,0.0
+312,Dense,0.0
+314,Dense,0.0
+324,Dense,0.0
+327,Dense,1.0
+338,Dense,1.0
+343,Dense,1.0
+350,Dense,1.0
+354,Dense,1.0
+36,Dense,0.448643819352159
+362,Dense,0.6309297535714575
+380,Dense,1.0
+384,Dense,0.6309297535714575
+385,Dense,0.5912352048230277
+386,Dense,1.0
+388,Dense,1.0
+399,Dense,1.0
+410,Dense,1.0
+411,Dense,1.0
+415,Dense,0.43067655807339306
+42,Dense,1.0
+421,Dense,0.0
+431,Dense,0.0
+436,Dense,1.0
+437,Dense,0.0
+439,Dense,1.0
+440,Dense,1.0
+443,Dense,1.0
+452,Dense,0.2640681225725909
+475,Dense,0.0
+478,Dense,1.0
+48,Dense,0.43067655807339306
+49,Dense,1.0
+491,Dense,1.0
+5,Dense,0.5
+50,Dense,1.0
+501,Dense,1.0
+502,Dense,0.0
+507,Dense,0.38685280723454163
+508,Dense,0.0
+51,Dense,1.0
+513,Dense,0.6309297535714575
+514,Dense,1.0
+516,Dense,1.0
+517,Dense,0.0
+521,Dense,1.0
+525,Dense,1.0
+527,Dense,0.5
+528,Dense,1.0
+53,Dense,1.0
+532,Dense,1.0
+533,Dense,1.0
+535,Dense,0.6309297535714575
+536,Dense,1.0
+539,Dense,1.0
+54,Dense,1.0
+540,Dense,0.6131471927654584
+544,Dense,0.3562071871080222
+549,Dense,1.0
+551,Dense,0.2890648263178879
+552,Dense,1.0
+554,Dense,0.38685280723454163
+56,Dense,1.0
+560,Dense,0.0
+569,Dense,0.6309297535714575
+57,Dense,1.0
+575,Dense,1.0
+577,Dense,0.3562071871080222
+578,Dense,1.0
+587,Dense,0.5
+589,Dense,1.0
+593,Dense,1.0
+597,Dense,1.0
+598,Dense,0.5
+613,Dense,1.0
+619,Dense,0.0
+623,Dense,0.38685280723454163
+628,Dense,1.0
+636,Dense,1.0
+637,Dense,0.6309297535714575
+641,Dense,0.7977228895450266
+644,Dense,1.0
+649,Dense,1.0
+659,Dense,0.5
+660,Dense,0.0
+674,Dense,0.2890648263178879
+684,Dense,0.5
+690,Dense,0.0
+691,Dense,0.6309297535714575
+692,Dense,1.0
+693,Dense,1.0
+70,Dense,0.39564672360221187
+700,Dense,1.0
+702,Dense,1.0
+715,Dense,0.0
+716,Dense,0.0
+718,Dense,1.0
+72,Dense,1.0
+721,Dense,1.0
+723,Dense,1.0
+727,Dense,0.3562071871080222
+728,Dense,0.8315546295836225
+729,Dense,1.0
+742,Dense,1.0
+743,Dense,1.0
+744,Dense,0.5
+75,Dense,1.0
+756,Dense,0.5
+759,Dense,1.0
+768,Dense,0.0
+770,Dense,1.0
+775,Dense,0.38685280723454163
+781,Dense,1.0
+783,Dense,0.31546487678572877
+784,Dense,1.0
+785,Dense,0.43067655807339306
+793,Dense,0.6309297535714575
+800,Dense,0.5
+805,Dense,1.0
+808,Dense,1.0
+811,Dense,1.0
+814,Dense,1.0
+820,Dense,0.0
+821,Dense,0.0
+823,Dense,1.0
+830,Dense,0.0
+831,Dense,0.0
+832,Dense,1.0
+834,Dense,0.0
+837,Dense,0.6309297535714575
+839,Dense,1.0
+845,Dense,0.3562071871080222
+847,Dense,1.0
+852,Dense,0.6309297535714575
+859,Dense,0.6309297535714575
+870,Dense,0.38685280723454163
+873,Dense,0.4412576003965278
+879,Dense,1.0
+880,Dense,1.0
+882,Dense,1.0
+887,Dense,0.0
+903,Dense,1.0
+904,Dense,1.0
+907,Dense,1.0
+911,Dense,1.0
+913,Dense,0.0
+914,Dense,0.0
+921,Dense,1.0
+922,Dense,1.0
+936,Dense,1.0
+94,Dense,1.0
+956,Dense,1.0
+957,Dense,1.0
+960,Dense,1.0
+967,Dense,1.0
+971,Dense,0.9619991470595832
+975,Dense,0.0
+982,Dense,1.0
+985,Dense,1.0
+99,Dense,0.6309297535714575
+993,Dense,1.0
+1,Hybrid (RRF),0.0
+100,Hybrid (RRF),1.0
+1012,Hybrid (RRF),1.0
+1014,Hybrid (RRF),1.0
+1019,Hybrid (RRF),0.5
+1020,Hybrid (RRF),0.6309297535714575
+1021,Hybrid (RRF),0.6309297535714575
+1024,Hybrid (RRF),0.6309297535714575
+1029,Hybrid (RRF),0.9674679834891693
+1041,Hybrid (RRF),0.4415801103577823
+1049,Hybrid (RRF),0.0
+1062,Hybrid (RRF),1.0
+1086,Hybrid (RRF),1.0
+1088,Hybrid (RRF),0.2890648263178879
+1089,Hybrid (RRF),1.0
+1099,Hybrid (RRF),0.43067655807339306
+1100,Hybrid (RRF),0.3010299956639812
+1104,Hybrid (RRF),1.0
+1107,Hybrid (RRF),1.0
+1110,Hybrid (RRF),0.0
+1121,Hybrid (RRF),1.0
+113,Hybrid (RRF),1.0
+1130,Hybrid (RRF),1.0
+1132,Hybrid (RRF),0.3065735963827292
+1137,Hybrid (RRF),1.0
+1140,Hybrid (RRF),1.0
+1144,Hybrid (RRF),1.0
+1146,Hybrid (RRF),1.0
+115,Hybrid (RRF),1.0
+1150,Hybrid (RRF),1.0
+1163,Hybrid (RRF),1.0
+1175,Hybrid (RRF),0.0
+1179,Hybrid (RRF),0.0
+118,Hybrid (RRF),1.0
+1180,Hybrid (RRF),0.5
+1185,Hybrid (RRF),1.0
+1187,Hybrid (RRF),0.6309297535714575
+1191,Hybrid (RRF),0.0
+1194,Hybrid (RRF),0.6309297535714575
+1196,Hybrid (RRF),0.31546487678572877
+1197,Hybrid (RRF),0.2890648263178879
+1199,Hybrid (RRF),0.0
+1200,Hybrid (RRF),0.0
+1202,Hybrid (RRF),1.0
+1204,Hybrid (RRF),1.0
+1207,Hybrid (RRF),1.0
+1213,Hybrid (RRF),0.0
+1216,Hybrid (RRF),1.0
+1221,Hybrid (RRF),0.0
+1225,Hybrid (RRF),1.0
+1226,Hybrid (RRF),0.3010299956639812
+1232,Hybrid (RRF),1.0
+124,Hybrid (RRF),1.0
+1241,Hybrid (RRF),0.0
+1245,Hybrid (RRF),1.0
+1259,Hybrid (RRF),0.5
+1262,Hybrid (RRF),1.0
+1266,Hybrid (RRF),1.0
+127,Hybrid (RRF),1.0
+1270,Hybrid (RRF),1.0
+1271,Hybrid (RRF),1.0
+1272,Hybrid (RRF),0.31546487678572877
+1273,Hybrid (RRF),1.0
+1274,Hybrid (RRF),0.8385465274895063
+1278,Hybrid (RRF),0.0
+1279,Hybrid (RRF),0.0
+128,Hybrid (RRF),0.3010299956639812
+1280,Hybrid (RRF),0.3562071871080222
+1281,Hybrid (RRF),0.2890648263178879
+1282,Hybrid (RRF),1.0
+129,Hybrid (RRF),1.0
+1290,Hybrid (RRF),1.0
+1292,Hybrid (RRF),1.0
+1298,Hybrid (RRF),1.0
+13,Hybrid (RRF),0.0
+130,Hybrid (RRF),1.0
+1303,Hybrid (RRF),1.0
+1316,Hybrid (RRF),0.0
+1319,Hybrid (RRF),1.0
+132,Hybrid (RRF),0.0
+1320,Hybrid (RRF),1.0
+133,Hybrid (RRF),0.843537875344446
+1332,Hybrid (RRF),0.0
+1335,Hybrid (RRF),1.0
+1336,Hybrid (RRF),0.6309297535714575
+1337,Hybrid (RRF),1.0
+1339,Hybrid (RRF),1.0
+1344,Hybrid (RRF),0.6309297535714575
+1352,Hybrid (RRF),1.0
+1359,Hybrid (RRF),1.0
+1362,Hybrid (RRF),0.3010299956639812
+1363,Hybrid (RRF),0.2890648263178879
+1368,Hybrid (RRF),0.2890648263178879
+137,Hybrid (RRF),1.0
+1370,Hybrid (RRF),1.0
+1379,Hybrid (RRF),0.6550972241386397
+1382,Hybrid (RRF),0.5
+1385,Hybrid (RRF),1.0
+1389,Hybrid (RRF),1.0
+1395,Hybrid (RRF),0.5
+141,Hybrid (RRF),0.9197207891481876
+142,Hybrid (RRF),1.0
+143,Hybrid (RRF),1.0
+146,Hybrid (RRF),1.0
+148,Hybrid (RRF),1.0
+163,Hybrid (RRF),1.0
+171,Hybrid (RRF),1.0
+179,Hybrid (RRF),0.7365896932159578
+180,Hybrid (RRF),1.0
+183,Hybrid (RRF),0.43067655807339306
+185,Hybrid (RRF),0.6309297535714575
+198,Hybrid (RRF),1.0
+208,Hybrid (RRF),1.0
+212,Hybrid (RRF),1.0
+213,Hybrid (RRF),0.3562071871080222
+216,Hybrid (RRF),1.0
+217,Hybrid (RRF),1.0
+218,Hybrid (RRF),1.0
+219,Hybrid (RRF),1.0
+230,Hybrid (RRF),1.0
+232,Hybrid (RRF),0.6309297535714575
+233,Hybrid (RRF),1.0
+236,Hybrid (RRF),1.0
+237,Hybrid (RRF),0.6309297535714575
+238,Hybrid (RRF),0.0
+239,Hybrid (RRF),0.0
+248,Hybrid (RRF),1.0
+249,Hybrid (RRF),1.0
+261,Hybrid (RRF),0.21840743681816419
+268,Hybrid (RRF),1.0
+269,Hybrid (RRF),1.0
+274,Hybrid (RRF),1.0
+275,Hybrid (RRF),0.6105456988825855
+279,Hybrid (RRF),1.0
+294,Hybrid (RRF),0.5
+295,Hybrid (RRF),0.43067655807339306
+298,Hybrid (RRF),0.6309297535714575
+3,Hybrid (RRF),0.6309297535714575
+300,Hybrid (RRF),0.6309297535714575
+303,Hybrid (RRF),0.0
+312,Hybrid (RRF),0.3333333333333333
+314,Hybrid (RRF),0.38685280723454163
+324,Hybrid (RRF),0.0
+327,Hybrid (RRF),1.0
+338,Hybrid (RRF),1.0
+343,Hybrid (RRF),1.0
+350,Hybrid (RRF),1.0
+354,Hybrid (RRF),1.0
+36,Hybrid (RRF),0.3065735963827292
+362,Hybrid (RRF),1.0
+380,Hybrid (RRF),1.0
+384,Hybrid (RRF),0.38685280723454163
+385,Hybrid (RRF),0.6934264036172708
+386,Hybrid (RRF),1.0
+388,Hybrid (RRF),1.0
+399,Hybrid (RRF),1.0
+410,Hybrid (RRF),1.0
+411,Hybrid (RRF),1.0
+415,Hybrid (RRF),0.38685280723454163
+42,Hybrid (RRF),1.0
+421,Hybrid (RRF),0.0
+431,Hybrid (RRF),0.0
+436,Hybrid (RRF),1.0
+437,Hybrid (RRF),0.0
+439,Hybrid (RRF),1.0
+440,Hybrid (RRF),1.0
+443,Hybrid (RRF),1.0
+452,Hybrid (RRF),0.0
+475,Hybrid (RRF),0.2890648263178879
+478,Hybrid (RRF),1.0
+48,Hybrid (RRF),0.6309297535714575
+49,Hybrid (RRF),1.0
+491,Hybrid (RRF),1.0
+5,Hybrid (RRF),1.0
+50,Hybrid (RRF),1.0
+501,Hybrid (RRF),1.0
+502,Hybrid (RRF),0.0
+507,Hybrid (RRF),0.6309297535714575
+508,Hybrid (RRF),0.0
+51,Hybrid (RRF),1.0
+513,Hybrid (RRF),0.6309297535714575
+514,Hybrid (RRF),0.43067655807339306
+516,Hybrid (RRF),1.0
+517,Hybrid (RRF),0.0
+521,Hybrid (RRF),1.0
+525,Hybrid (RRF),1.0
+527,Hybrid (RRF),0.6309297535714575
+528,Hybrid (RRF),1.0
+53,Hybrid (RRF),1.0
+532,Hybrid (RRF),1.0
+533,Hybrid (RRF),1.0
+535,Hybrid (RRF),0.0
+536,Hybrid (RRF),1.0
+539,Hybrid (RRF),1.0
+54,Hybrid (RRF),0.6309297535714575
+540,Hybrid (RRF),0.38685280723454163
+544,Hybrid (RRF),0.3562071871080222
+549,Hybrid (RRF),1.0
+551,Hybrid (RRF),0.3562071871080222
+552,Hybrid (RRF),1.0
+554,Hybrid (RRF),0.3562071871080222
+56,Hybrid (RRF),1.0
+560,Hybrid (RRF),0.0
+569,Hybrid (RRF),0.6309297535714575
+57,Hybrid (RRF),1.0
+575,Hybrid (RRF),0.6309297535714575
+577,Hybrid (RRF),0.0
+578,Hybrid (RRF),1.0
+587,Hybrid (RRF),0.5
+589,Hybrid (RRF),1.0
+593,Hybrid (RRF),1.0
+597,Hybrid (RRF),0.9674679834891693
+598,Hybrid (RRF),0.38685280723454163
+613,Hybrid (RRF),1.0
+619,Hybrid (RRF),0.2640681225725909
+623,Hybrid (RRF),0.43067655807339306
+628,Hybrid (RRF),0.38685280723454163
+636,Hybrid (RRF),0.6309297535714575
+637,Hybrid (RRF),0.5
+641,Hybrid (RRF),0.8175295903539445
+644,Hybrid (RRF),1.0
+649,Hybrid (RRF),1.0
+659,Hybrid (RRF),1.0
+660,Hybrid (RRF),1.0
+674,Hybrid (RRF),0.43067655807339306
+684,Hybrid (RRF),0.6309297535714575
+690,Hybrid (RRF),0.2890648263178879
+691,Hybrid (RRF),1.0
+692,Hybrid (RRF),1.0
+693,Hybrid (RRF),1.0
+70,Hybrid (RRF),0.9197207891481876
+700,Hybrid (RRF),1.0
+702,Hybrid (RRF),0.6309297535714575
+715,Hybrid (RRF),0.38685280723454163
+716,Hybrid (RRF),0.0
+718,Hybrid (RRF),1.0
+72,Hybrid (RRF),1.0
+721,Hybrid (RRF),1.0
+723,Hybrid (RRF),1.0
+727,Hybrid (RRF),0.6309297535714575
+728,Hybrid (RRF),0.6934264036172708
+729,Hybrid (RRF),1.0
+742,Hybrid (RRF),1.0
+743,Hybrid (RRF),1.0
+744,Hybrid (RRF),0.5
+75,Hybrid (RRF),1.0
+756,Hybrid (RRF),0.43067655807339306
+759,Hybrid (RRF),1.0
+768,Hybrid (RRF),0.43067655807339306
+770,Hybrid (RRF),1.0
+775,Hybrid (RRF),0.0
+781,Hybrid (RRF),1.0
+783,Hybrid (RRF),0.0
+784,Hybrid (RRF),1.0
+785,Hybrid (RRF),0.6309297535714575
+793,Hybrid (RRF),0.6309297535714575
+800,Hybrid (RRF),0.0
+805,Hybrid (RRF),1.0
+808,Hybrid (RRF),1.0
+811,Hybrid (RRF),1.0
+814,Hybrid (RRF),1.0
+820,Hybrid (RRF),0.0
+821,Hybrid (RRF),0.0
+823,Hybrid (RRF),1.0
+830,Hybrid (RRF),0.3562071871080222
+831,Hybrid (RRF),0.0
+832,Hybrid (RRF),1.0
+834,Hybrid (RRF),0.0
+837,Hybrid (RRF),0.6309297535714575
+839,Hybrid (RRF),1.0
+845,Hybrid (RRF),0.5
+847,Hybrid (RRF),1.0
+852,Hybrid (RRF),1.0
+859,Hybrid (RRF),0.6309297535714575
+870,Hybrid (RRF),0.0
+873,Hybrid (RRF),0.2826335043946801
+879,Hybrid (RRF),1.0
+880,Hybrid (RRF),1.0
+882,Hybrid (RRF),1.0
+887,Hybrid (RRF),0.0
+903,Hybrid (RRF),1.0
+904,Hybrid (RRF),1.0
+907,Hybrid (RRF),1.0
+911,Hybrid (RRF),1.0
+913,Hybrid (RRF),0.0
+914,Hybrid (RRF),0.0
+921,Hybrid (RRF),1.0
+922,Hybrid (RRF),1.0
+936,Hybrid (RRF),1.0
+94,Hybrid (RRF),1.0
+956,Hybrid (RRF),0.6309297535714575
+957,Hybrid (RRF),1.0
+960,Hybrid (RRF),1.0
+967,Hybrid (RRF),1.0
+971,Hybrid (RRF),0.8485833840018
+975,Hybrid (RRF),0.0
+982,Hybrid (RRF),1.0
+985,Hybrid (RRF),1.0
+99,Hybrid (RRF),1.0
+993,Hybrid (RRF),1.0
+1,+ Adaptive weights,0.0
+100,+ Adaptive weights,1.0
+1012,+ Adaptive weights,1.0
+1014,+ Adaptive weights,1.0
+1019,+ Adaptive weights,0.6309297535714575
+1020,+ Adaptive weights,0.6309297535714575
+1021,+ Adaptive weights,0.6309297535714575
+1024,+ Adaptive weights,1.0
+1029,+ Adaptive weights,0.9674679834891693
+1041,+ Adaptive weights,0.4415801103577823
+1049,+ Adaptive weights,0.0
+1062,+ Adaptive weights,1.0
+1086,+ Adaptive weights,1.0
+1088,+ Adaptive weights,0.2890648263178879
+1089,+ Adaptive weights,1.0
+1099,+ Adaptive weights,0.43067655807339306
+1100,+ Adaptive weights,0.3562071871080222
+1104,+ Adaptive weights,1.0
+1107,+ Adaptive weights,1.0
+1110,+ Adaptive weights,0.0
+1121,+ Adaptive weights,0.6309297535714575
+113,+ Adaptive weights,1.0
+1130,+ Adaptive weights,1.0
+1132,+ Adaptive weights,0.3065735963827292
+1137,+ Adaptive weights,1.0
+1140,+ Adaptive weights,1.0
+1144,+ Adaptive weights,1.0
+1146,+ Adaptive weights,1.0
+115,+ Adaptive weights,1.0
+1150,+ Adaptive weights,1.0
+1163,+ Adaptive weights,1.0
+1175,+ Adaptive weights,0.0
+1179,+ Adaptive weights,0.0
+118,+ Adaptive weights,1.0
+1180,+ Adaptive weights,0.5
+1185,+ Adaptive weights,1.0
+1187,+ Adaptive weights,0.6309297535714575
+1191,+ Adaptive weights,0.0
+1194,+ Adaptive weights,0.6309297535714575
+1196,+ Adaptive weights,0.3562071871080222
+1197,+ Adaptive weights,0.3562071871080222
+1199,+ Adaptive weights,0.0
+1200,+ Adaptive weights,0.0
+1202,+ Adaptive weights,1.0
+1204,+ Adaptive weights,1.0
+1207,+ Adaptive weights,1.0
+1213,+ Adaptive weights,0.0
+1216,+ Adaptive weights,1.0
+1221,+ Adaptive weights,0.0
+1225,+ Adaptive weights,1.0
+1226,+ Adaptive weights,0.3010299956639812
+1232,+ Adaptive weights,1.0
+124,+ Adaptive weights,1.0
+1241,+ Adaptive weights,0.0
+1245,+ Adaptive weights,1.0
+1259,+ Adaptive weights,1.0
+1262,+ Adaptive weights,1.0
+1266,+ Adaptive weights,1.0
+127,+ Adaptive weights,0.6309297535714575
+1270,+ Adaptive weights,1.0
+1271,+ Adaptive weights,1.0
+1272,+ Adaptive weights,0.31546487678572877
+1273,+ Adaptive weights,1.0
+1274,+ Adaptive weights,0.8385465274895063
+1278,+ Adaptive weights,0.31546487678572877
+1279,+ Adaptive weights,0.31546487678572877
+128,+ Adaptive weights,0.3010299956639812
+1280,+ Adaptive weights,0.3562071871080222
+1281,+ Adaptive weights,0.0
+1282,+ Adaptive weights,1.0
+129,+ Adaptive weights,1.0
+1290,+ Adaptive weights,1.0
+1292,+ Adaptive weights,1.0
+1298,+ Adaptive weights,1.0
+13,+ Adaptive weights,0.0
+130,+ Adaptive weights,1.0
+1303,+ Adaptive weights,1.0
+1316,+ Adaptive weights,0.0
+1319,+ Adaptive weights,1.0
+132,+ Adaptive weights,0.0
+1320,+ Adaptive weights,1.0
+133,+ Adaptive weights,0.843537875344446
+1332,+ Adaptive weights,0.0
+1335,+ Adaptive weights,1.0
+1336,+ Adaptive weights,1.0
+1337,+ Adaptive weights,1.0
+1339,+ Adaptive weights,1.0
+1344,+ Adaptive weights,0.6309297535714575
+1352,+ Adaptive weights,1.0
+1359,+ Adaptive weights,1.0
+1362,+ Adaptive weights,0.3010299956639812
+1363,+ Adaptive weights,0.2890648263178879
+1368,+ Adaptive weights,0.0
+137,+ Adaptive weights,1.0
+1370,+ Adaptive weights,1.0
+1379,+ Adaptive weights,0.715663226334951
+1382,+ Adaptive weights,0.5
+1385,+ Adaptive weights,1.0
+1389,+ Adaptive weights,1.0
+1395,+ Adaptive weights,0.5
+141,+ Adaptive weights,0.8772153153380493
+142,+ Adaptive weights,1.0
+143,+ Adaptive weights,1.0
+146,+ Adaptive weights,1.0
+148,+ Adaptive weights,1.0
+163,+ Adaptive weights,1.0
+171,+ Adaptive weights,1.0
+179,+ Adaptive weights,0.7365896932159578
+180,+ Adaptive weights,1.0
+183,+ Adaptive weights,0.43067655807339306
+185,+ Adaptive weights,0.6309297535714575
+198,+ Adaptive weights,1.0
+208,+ Adaptive weights,1.0
+212,+ Adaptive weights,0.6309297535714575
+213,+ Adaptive weights,0.3562071871080222
+216,+ Adaptive weights,1.0
+217,+ Adaptive weights,1.0
+218,+ Adaptive weights,1.0
+219,+ Adaptive weights,1.0
+230,+ Adaptive weights,1.0
+232,+ Adaptive weights,0.6309297535714575
+233,+ Adaptive weights,1.0
+236,+ Adaptive weights,1.0
+237,+ Adaptive weights,0.5
+238,+ Adaptive weights,0.0
+239,+ Adaptive weights,0.0
+248,+ Adaptive weights,1.0
+249,+ Adaptive weights,1.0
+261,+ Adaptive weights,0.21840743681816419
+268,+ Adaptive weights,1.0
+269,+ Adaptive weights,1.0
+274,+ Adaptive weights,1.0
+275,+ Adaptive weights,0.6105456988825855
+279,+ Adaptive weights,1.0
+294,+ Adaptive weights,0.43067655807339306
+295,+ Adaptive weights,0.43067655807339306
+298,+ Adaptive weights,0.6309297535714575
+3,+ Adaptive weights,0.6309297535714575
+300,+ Adaptive weights,0.6309297535714575
+303,+ Adaptive weights,0.0
+312,+ Adaptive weights,0.2890648263178879
+314,+ Adaptive weights,0.38685280723454163
+324,+ Adaptive weights,0.0
+327,+ Adaptive weights,1.0
+338,+ Adaptive weights,1.0
+343,+ Adaptive weights,1.0
+350,+ Adaptive weights,1.0
+354,+ Adaptive weights,1.0
+36,+ Adaptive weights,0.21840743681816419
+362,+ Adaptive weights,1.0
+380,+ Adaptive weights,1.0
+384,+ Adaptive weights,0.38685280723454163
+385,+ Adaptive weights,0.6934264036172708
+386,+ Adaptive weights,1.0
+388,+ Adaptive weights,0.6309297535714575
+399,+ Adaptive weights,1.0
+410,+ Adaptive weights,1.0
+411,+ Adaptive weights,1.0
+415,+ Adaptive weights,0.38685280723454163
+42,+ Adaptive weights,1.0
+421,+ Adaptive weights,0.0
+431,+ Adaptive weights,0.0
+436,+ Adaptive weights,1.0
+437,+ Adaptive weights,0.0
+439,+ Adaptive weights,1.0
+440,+ Adaptive weights,1.0
+443,+ Adaptive weights,1.0
+452,+ Adaptive weights,0.0
+475,+ Adaptive weights,0.2890648263178879
+478,+ Adaptive weights,1.0
+48,+ Adaptive weights,0.6309297535714575
+49,+ Adaptive weights,1.0
+491,+ Adaptive weights,1.0
+5,+ Adaptive weights,1.0
+50,+ Adaptive weights,1.0
+501,+ Adaptive weights,1.0
+502,+ Adaptive weights,0.0
+507,+ Adaptive weights,0.6309297535714575
+508,+ Adaptive weights,0.0
+51,+ Adaptive weights,1.0
+513,+ Adaptive weights,1.0
+514,+ Adaptive weights,0.43067655807339306
+516,+ Adaptive weights,1.0
+517,+ Adaptive weights,0.0
+521,+ Adaptive weights,1.0
+525,+ Adaptive weights,1.0
+527,+ Adaptive weights,0.6309297535714575
+528,+ Adaptive weights,1.0
+53,+ Adaptive weights,1.0
+532,+ Adaptive weights,1.0
+533,+ Adaptive weights,1.0
+535,+ Adaptive weights,0.0
+536,+ Adaptive weights,1.0
+539,+ Adaptive weights,1.0
+54,+ Adaptive weights,0.38685280723454163
+540,+ Adaptive weights,0.3065735963827292
+544,+ Adaptive weights,0.2890648263178879
+549,+ Adaptive weights,1.0
+551,+ Adaptive weights,0.3562071871080222
+552,+ Adaptive weights,1.0
+554,+ Adaptive weights,0.3562071871080222
+56,+ Adaptive weights,1.0
+560,+ Adaptive weights,0.0
+569,+ Adaptive weights,1.0
+57,+ Adaptive weights,1.0
+575,+ Adaptive weights,0.6309297535714575
+577,+ Adaptive weights,0.0
+578,+ Adaptive weights,1.0
+587,+ Adaptive weights,0.5
+589,+ Adaptive weights,1.0
+593,+ Adaptive weights,1.0
+597,+ Adaptive weights,0.9674679834891693
+598,+ Adaptive weights,0.5
+613,+ Adaptive weights,1.0
+619,+ Adaptive weights,0.23719771276929622
+623,+ Adaptive weights,0.43067655807339306
+628,+ Adaptive weights,0.38685280723454163
+636,+ Adaptive weights,0.6309297535714575
+637,+ Adaptive weights,0.5
+641,+ Adaptive weights,0.8175295903539445
+644,+ Adaptive weights,1.0
+649,+ Adaptive weights,1.0
+659,+ Adaptive weights,1.0
+660,+ Adaptive weights,1.0
+674,+ Adaptive weights,0.6309297535714575
+684,+ Adaptive weights,0.5
+690,+ Adaptive weights,0.2890648263178879
+691,+ Adaptive weights,1.0
+692,+ Adaptive weights,1.0
+693,+ Adaptive weights,1.0
+70,+ Adaptive weights,1.0
+700,+ Adaptive weights,0.6309297535714575
+702,+ Adaptive weights,0.6309297535714575
+715,+ Adaptive weights,0.38685280723454163
+716,+ Adaptive weights,0.0
+718,+ Adaptive weights,1.0
+72,+ Adaptive weights,1.0
+721,+ Adaptive weights,1.0
+723,+ Adaptive weights,1.0
+727,+ Adaptive weights,0.6309297535714575
+728,+ Adaptive weights,0.6934264036172708
+729,+ Adaptive weights,0.6309297535714575
+742,+ Adaptive weights,1.0
+743,+ Adaptive weights,1.0
+744,+ Adaptive weights,0.5
+75,+ Adaptive weights,1.0
+756,+ Adaptive weights,0.43067655807339306
+759,+ Adaptive weights,1.0
+768,+ Adaptive weights,0.5
+770,+ Adaptive weights,1.0
+775,+ Adaptive weights,0.0
+781,+ Adaptive weights,1.0
+783,+ Adaptive weights,0.0
+784,+ Adaptive weights,1.0
+785,+ Adaptive weights,0.6309297535714575
+793,+ Adaptive weights,0.6309297535714575
+800,+ Adaptive weights,0.0
+805,+ Adaptive weights,1.0
+808,+ Adaptive weights,1.0
+811,+ Adaptive weights,1.0
+814,+ Adaptive weights,1.0
+820,+ Adaptive weights,0.0
+821,+ Adaptive weights,0.0
+823,+ Adaptive weights,1.0
+830,+ Adaptive weights,0.3562071871080222
+831,+ Adaptive weights,0.0
+832,+ Adaptive weights,1.0
+834,+ Adaptive weights,0.0
+837,+ Adaptive weights,1.0
+839,+ Adaptive weights,1.0
+845,+ Adaptive weights,0.6309297535714575
+847,+ Adaptive weights,1.0
+852,+ Adaptive weights,1.0
+859,+ Adaptive weights,0.6309297535714575
+870,+ Adaptive weights,0.0
+873,+ Adaptive weights,0.2826335043946801
+879,+ Adaptive weights,1.0
+880,+ Adaptive weights,1.0
+882,+ Adaptive weights,1.0
+887,+ Adaptive weights,0.0
+903,+ Adaptive weights,1.0
+904,+ Adaptive weights,1.0
+907,+ Adaptive weights,1.0
+911,+ Adaptive weights,1.0
+913,+ Adaptive weights,0.0
+914,+ Adaptive weights,0.0
+921,+ Adaptive weights,1.0
+922,+ Adaptive weights,1.0
+936,+ Adaptive weights,1.0
+94,+ Adaptive weights,1.0
+956,+ Adaptive weights,0.6309297535714575
+957,+ Adaptive weights,1.0
+960,+ Adaptive weights,1.0
+967,+ Adaptive weights,1.0
+971,+ Adaptive weights,0.8485833840018
+975,+ Adaptive weights,0.0
+982,+ Adaptive weights,1.0
+985,+ Adaptive weights,1.0
+99,+ Adaptive weights,1.0
+993,+ Adaptive weights,0.6309297535714575
+1,+ Corrective PRF,0.0
+100,+ Corrective PRF,1.0
+1012,+ Corrective PRF,1.0
+1014,+ Corrective PRF,1.0
+1019,+ Corrective PRF,0.6309297535714575
+1020,+ Corrective PRF,0.6309297535714575
+1021,+ Corrective PRF,0.6309297535714575
+1024,+ Corrective PRF,1.0
+1029,+ Corrective PRF,0.9674679834891693
+1041,+ Corrective PRF,0.4415801103577823
+1049,+ Corrective PRF,0.0
+1062,+ Corrective PRF,1.0
+1086,+ Corrective PRF,1.0
+1088,+ Corrective PRF,0.2890648263178879
+1089,+ Corrective PRF,1.0
+1099,+ Corrective PRF,0.43067655807339306
+1100,+ Corrective PRF,0.3562071871080222
+1104,+ Corrective PRF,1.0
+1107,+ Corrective PRF,1.0
+1110,+ Corrective PRF,0.0
+1121,+ Corrective PRF,0.6309297535714575
+113,+ Corrective PRF,1.0
+1130,+ Corrective PRF,1.0
+1132,+ Corrective PRF,0.3065735963827292
+1137,+ Corrective PRF,1.0
+1140,+ Corrective PRF,1.0
+1144,+ Corrective PRF,1.0
+1146,+ Corrective PRF,1.0
+115,+ Corrective PRF,1.0
+1150,+ Corrective PRF,1.0
+1163,+ Corrective PRF,1.0
+1175,+ Corrective PRF,0.0
+1179,+ Corrective PRF,0.0
+118,+ Corrective PRF,1.0
+1180,+ Corrective PRF,0.5
+1185,+ Corrective PRF,1.0
+1187,+ Corrective PRF,0.6309297535714575
+1191,+ Corrective PRF,0.0
+1194,+ Corrective PRF,0.6309297535714575
+1196,+ Corrective PRF,0.3562071871080222
+1197,+ Corrective PRF,0.3562071871080222
+1199,+ Corrective PRF,0.0
+1200,+ Corrective PRF,0.0
+1202,+ Corrective PRF,1.0
+1204,+ Corrective PRF,1.0
+1207,+ Corrective PRF,1.0
+1213,+ Corrective PRF,0.0
+1216,+ Corrective PRF,1.0
+1221,+ Corrective PRF,0.0
+1225,+ Corrective PRF,1.0
+1226,+ Corrective PRF,0.3010299956639812
+1232,+ Corrective PRF,1.0
+124,+ Corrective PRF,1.0
+1241,+ Corrective PRF,0.0
+1245,+ Corrective PRF,1.0
+1259,+ Corrective PRF,1.0
+1262,+ Corrective PRF,1.0
+1266,+ Corrective PRF,1.0
+127,+ Corrective PRF,0.6309297535714575
+1270,+ Corrective PRF,1.0
+1271,+ Corrective PRF,1.0
+1272,+ Corrective PRF,0.31546487678572877
+1273,+ Corrective PRF,1.0
+1274,+ Corrective PRF,0.8385465274895063
+1278,+ Corrective PRF,0.31546487678572877
+1279,+ Corrective PRF,0.31546487678572877
+128,+ Corrective PRF,0.3010299956639812
+1280,+ Corrective PRF,0.3562071871080222
+1281,+ Corrective PRF,0.0
+1282,+ Corrective PRF,1.0
+129,+ Corrective PRF,1.0
+1290,+ Corrective PRF,1.0
+1292,+ Corrective PRF,1.0
+1298,+ Corrective PRF,1.0
+13,+ Corrective PRF,0.0
+130,+ Corrective PRF,1.0
+1303,+ Corrective PRF,1.0
+1316,+ Corrective PRF,0.0
+1319,+ Corrective PRF,1.0
+132,+ Corrective PRF,0.0
+1320,+ Corrective PRF,1.0
+133,+ Corrective PRF,0.843537875344446
+1332,+ Corrective PRF,0.0
+1335,+ Corrective PRF,1.0
+1336,+ Corrective PRF,1.0
+1337,+ Corrective PRF,1.0
+1339,+ Corrective PRF,1.0
+1344,+ Corrective PRF,0.6309297535714575
+1352,+ Corrective PRF,1.0
+1359,+ Corrective PRF,1.0
+1362,+ Corrective PRF,0.3010299956639812
+1363,+ Corrective PRF,0.2890648263178879
+1368,+ Corrective PRF,0.0
+137,+ Corrective PRF,1.0
+1370,+ Corrective PRF,1.0
+1379,+ Corrective PRF,0.715663226334951
+1382,+ Corrective PRF,0.5
+1385,+ Corrective PRF,1.0
+1389,+ Corrective PRF,1.0
+1395,+ Corrective PRF,0.5
+141,+ Corrective PRF,0.8772153153380493
+142,+ Corrective PRF,1.0
+143,+ Corrective PRF,1.0
+146,+ Corrective PRF,1.0
+148,+ Corrective PRF,1.0
+163,+ Corrective PRF,1.0
+171,+ Corrective PRF,1.0
+179,+ Corrective PRF,0.7365896932159578
+180,+ Corrective PRF,1.0
+183,+ Corrective PRF,0.43067655807339306
+185,+ Corrective PRF,0.6309297535714575
+198,+ Corrective PRF,1.0
+208,+ Corrective PRF,1.0
+212,+ Corrective PRF,0.6309297535714575
+213,+ Corrective PRF,0.3562071871080222
+216,+ Corrective PRF,1.0
+217,+ Corrective PRF,1.0
+218,+ Corrective PRF,1.0
+219,+ Corrective PRF,1.0
+230,+ Corrective PRF,1.0
+232,+ Corrective PRF,0.6309297535714575
+233,+ Corrective PRF,1.0
+236,+ Corrective PRF,1.0
+237,+ Corrective PRF,0.5
+238,+ Corrective PRF,0.0
+239,+ Corrective PRF,0.0
+248,+ Corrective PRF,1.0
+249,+ Corrective PRF,1.0
+261,+ Corrective PRF,0.21840743681816419
+268,+ Corrective PRF,1.0
+269,+ Corrective PRF,1.0
+274,+ Corrective PRF,1.0
+275,+ Corrective PRF,0.6105456988825855
+279,+ Corrective PRF,1.0
+294,+ Corrective PRF,0.43067655807339306
+295,+ Corrective PRF,0.43067655807339306
+298,+ Corrective PRF,0.6309297535714575
+3,+ Corrective PRF,0.6309297535714575
+300,+ Corrective PRF,0.6309297535714575
+303,+ Corrective PRF,0.0
+312,+ Corrective PRF,0.2890648263178879
+314,+ Corrective PRF,0.38685280723454163
+324,+ Corrective PRF,0.0
+327,+ Corrective PRF,1.0
+338,+ Corrective PRF,1.0
+343,+ Corrective PRF,1.0
+350,+ Corrective PRF,1.0
+354,+ Corrective PRF,1.0
+36,+ Corrective PRF,0.21840743681816419
+362,+ Corrective PRF,1.0
+380,+ Corrective PRF,1.0
+384,+ Corrective PRF,0.38685280723454163
+385,+ Corrective PRF,0.6934264036172708
+386,+ Corrective PRF,1.0
+388,+ Corrective PRF,0.6309297535714575
+399,+ Corrective PRF,1.0
+410,+ Corrective PRF,1.0
+411,+ Corrective PRF,1.0
+415,+ Corrective PRF,0.38685280723454163
+42,+ Corrective PRF,1.0
+421,+ Corrective PRF,0.0
+431,+ Corrective PRF,0.0
+436,+ Corrective PRF,1.0
+437,+ Corrective PRF,0.0
+439,+ Corrective PRF,1.0
+440,+ Corrective PRF,1.0
+443,+ Corrective PRF,1.0
+452,+ Corrective PRF,0.0
+475,+ Corrective PRF,0.2890648263178879
+478,+ Corrective PRF,1.0
+48,+ Corrective PRF,0.6309297535714575
+49,+ Corrective PRF,1.0
+491,+ Corrective PRF,1.0
+5,+ Corrective PRF,1.0
+50,+ Corrective PRF,1.0
+501,+ Corrective PRF,1.0
+502,+ Corrective PRF,0.0
+507,+ Corrective PRF,0.6309297535714575
+508,+ Corrective PRF,0.0
+51,+ Corrective PRF,1.0
+513,+ Corrective PRF,1.0
+514,+ Corrective PRF,0.43067655807339306
+516,+ Corrective PRF,1.0
+517,+ Corrective PRF,0.0
+521,+ Corrective PRF,1.0
+525,+ Corrective PRF,1.0
+527,+ Corrective PRF,0.6309297535714575
+528,+ Corrective PRF,1.0
+53,+ Corrective PRF,1.0
+532,+ Corrective PRF,1.0
+533,+ Corrective PRF,1.0
+535,+ Corrective PRF,0.0
+536,+ Corrective PRF,1.0
+539,+ Corrective PRF,1.0
+54,+ Corrective PRF,0.38685280723454163
+540,+ Corrective PRF,0.3065735963827292
+544,+ Corrective PRF,0.2890648263178879
+549,+ Corrective PRF,1.0
+551,+ Corrective PRF,0.3562071871080222
+552,+ Corrective PRF,1.0
+554,+ Corrective PRF,0.3562071871080222
+56,+ Corrective PRF,1.0
+560,+ Corrective PRF,0.0
+569,+ Corrective PRF,1.0
+57,+ Corrective PRF,1.0
+575,+ Corrective PRF,0.6309297535714575
+577,+ Corrective PRF,0.0
+578,+ Corrective PRF,1.0
+587,+ Corrective PRF,0.5
+589,+ Corrective PRF,1.0
+593,+ Corrective PRF,1.0
+597,+ Corrective PRF,0.9674679834891693
+598,+ Corrective PRF,0.5
+613,+ Corrective PRF,1.0
+619,+ Corrective PRF,0.23719771276929622
+623,+ Corrective PRF,0.43067655807339306
+628,+ Corrective PRF,0.38685280723454163
+636,+ Corrective PRF,0.6309297535714575
+637,+ Corrective PRF,0.5
+641,+ Corrective PRF,0.8175295903539445
+644,+ Corrective PRF,1.0
+649,+ Corrective PRF,1.0
+659,+ Corrective PRF,1.0
+660,+ Corrective PRF,1.0
+674,+ Corrective PRF,0.6309297535714575
+684,+ Corrective PRF,0.5
+690,+ Corrective PRF,0.2890648263178879
+691,+ Corrective PRF,1.0
+692,+ Corrective PRF,1.0
+693,+ Corrective PRF,1.0
+70,+ Corrective PRF,1.0
+700,+ Corrective PRF,0.6309297535714575
+702,+ Corrective PRF,0.6309297535714575
+715,+ Corrective PRF,0.38685280723454163
+716,+ Corrective PRF,0.0
+718,+ Corrective PRF,1.0
+72,+ Corrective PRF,1.0
+721,+ Corrective PRF,1.0
+723,+ Corrective PRF,1.0
+727,+ Corrective PRF,0.6309297535714575
+728,+ Corrective PRF,0.6934264036172708
+729,+ Corrective PRF,0.6309297535714575
+742,+ Corrective PRF,1.0
+743,+ Corrective PRF,1.0
+744,+ Corrective PRF,0.5
+75,+ Corrective PRF,1.0
+756,+ Corrective PRF,0.43067655807339306
+759,+ Corrective PRF,1.0
+768,+ Corrective PRF,0.5
+770,+ Corrective PRF,1.0
+775,+ Corrective PRF,0.0
+781,+ Corrective PRF,1.0
+783,+ Corrective PRF,0.0
+784,+ Corrective PRF,1.0
+785,+ Corrective PRF,0.6309297535714575
+793,+ Corrective PRF,0.6309297535714575
+800,+ Corrective PRF,0.0
+805,+ Corrective PRF,1.0
+808,+ Corrective PRF,1.0
+811,+ Corrective PRF,1.0
+814,+ Corrective PRF,1.0
+820,+ Corrective PRF,0.0
+821,+ Corrective PRF,0.0
+823,+ Corrective PRF,1.0
+830,+ Corrective PRF,0.3562071871080222
+831,+ Corrective PRF,0.0
+832,+ Corrective PRF,1.0
+834,+ Corrective PRF,0.0
+837,+ Corrective PRF,1.0
+839,+ Corrective PRF,1.0
+845,+ Corrective PRF,0.6309297535714575
+847,+ Corrective PRF,1.0
+852,+ Corrective PRF,1.0
+859,+ Corrective PRF,0.6309297535714575
+870,+ Corrective PRF,0.0
+873,+ Corrective PRF,0.2826335043946801
+879,+ Corrective PRF,1.0
+880,+ Corrective PRF,1.0
+882,+ Corrective PRF,1.0
+887,+ Corrective PRF,0.0
+903,+ Corrective PRF,1.0
+904,+ Corrective PRF,1.0
+907,+ Corrective PRF,1.0
+911,+ Corrective PRF,1.0
+913,+ Corrective PRF,0.0
+914,+ Corrective PRF,0.0
+921,+ Corrective PRF,1.0
+922,+ Corrective PRF,1.0
+936,+ Corrective PRF,1.0
+94,+ Corrective PRF,1.0
+956,+ Corrective PRF,0.6309297535714575
+957,+ Corrective PRF,1.0
+960,+ Corrective PRF,1.0
+967,+ Corrective PRF,1.0
+971,+ Corrective PRF,0.8485833840018
+975,+ Corrective PRF,0.0
+982,+ Corrective PRF,1.0
+985,+ Corrective PRF,1.0
+99,+ Corrective PRF,1.0
+993,+ Corrective PRF,0.6309297535714575
