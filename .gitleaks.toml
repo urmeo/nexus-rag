@@ -8,7 +8,8 @@ description = "Ignore documented placeholders and public benchmark data"
 paths = [
   '''\.env\.example''',
   '''\.gitleaks\.toml''',
-  '''benchmarks/.*''',
+  '''benchmarks/datasets/.*''',
+  '''src/scinexusrag/eval/data/.*''',
 ]
 regexTarget = "line"
 regexes = [

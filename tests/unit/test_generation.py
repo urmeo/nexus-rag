@@ -8,7 +8,7 @@ class TestFormatSources:
         assert out.startswith("[1] first passage")
         assert "[2]" in out
         assert len(out.splitlines()) == 2
-        # second source truncated to 400 chars
+
         assert out.splitlines()[1] == "[2] " + "x" * 400
 
 

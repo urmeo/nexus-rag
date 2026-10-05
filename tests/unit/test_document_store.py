@@ -15,8 +15,7 @@ def _doc(doc_id: str = "abc123def456", name: str = "paper.pdf") -> ParsedDocumen
 
 
 def test_orphaned_doc_file_recovered_on_load(temp_dir) -> None:
-    # Crash after the doc write but before the index write leaves an
-    # invisible doc file; a fresh load must adopt it back into the index.
+
     store = DocumentStore(path=temp_dir)
     store.add(_doc())
     (temp_dir / "_index.json").unlink()
@@ -26,12 +25,11 @@ def test_orphaned_doc_file_recovered_on_load(temp_dir) -> None:
     assert reloaded.exists("abc123def456")
     assert reloaded.index["abc123def456"]["filename"] == "paper.pdf"
     assert reloaded.index["abc123def456"]["word_count"] > 0
-    assert (temp_dir / "_index.json").exists()  # repaired index persisted
+    assert (temp_dir / "_index.json").exists()
 
 
 def test_dangling_index_entry_dropped_on_load(temp_dir) -> None:
-    # The reverse crash leaves an index entry with no doc file — a phantom
-    # that would block re-ingestion; a fresh load must drop it.
+
     store = DocumentStore(path=temp_dir)
     store.add(_doc())
     (temp_dir / "abc123def456.json").unlink()
@@ -54,8 +52,7 @@ def test_delete_survives_reload(temp_dir) -> None:
 
 
 def test_reserved_index_id_is_rejected(temp_dir) -> None:
-    # A document whose id is "_index" would resolve to the same file as the
-    # store's index and clobber it on add(); the id must be rejected.
+
     store = DocumentStore(path=temp_dir)
     with pytest.raises(ValueError, match="reserved"):
         store.add(_doc(doc_id="_index"))

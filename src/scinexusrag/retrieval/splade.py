@@ -14,7 +14,7 @@ DEFAULT_MODEL = "naver/splade-cocondenser-ensembledistil"
 
 
 class SpladeRetriever:
-    """Encodes text to sparse term weights over the vocabulary, scored by dot product."""
+    "Retrieve using sparse vocabulary weights."
 
     def __init__(
         self,

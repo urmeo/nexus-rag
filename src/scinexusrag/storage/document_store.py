@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import tempfile
+import threading
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,10 +17,10 @@ from scinexusrag.utils.filenames import resolve_display_name
 
 logger = logging.getLogger(__name__)
 
-# Safe filename pattern - only alphanumeric and limited special chars
+
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 MAX_ID_LENGTH = 64
-# Stem of the on-disk index file; reserved so a document id cannot alias it.
+
 INDEX_STEM = "_index"
 
 
@@ -27,10 +28,11 @@ class DocumentStore:
     """File-based document storage using JSON."""
 
     def __init__(self, path: str | Path = "./data/documents"):
-        self.path = Path(path).resolve()  # Resolve to absolute path
+        self.path = Path(path).resolve()
         self.path.mkdir(parents=True, exist_ok=True)
         self._index_path = self.path / f"{INDEX_STEM}.json"
         self._index: dict[str, dict[str, Any]] | None = None
+        self._index_lock = threading.Lock()
 
     def _validate_doc_id(self, doc_id: str) -> str:
         """Validate and sanitize document ID to prevent path traversal."""
@@ -46,7 +48,6 @@ class DocumentStore:
         if doc_id == INDEX_STEM:
             raise ValueError(f"Document ID '{INDEX_STEM}' is reserved for the store index")
 
-        # Additional safety: ensure no path components
         if ".." in doc_id or "/" in doc_id or "\\" in doc_id:
             raise ValueError("Document ID contains invalid path characters")
 
@@ -56,17 +57,13 @@ class DocumentStore:
     def index(self) -> dict[str, dict[str, Any]]:
         """Lazy load document index."""
         if self._index is None:
-            self._index = self._load_index()
+            with self._index_lock:
+                if self._index is None:
+                    self._index = self._load_index()
         return self._index
 
     def _load_index(self) -> dict[str, dict[str, Any]]:
-        """Load index from disk, reconciling it against the doc files.
-
-        The index and per-doc files are written as two separate atomic
-        renames, so a crash between them can leave either a doc file with no
-        index entry (invisible) or an index entry with no file (a phantom
-        that blocks re-ingestion). Both are repaired here.
-        """
+        "Load index from disk, reconciling it against the doc files."
         index: dict[str, dict[str, Any]] = {}
         if self._index_path.exists():
             index = json.loads(self._index_path.read_text(encoding="utf-8"))
@@ -141,7 +138,6 @@ class DocumentStore:
             "sections": [asdict(s) for s in document.sections],
         }
 
-        # Atomic write: write to temp file then rename
         target = self._doc_path(document.id)
         data = json.dumps(doc_dict, indent=2, ensure_ascii=False)
         fd, tmp_path = tempfile.mkstemp(dir=self.path, suffix=".tmp")
@@ -190,8 +186,6 @@ class DocumentStore:
         if not doc_path.exists():
             return False
 
-        # Index first: a crash after this leaves only a harmless orphan file
-        # (swept on next load) instead of a phantom entry blocking re-ingest.
         self.index.pop(doc_id, None)
         self._save_index()
         doc_path.unlink()

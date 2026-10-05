@@ -9,12 +9,7 @@ from scinexusrag.retrieval.hybrid import HybridRetriever, rrf_fuse
 
 
 class CorrectiveRetriever:
-    """Re-retrieves with feedback terms when the first pass looks weak.
-
-    Confidence is the top dense cosine similarity. Below ``tau`` the query
-    is expanded with frequent terms from the first-pass documents and the
-    two passes are fused, so the cost is paid only on hard queries.
-    """
+    "Re-retrieves with feedback terms when the first pass looks weak."
 
     def __init__(
         self,
@@ -43,7 +38,7 @@ class CorrectiveRetriever:
     def retrieve_traced(
         self, query: str, top_k: int = 10, depth: int = 50
     ) -> tuple[list[RetrievalResult], bool]:
-        # One dense pass: the fused results and the top dense score together.
+
         first, dense_top = self.base.retrieve_with_dense_top(query, top_k=depth, depth=depth)
         if not self.enabled or not first or dense_top >= self.tau:
             return first[:top_k], False

@@ -64,11 +64,9 @@ class NexusRAG:
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self._initialized = False
-        # Serializes all index/store mutations; concurrent API threads
-        # otherwise interleave BM25 rebuilds and silently drop documents.
+
         self._write_lock = threading.RLock()
 
-        # Lazy-loaded components
         self._parser: DocumentParser | None = None
         self._chunker: SemanticChunker | None = None
         self._embedder: Embedder | None = None
@@ -120,7 +118,9 @@ class NexusRAG:
     @property
     def document_store(self) -> DocumentStore:
         if self._document_store is None:
-            self._document_store = DocumentStore(path=self.settings.data_dir / "documents")
+            with self._write_lock:
+                if self._document_store is None:
+                    self._document_store = DocumentStore(path=self.settings.data_dir / "documents")
         return self._document_store
 
     @property
@@ -182,8 +182,8 @@ class NexusRAG:
     ) -> None:
         """Write document + chunks to all stores; roll back on partial failure."""
         with self._write_lock:
-            self.document_store.add(document)
             try:
+                self.document_store.add(document)
                 self.vector_store.add(chunks, embeddings)
                 self.bm25.add_incremental(chunks)
                 self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
@@ -207,15 +207,16 @@ class NexusRAG:
         self, document: ParsedDocument, filename: str, show_progress: bool
     ) -> IngestResult:
         """Chunk, embed, and persist an already-parsed document."""
-        if self.document_store.exists(document.id):
-            return IngestResult(
-                document_id=document.id,
-                filename=filename,
-                chunk_count=0,
-                word_count=document.word_count,
-                success=False,
-                error="Document already exists",
-            )
+        with self._write_lock:
+            if self.document_store.exists(document.id):
+                return IngestResult(
+                    document_id=document.id,
+                    filename=filename,
+                    chunk_count=0,
+                    word_count=document.word_count,
+                    success=False,
+                    error="Document already exists",
+                )
 
         chunks = self.chunker.chunk(document)
         if not chunks:
@@ -233,7 +234,17 @@ class NexusRAG:
             batch_size=self.settings.embedding.batch_size,
             show_progress=show_progress,
         )
-        self._persist(document, chunks, embeddings)
+        with self._write_lock:
+            if self.document_store.exists(document.id):
+                return IngestResult(
+                    document_id=document.id,
+                    filename=filename,
+                    chunk_count=0,
+                    word_count=document.word_count,
+                    success=False,
+                    error="Document already exists",
+                )
+            self._persist(document, chunks, embeddings)
         gc.collect()
 
         return IngestResult(
@@ -336,14 +347,12 @@ class NexusRAG:
             if not self.document_store.exists(document_id):
                 return False
 
-            # Get chunk IDs before deleting from vector store
             doc_chunks = self.vector_store.get_chunks_by_document(document_id)
             chunk_ids = {c.id for c in doc_chunks}
 
             self.vector_store.delete_by_document(document_id)
             self.document_store.delete(document_id)
 
-            # Access via the property so a consistent index always exists.
             if chunk_ids:
                 self.bm25.remove(chunk_ids)
 
@@ -355,11 +364,9 @@ class NexusRAG:
         with self._write_lock:
             self.vector_store.clear()
             self.document_store.clear()
-            # Reset the handle directly; touching the property would rebuild the
-            # BM25 index from the store just to throw it away.
+
             if self._bm25 is not None:
                 self._bm25.clear()
-            self._bm25 = None
 
     def get_stats(self) -> SystemStats:
         """Get system statistics."""
@@ -388,21 +395,14 @@ class NexusRAG:
             if self._bm25 is None:
                 self._bm25 = BM25Retriever()
 
-            # Get all chunks from vector store
             chunks = self.vector_store.get_all_chunks()
 
-            # Rebuild BM25 index with all chunks
             self._bm25.clear()
             if chunks:
                 self._bm25.add(chunks)
 
     def unload_models(self) -> None:
-        """
-        Unload ML models to free memory.
-
-        Useful for 8GB RAM systems when switching between tasks.
-        Models will be lazy-loaded again when needed.
-        """
+        "Unload ML models to free memory."
         if self._embedder is not None:
             self._embedder.unload()
             self._embedder = None
@@ -414,11 +414,9 @@ class NexusRAG:
             self._llm.close()
             self._llm = None
 
-        # Force garbage collection
         gc.collect()
 
 
-# Singleton instance
 _instance: NexusRAG | None = None
 _instance_lock = threading.Lock()
 

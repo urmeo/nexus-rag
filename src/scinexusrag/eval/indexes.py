@@ -33,7 +33,7 @@ class ExactDenseRetriever:
     """Brute-force cosine search over precomputed embeddings, for reproducible eval."""
 
     def __init__(self, embedder: Embedder, chunks: list[Chunk], batch_size: int = 64):
-        # dot product equals cosine only for unit vectors; enforce the contract
+
         if not embedder.normalize:
             raise ValueError("ExactDenseRetriever needs a normalized embedder for cosine scoring")
         self.embedder = embedder
@@ -43,13 +43,12 @@ class ExactDenseRetriever:
         )
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
-        if not self.chunks:
+        if not self.chunks or top_k <= 0:
             return []
         qv = self.embedder.embed_query(query)
         scores = self.matrix @ qv
         k = min(top_k, len(self.chunks))
-        top = np.argpartition(-scores, k - 1)[:k]
-        top = top[np.argsort(-scores[top])]
+        top = np.argsort(-scores, kind="stable")[:k]
         return [
             RetrievalResult(chunk=self.chunks[i], score=float(scores[i]), source="dense")
             for i in top

@@ -44,7 +44,7 @@ class TestApiKey:
         assert await security.require_api_key("test-only-key") is None
 
     async def test_non_ascii_key_rejected_not_crash(self, monkeypatch) -> None:
-        # non-ASCII must 401, not raise TypeError -> 500 (hmac.compare_digest)
+
         monkeypatch.setattr(security, "get_settings", lambda: _settings(api_key="test-only-key"))
         with pytest.raises(HTTPException) as exc:
             await security.require_api_key("sécrét-ключ-🔑")
@@ -103,11 +103,11 @@ class TestSameSiteGuard:
         )
 
     async def test_user_initiated_allowed(self) -> None:
-        # Sec-Fetch-Site: none == typed URL / bookmark, not an attack surface.
+
         assert await security.require_same_site(self._request({"sec-fetch-site": "none"})) is None
 
     async def test_non_browser_client_allowed(self) -> None:
-        # curl / the CLI send neither header; no ambient-credential CSRF risk.
+
         assert await security.require_same_site(self._request({})) is None
 
     async def test_foreign_origin_fallback_rejected(self, monkeypatch) -> None:
@@ -154,7 +154,6 @@ class TestValidateUpload:
     def test_invalid_docx_rejected(self, monkeypatch) -> None:
         monkeypatch.setattr(security, "get_settings", lambda: _settings())
         with pytest.raises(HTTPException) as exc:
-            # valid magic prefix but not a real zip
             security.validate_upload(".docx", b"PK\x03\x04garbage", "application/zip")
         assert exc.value.status_code == 415
 
@@ -220,12 +219,12 @@ class TestIdSanitizer:
             assert _sanitize_id(ok) == ok
 
     def test_allowlist_regex_is_linear_time(self) -> None:
-        # A pathological input must not cause catastrophic backtracking (ReDoS).
+
         import time
 
         from scinexusrag.storage.vector_store import SAFE_ID_PATTERN
 
-        adversarial = "a" * 200_000 + "!"  # long valid run then a rejecting char
+        adversarial = "a" * 200_000 + "!"
         start = time.perf_counter()
         assert SAFE_ID_PATTERN.match(adversarial) is None
-        assert time.perf_counter() - start < 0.1  # linear, well under a budget
+        assert time.perf_counter() - start < 0.1

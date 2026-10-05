@@ -1,9 +1,4 @@
-"""Hallucination detection on RAGTruth with the NLI grounding verifier.
-
-For each generated response we score how well each response sentence is
-entailed by the source context, then test whether that groundedness signal
-separates faithful from hallucinated responses (ROC-AUC, risk-coverage).
-"""
+"Hallucination detection on RAGTruth with the NLI grounding verifier."
 
 from __future__ import annotations
 
@@ -15,9 +10,10 @@ from typing import Any
 import numpy as np
 
 from scinexusrag.eval.metrics import risk_coverage_auc, roc_auc
+from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.generation.grounding import GroundingVerifier, split_sentences
 
-RESULTS_DIR = Path("benchmarks/results")
+RESULTS_DIR = Path("outputs/generated")
 MAX_CTX_SENTS = 50
 MAX_OUT_SENTS = 12
 
@@ -46,6 +42,9 @@ def evaluate(
 ) -> dict[str, Any]:
     from datasets import load_dataset
 
+    if n <= 0:
+        raise ValueError("n must be positive")
+    provenance = evaluation_provenance()
     data = load_dataset("wandb/RAGTruth-processed", split="train")
     rows = [r for r in data if task_type is None or r["task_type"] == task_type][:n]
 
@@ -63,6 +62,7 @@ def evaluate(
     halluc_score = [1.0 - g for g in grounded]
     faithful = [1 - y for y in labels]
     return {
+        "provenance": provenance,
         "dataset": "ragtruth",
         "task_type": task_type or "all",
         "num_responses": len(rows),

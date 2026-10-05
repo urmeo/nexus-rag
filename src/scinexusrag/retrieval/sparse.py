@@ -33,24 +33,13 @@ class BM25Retriever:
 
         tokenized = [self.tokenize(chunk.content) for chunk in chunks]
         if not any(tokenized):
-            # A wholly degenerate corpus (every chunk is stop-words / single
-            # chars) has average document length 0, which makes BM25Okapi divide
-            # by zero. Give each doc a sentinel token no real query can produce
-            # (tokenize() keeps only len>1 alphanumerics), so the index builds
-            # and simply matches nothing instead of crashing ingestion.
             tokenized = [["\x00"] for _ in chunks]
 
         self._index = BM25Index(bm25=BM25Okapi(tokenized), chunks=chunks)
         return len(chunks)
 
     def add_incremental(self, chunks: list[Chunk]) -> int:
-        """Add chunks to the existing index (rebuilds internally).
-
-        Chunks whose id is already indexed are skipped. Chunk ids are unique,
-        so this makes the add idempotent: a lazy cold-start rebuild that
-        happens to observe a document's just-written chunks, followed by this
-        incremental add of the same chunks, cannot double-count them.
-        """
+        "Add chunks to the existing index (rebuilds internally)."
         if self._index is None:
             return self.add(chunks)
 
@@ -61,8 +50,7 @@ class BM25Retriever:
         return self.add(self._index.chunks + fresh)
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
-        # Pin one snapshot: add() rebinds self._index atomically, so a
-        # concurrent ingest cannot desync scores from chunks mid-call.
+
         index = self._index
         if index is None:
             return []

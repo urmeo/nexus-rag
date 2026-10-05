@@ -6,9 +6,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VENDORED_DIR = Path(__file__).resolve().parents[3] / "benchmarks" / "datasets"
+VENDORED_DIR = Path(__file__).resolve().parent / "data"
 
-# BEIR HuggingFace repos
+
 BEIR_REPOS = {
     "scifact": "BeIR/scifact",
     "nfcorpus": "BeIR/nfcorpus",
@@ -19,8 +19,7 @@ BEIR_REPOS = {
     "touche2020": "BeIR/webis-touche2020",
 }
 
-# Pinned dataset git revisions, so reported numbers reference a fixed snapshot
-# (BEIR mirrors can change). Keys are "<name>" (corpus+queries) and "<name>-qrels".
+
 DATASET_REVISIONS = {
     "scifact": "b3b5335604bf5ee3c4447671af975ea25143d4f5",
     "scifact-qrels": "2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029",
@@ -36,8 +35,10 @@ class IRDataset:
     name: str
     corpus: dict[str, dict[str, str]]
     queries: dict[str, str]
-    qrels: dict[str, dict[str, int]]  # query_id -> {doc_id: relevance grade}
+    qrels: dict[str, dict[str, int]]
     revision: str | None = None
+    qrels_revision: str | None = None
+    source: str = "unknown"
 
     def doc_text(self, doc_id: str) -> str:
         d = self.corpus[doc_id]
@@ -68,9 +69,9 @@ def load_vendored(name: str) -> IRDataset:
         for line in f:
             row = json.loads(line)
             score = int(row.get("score", 1))
-            if score > 0:  # match load_beir; non-relevant judgements are not relevant
+            if score > 0:
                 qrels.setdefault(str(row["query-id"]), {})[str(row["corpus-id"])] = score
-    return IRDataset(name=name, corpus=corpus, queries=queries, qrels=qrels)
+    return IRDataset(name=name, corpus=corpus, queries=queries, qrels=qrels, source="vendored")
 
 
 def load_beir(name: str, split: str = "test", cache_dir: str | None = None) -> IRDataset:
@@ -95,8 +96,19 @@ def load_beir(name: str, split: str = "test", cache_dir: str | None = None) -> I
         if score > 0:
             qrels.setdefault(str(r["query-id"]), {})[str(r["corpus-id"])] = score
 
-    queries = {qid: all_queries[qid] for qid in qrels if qid in all_queries}
-    return IRDataset(name=name, corpus=corpus, queries=queries, qrels=qrels, revision=rev)
+    missing = set(qrels) - all_queries.keys()
+    if missing:
+        raise ValueError(f"qrels reference missing queries: {sorted(missing)[:5]}")
+    queries = {qid: all_queries[qid] for qid in qrels}
+    return IRDataset(
+        name=name,
+        corpus=corpus,
+        queries=queries,
+        qrels=qrels,
+        revision=rev,
+        qrels_revision=qrev,
+        source="huggingface",
+    )
 
 
 def load(
@@ -105,12 +117,7 @@ def load(
     prefer_vendored: bool = False,
     cache_dir: str | None = None,
 ) -> IRDataset:
-    """Load a dataset, falling back to the offline sample."""
-    if prefer_vendored and _vendored_path(name).exists():
+    """Load the requested dataset; offline samples must be selected explicitly."""
+    if prefer_vendored:
         return load_vendored(name)
-    try:
-        return load_beir(name, split=split, cache_dir=cache_dir)
-    except Exception:
-        if _vendored_path(name).exists():
-            return load_vendored(name)
-        raise
+    return load_beir(name, split=split, cache_dir=cache_dir)

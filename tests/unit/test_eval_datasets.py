@@ -10,7 +10,7 @@ class TestVendoredIR:
         ds = D.load("scifact", prefer_vendored=True)
         assert ds.corpus and ds.queries and ds.qrels
         qid = next(iter(ds.qrels))
-        assert ds.qrels[qid]  # has at least one relevant doc
+        assert ds.qrels[qid]
         assert all(d in ds.corpus for rel in ds.qrels.values() for d in rel)
 
     def test_doc_text_joins_title_body(self) -> None:
@@ -49,11 +49,11 @@ class TestSentenceSplit:
         assert split_sentences("") == []
 
     def test_split_before_digit(self) -> None:
-        # A sentence starting with a digit is a boundary (shared rule).
+
         assert len(split_sentences("We ran the test. 3 trials passed cleanly.")) == 2
 
     def test_grounding_and_chunker_share_one_boundary(self) -> None:
-        # Both modules must resolve to the single canonical boundary.
+
         from scinexusrag.generation import grounding
         from scinexusrag.ingestion import chunker
         from scinexusrag.utils.text import SENTENCE_BOUNDARY

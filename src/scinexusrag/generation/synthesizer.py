@@ -134,8 +134,6 @@ class Synthesizer:
                 confidence=0.0,
             )
 
-        # Out-of-range citations are left in place so AnswerVerifier can
-        # detect, report, and strip them — it is the single source of truth.
         return SynthesisResult(answer=answer.strip(), sources=sources, raw_response=answer)
 
     def synthesize_streaming(
@@ -162,7 +160,6 @@ class Synthesizer:
             question=query, formatted_sources=formatted_sources
         )
 
-        # Append query-type-specific hint
         if query_type is not None:
             type_hint = self._get_type_hint(query_type)
             if type_hint:
@@ -187,21 +184,17 @@ class Synthesizer:
         seen_chunks = set()
 
         for result in results:
-            # Skip duplicates
             if result.chunk.id in seen_chunks:
                 continue
             seen_chunks.add(result.chunk.id)
 
-            # number by final position so citation indices have no gaps
             index = len(sources) + 1
             chunk = result.chunk
             metadata = chunk.metadata
             doc_id = chunk.document_id
 
-            # Get document name - multiple fallbacks
             doc_name = self._get_document_name(chunk, doc_id, doc_names, index)
 
-            # Use full_context (with surrounding text) when available
             full_ctx = ""
             if hasattr(chunk, "full_context"):
                 ctx = chunk.full_context
@@ -245,15 +238,12 @@ class Synthesizer:
         formatted_parts = []
 
         for source in sources:
-            # Build clear header with relevance score
             section_info = f", Section: {source.section_title}" if source.section_title else ""
             page_info = f", Page {source.page_number}" if source.page_number else ""
             relevance_pct = int(source.score * 100)
 
-            # Use full_content (with surrounding context) when available
             text = source.full_content or source.content
 
-            # Format source block with clear delineation
             source_block = f"""====================
 [{source.index}] Source: {source.document_name}{section_info}{page_info} (relevance: {relevance_pct}%)
 "{text}"

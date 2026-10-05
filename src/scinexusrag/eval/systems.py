@@ -38,8 +38,8 @@ def build_systems(
         return max(k, 50)
 
     systems: dict[str, RetrieveFn] = {
-        "BM25": lambda q, k: _ids(bm25.retrieve(q, top_k=depth(k))),
-        "Dense": lambda q, k: _ids(dense.retrieve(q, top_k=depth(k))),
+        "BM25": lambda q, k: _ids(bm25.retrieve(q, top_k=k)),
+        "Dense": lambda q, k: _ids(dense.retrieve(q, top_k=k)),
         "Hybrid (RRF)": lambda q, k: _ids(hybrid.retrieve(q, top_k=k, depth=depth(k))),
         "+ Adaptive weights": lambda q, k: _ids(adaptive.retrieve(q, top_k=k, depth=depth(k))),
         "+ Corrective PRF": lambda q, k: _ids(corrective.retrieve(q, top_k=k, depth=depth(k))),
@@ -58,6 +58,6 @@ def build_systems(
         from scinexusrag.retrieval.splade import SpladeRetriever
 
         splade = SpladeRetriever(chunks, device="cpu")
-        systems["SPLADE"] = lambda q, k: _ids(splade.retrieve(q, top_k=depth(k)))
+        systems["SPLADE"] = lambda q, k: _ids(splade.retrieve(q, top_k=k))
 
     return systems

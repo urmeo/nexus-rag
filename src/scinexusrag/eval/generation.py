@@ -1,12 +1,4 @@
-"""Does the faithfulness-gated corrective loop reduce ungrounded answers?
-
-Generates answers over retrieved scientific passages with a local instruct
-model, scores each answer's grounding with the NLI verifier, and re-retrieves +
-regenerates when grounding is weak. Reports baseline vs corrective faithfulness.
-
-Runs in three phases (retrieve, generate, score) loading one model at a time,
-so it fits on a CPU laptop.
-"""
+"Does the faithfulness-gated corrective loop reduce ungrounded answers?"
 
 from __future__ import annotations
 
@@ -18,11 +10,13 @@ from typing import Any
 
 from scinexusrag.eval import datasets as D
 from scinexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
+from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.generation.grounding import GroundingVerifier
 from scinexusrag.ingestion import Embedder
 from scinexusrag.retrieval import AdaptiveHybridRetriever, BM25Retriever, CorrectiveRetriever
+from scinexusrag.retrieval.hybrid import rrf_fuse
 
-RESULTS_DIR = Path("benchmarks/results")
+RESULTS_DIR = Path("outputs/generated")
 DEFAULT_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
 
 PROMPT = """You are a precise scientific assistant. Using ONLY the numbered \
@@ -69,10 +63,12 @@ def _format_sources(passages: list[str]) -> str:
 def evaluate(
     n: int = 15, top_k: int = 4, tau: float = 0.5, model_name: str | None = None
 ) -> dict[str, Any]:
+    if n <= 0 or top_k <= 0 or not 0 <= tau <= 1:
+        raise ValueError("n and top_k must be positive and tau must be in [0, 1]")
+    provenance = evaluation_provenance()
     ds = D.load("scifact", prefer_vendored=True)
     qids = list(ds.queries)[:n]
 
-    # phase 1: retrieve (embedder only)
     chunks = corpus_to_chunks({d: ds.doc_text(d) for d in ds.corpus})
     embedder = Embedder(device="cpu")
     dense = ExactDenseRetriever(embedder, chunks)
@@ -83,14 +79,19 @@ def evaluate(
 
     initial: dict[str, list[str]] = {}
     reformed: dict[str, list[str]] = {}
+    depth = max(top_k, 50)
     for qid in qids:
         q = ds.queries[qid]
-        initial[qid] = [r.chunk.content for r in hybrid.retrieve(q, top_k=top_k)]
-        reformed[qid] = [r.chunk.content for r in corrective.retrieve(q, top_k=top_k)]
+        first = hybrid.retrieve(q, top_k=depth, depth=depth)
+        initial[qid] = [r.chunk.content[:400] for r in first[:top_k]]
+
+        expanded = corrective.expand(q, first)
+        second = hybrid.retrieve(expanded, top_k=depth, depth=depth)
+        fused = rrf_fuse([first, second], [1.0, 1.0], hybrid.rrf_k, top_k)
+        reformed[qid] = [r.chunk.content[:400] for r in fused]
     del embedder, dense, bm25, hybrid, corrective
     gc.collect()
 
-    # phase 2: generate (generator only)
     generator = LocalGenerator(model_name or DEFAULT_MODEL)
     model_used = generator.model_name
     base_answer: dict[str, str] = {}
@@ -107,7 +108,6 @@ def evaluate(
     del generator
     gc.collect()
 
-    # phase 3: score grounding (NLI verifier only); apply faithfulness gate
     verifier = GroundingVerifier(device="cpu")
     base_scores: list[float] = []
     corr_scores: list[float] = []
@@ -116,20 +116,24 @@ def evaluate(
         f0 = verifier.verify(base_answer[qid], initial[qid]).faithfulness
         gated = f0
         if f0 < tau:
-            # commit to the corrected answer when the gate fires (no oracle)
             gated = verifier.verify(corr_answer[qid], reformed[qid]).faithfulness
             corrected += 1
         base_scores.append(f0)
         corr_scores.append(gated)
 
     return {
-        "dataset": "scifact-claims",
+        "provenance": provenance,
+        "dataset": "scifact",
         "split": "sample",
         "generator": model_used,
         "metric": "NLI sentence-grounding faithfulness",
         "num_queries": len(qids),
+        "query_ids": qids,
         "top_k": top_k,
         "gate_tau": tau,
+        "correction_strategy": "forced_prf_on_answer_gate",
+        "nli_model": verifier.model_name,
+        "source_char_limit": 400,
         "num_corrected": corrected,
         "baseline_faithfulness": _mean(base_scores),
         "corrective_faithfulness": _mean(corr_scores),

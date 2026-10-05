@@ -12,8 +12,6 @@ from slowapi.util import get_remote_address
 
 from scinexusrag.config import get_settings
 
-# Per-IP rate limiter (slowapi). Limits are read from settings per request so
-# they stay configurable; registered on the app in api.create_app.
 limiter = Limiter(key_func=get_remote_address)
 
 
@@ -25,7 +23,6 @@ def upload_limit() -> str:
     return f"{get_settings().api.upload_rate_per_minute}/minute"
 
 
-# Lenient content-type allowlist; browsers vary, so magic bytes are authoritative.
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -36,7 +33,7 @@ ALLOWED_CONTENT_TYPES = {
     "",
 }
 
-# Required leading bytes per extension; empty means "text, checked via decode".
+
 MAGIC_BYTES: dict[str, tuple[bytes, ...]] = {
     ".pdf": (b"%PDF",),
     ".docx": (b"PK\x03\x04", b"PK\x05\x06"),
@@ -44,7 +41,7 @@ MAGIC_BYTES: dict[str, tuple[bytes, ...]] = {
     ".md": (),
 }
 
-# Acceptable libmagic-sniffed MIME types per extension (when libmagic is present).
+
 SNIFFED_MIME: dict[str, set[str]] = {
     ".pdf": {"application/pdf"},
     ".docx": {
@@ -74,7 +71,7 @@ async def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
     expected = get_settings().api.api_key
     if not expected:
         return
-    # compare as bytes; hmac.compare_digest rejects non-ASCII str (would 500)
+
     if not x_api_key or not hmac.compare_digest(
         x_api_key.encode("utf-8"), expected.encode("utf-8")
     ):
@@ -85,23 +82,11 @@ async def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
         )
 
 
-# Sec-Fetch-Site values that are NOT a hostile cross-origin initiator. Modern
-# browsers stamp this on every request; "none" means the user drove it directly
-# (address bar, bookmark), "same-site"/"same-origin" mean our own frontend.
 _SAFE_FETCH_SITES = {"same-origin", "same-site", "none"}
 
 
 async def require_same_site(request: Request) -> None:
-    """Reject cross-site browser requests to state-changing routes (CSRF).
-
-    API-key auth does not help in no-key local mode: a page the user merely
-    visits can submit an HTML form to 127.0.0.1 and poison the corpus, because
-    a form POST is a CORS "simple request" that runs without a preflight. The
-    browser labels the initiator via Sec-Fetch-Site, so we trust that first and
-    fall back to an Origin allowlist for older browsers. A request carrying
-    neither header (curl, the CLI, server-to-server) has no ambient-credential
-    CSRF surface and is allowed through.
-    """
+    "Reject cross-site browser requests to state-changing routes (CSRF)."
     fetch_site = request.headers.get("sec-fetch-site")
     if fetch_site is not None:
         if fetch_site.lower() in _SAFE_FETCH_SITES:
@@ -164,7 +149,7 @@ def _sniff_mime(ext: str, data: bytes) -> None:
     if _MAGIC is None:
         return
     detected = str(_MAGIC.from_buffer(data)).lower()  # type: ignore[attr-defined]
-    # text formats: any text/* is fine (libmagic reports text/x-c, text/html, ...)
+
     if ext in (".txt", ".md"):
         if detected.startswith("text/") or detected == "inode/x-empty":
             return

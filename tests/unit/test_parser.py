@@ -29,7 +29,6 @@ class TestDocumentParser:
         assert "research paper title" in doc.content.lower()
         assert doc.metadata["extension"] == ".md"
 
-        # Should extract markdown headers as sections
         assert len(doc.sections) > 0
         section_titles = [s.title.lower() for s in doc.sections]
         assert any("abstract" in t for t in section_titles)
@@ -47,10 +46,9 @@ class TestDocumentParser:
             parser.parse(unsupported)
 
     def test_non_utf8_text_raises_parse_error(self, parser, temp_dir):
-        # A non-UTF-8 upload must surface an actionable DocumentParseError,
-        # not a bare UnicodeDecodeError.
+
         bad = temp_dir / "latin1.txt"
-        bad.write_bytes("café résumé".encode("latin-1"))  # 0xe9 is invalid UTF-8
+        bad.write_bytes("café résumé".encode("latin-1"))
         with pytest.raises(DocumentParseError, match="UTF-8"):
             parser.parse(bad)
 
@@ -61,10 +59,8 @@ class TestDocumentParser:
             parser.parse(bad)
 
     def test_documents_sharing_long_prefix_are_not_duplicates(self, parser):
-        # Same filename and identical >500-char prefix, differing only in the
-        # tail: hashing just the prefix collided them and silently dropped the
-        # second. The id must hash the full content so both survive.
-        prefix = "alpha " * 200  # ~1200 chars, well over the old 500-char window
+
+        prefix = "alpha " * 200
         a = parser.parse_bytes((prefix + "ending one").encode(), "paper.txt", ".txt")
         b = parser.parse_bytes((prefix + "ending two").encode(), "paper.txt", ".txt")
         assert a.id != b.id
@@ -86,24 +82,20 @@ class TestDocumentParser:
     def test_section_extraction_txt(self, parser, sample_text_file):
         doc = parser.parse(sample_text_file)
 
-        # Text files use heuristic section detection (uppercase headers)
         assert len(doc.sections) >= 1
 
     def test_section_extraction_md(self, parser, sample_markdown_file):
         doc = parser.parse(sample_markdown_file)
 
-        # Markdown uses header-based section extraction
         assert len(doc.sections) >= 4
 
-        # Check section levels
         levels = [s.level for s in doc.sections]
-        assert 1 in levels  # h1
-        assert 2 in levels  # h2
+        assert 1 in levels
+        assert 2 in levels
 
     def test_section_content_preserved(self, parser, sample_markdown_file):
         doc = parser.parse(sample_markdown_file)
 
-        # Find abstract section
         abstract_sections = [s for s in doc.sections if "abstract" in s.title.lower()]
         assert len(abstract_sections) == 1
         assert "novel findings" in abstract_sections[0].content.lower()
@@ -143,12 +135,40 @@ class TestDocumentParser:
 
         doc = parser.parse(messy_file)
 
-        # Should not have excessive whitespace
         assert "   " not in doc.content
         assert "\n\n\n" not in doc.content
 
 
 class TestPdfEdgeCases:
+    def test_headerless_pages_reach_chunks(self, temp_dir, monkeypatch):
+        from scinexusrag.ingestion import SemanticChunker
+
+        class FakePage:
+            def __init__(self, text):
+                self.text = text
+
+            def extract_text(self):
+                return self.text
+
+        class FakeReader:
+            def __init__(self, path):
+                self.pages = [
+                    FakePage("METHODS\nThe sample was measured."),
+                    FakePage("Critical measurements on a page without a heading."),
+                ]
+                self.is_encrypted = False
+
+        monkeypatch.setattr("scinexusrag.ingestion.parser.PdfReader", FakeReader)
+        pdf_path = temp_dir / "mixed.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake")
+        chunks = SemanticChunker().chunk(DocumentParser().parse(pdf_path))
+
+        assert any("Critical measurements" in chunk.content for chunk in chunks)
+        assert (
+            next(chunk for chunk in chunks if "Critical measurements" in chunk.content).page_number
+            == 2
+        )
+
     def test_encrypted_pdf_actionable_error(self, temp_dir):
         from pypdf import PdfWriter
 
@@ -205,6 +225,16 @@ class TestDuplicateNormalization:
 
 
 class TestPreamblePreserved:
+    def test_text_preamble_before_first_heading_reaches_chunks(self, temp_dir):
+        from scinexusrag.ingestion import SemanticChunker
+
+        txt = temp_dir / "doc.txt"
+        txt.write_text("Critical preamble sentence.\n\nMETHODS\nBody under heading.\n")
+        chunks = SemanticChunker().chunk(DocumentParser().parse(txt))
+
+        assert any("Critical preamble sentence." in chunk.content for chunk in chunks)
+        assert any("Body under heading." in chunk.content for chunk in chunks)
+
     def test_markdown_preamble_before_first_heading_kept(self, temp_dir):
         md = temp_dir / "doc.md"
         md.write_text("Critical preamble sentence.\n\n# Heading One\n\nBody under heading.\n")

@@ -46,9 +46,6 @@ class Reranker:
         pairs = [(query, r.chunk.content) for r in results]
         scores = self.model.predict(pairs, batch_size=self.batch_size)
 
-        # Min-max normalize; when every score is equal (incl. a single result),
-        # map to a neutral 1.0 rather than 0.0 so the top hit is not reported
-        # as irrelevant.
         min_score, max_score = min(scores), max(scores)
         span = max_score - min_score
 
@@ -63,8 +60,6 @@ class Reranker:
 
         reranked.sort(key=lambda x: x.score, reverse=True)
 
-        # `is not None` (not truthiness) so an explicit top_k=0 returns [],
-        # matching rrf_fuse rather than silently returning everything.
         if top_k is not None:
             reranked = reranked[:top_k]
 

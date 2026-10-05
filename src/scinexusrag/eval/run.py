@@ -11,10 +11,11 @@ from typing import Any
 from scinexusrag.eval import datasets as D
 from scinexusrag.eval import metrics as M
 from scinexusrag.eval.indexes import corpus_to_chunks
+from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.eval.systems import build_systems
 from scinexusrag.ingestion import Embedder
 
-RESULTS_DIR = Path("benchmarks/results")
+RESULTS_DIR = Path("outputs/generated")
 
 
 def evaluate(
@@ -28,11 +29,18 @@ def evaluate(
     limit: int | None = None,
     seed: int = 0,
 ) -> dict[str, Any]:
+    if depth <= 0:
+        raise ValueError("depth must be positive")
+    if limit is not None and limit <= 0:
+        raise ValueError("limit must be positive")
+    provenance = evaluation_provenance()
     ds = D.load(dataset, split=split, prefer_vendored=use_sample)
-    qids = list(ds.queries)
-    if limit:
+    qids = [q for q in ds.queries if ds.qrels.get(q)]
+    if limit is not None:
         qids = qids[:limit]
-        ds.qrels = {q: ds.qrels[q] for q in qids if q in ds.qrels}
+    if not qids:
+        raise ValueError(f"no judged queries for {dataset}/{split}")
+    qrels = {q: ds.qrels[q] for q in qids}
 
     corpus_text = {doc_id: ds.doc_text(doc_id) for doc_id in ds.corpus}
     chunks = corpus_to_chunks(corpus_text)
@@ -50,7 +58,7 @@ def evaluate(
         run = {qid: fn(ds.queries[qid], depth) for qid in qids}
         elapsed = time.perf_counter() - t0
 
-        scores = M.per_query(run, ds.qrels)
+        scores = M.per_query(run, qrels)
         means = M.aggregate(scores)
         cis = {
             metric: M.bootstrap_ci([s[metric] for s in scores.values()], seed=seed)
@@ -64,8 +72,6 @@ def evaluate(
         }
         print(f"{name:24s} nDCG@10={means['nDCG@10']:.3f}  R@10={means['R@10']:.3f}")
 
-    # significance vs the headline corrective pipeline — pinned so optional
-    # --rerank/--splade rungs (appended last) don't silently become the ref.
     ref = "+ Corrective PRF" if "+ Corrective PRF" in systems else list(systems)[-1]
     for name in systems:
         if name == ref:
@@ -74,7 +80,6 @@ def evaluate(
         p = M.paired_randomization_test(per_query_ndcg[ref], per_query_ndcg[name], seed=seed)
         results[name]["p_vs_final"] = p
 
-    # paired delta + p vs BM25; a CI excluding 0 is the bar for a real win
     if "BM25" in per_query_ndcg:
         base = per_query_ndcg["BM25"]
         for name in systems:
@@ -89,15 +94,24 @@ def evaluate(
             )
 
     return {
+        "provenance": provenance,
         "dataset": dataset,
         "split": "sample" if use_sample else split,
         "dataset_revision": ds.revision,
+        "qrels_revision": ds.qrels_revision,
+        "dataset_source": ds.source,
         "num_queries": len(qids),
+        "query_ids": sorted(qids),
         "corpus_size": len(ds.corpus),
         "depth": depth,
         "rrf_k": 60,
+        "ndcg_gain": "linear",
         "embedding_model": embedding_model,
+        "embedding_revision": embedder.revision,
+        "query_prefix": embedder.query_prefix,
+        "doc_prefix": embedder.doc_prefix,
         "reranker": include_rerank,
+        "splade": include_splade,
         "reference_system": ref,
         "seed": seed,
         "systems": results,

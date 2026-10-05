@@ -1,5 +1,9 @@
 """Tests for retrieval metrics."""
 
+import math
+
+import pytest
+
 from scinexusrag.eval import metrics as M
 
 
@@ -27,12 +31,28 @@ class TestRankingMetrics:
         worse = M.ndcg_at_k(["x", "y", "a"], {"a"}, 3)
         assert good > worse
 
+    def test_ndcg_matches_trec_linear_graded_gain(self) -> None:
+        discount = 1 / math.log2(3)
+        expected = (1 + 2 * discount) / (2 + discount)
+        assert M.ndcg_at_k(["low", "high"], {"high": 2, "low": 1}, 2) == pytest.approx(expected)
+
+    @pytest.mark.parametrize("k", [0, -1])
+    def test_nonpositive_cutoffs_are_empty(self, k: int) -> None:
+        assert M.precision_at_k(["a", "b"], {"a"}, k) == 0
+        assert M.recall_at_k(["a", "b"], {"a"}, k) == 0
+        assert M.hit_at_k(["a", "b"], {"a"}, k) == 0
+        assert M.ndcg_at_k(["a", "b"], {"a"}, k) == 0
+
     def test_average_precision(self) -> None:
         ap = M.average_precision(["a", "x", "b"], {"a", "b"})
         assert abs(ap - (1.0 + 2 / 3) / 2) < 1e-9
 
 
 class TestAggregateAndSignificance:
+    def test_duplicate_document_ids_cannot_inflate_scores(self) -> None:
+        with pytest.raises(ValueError, match="duplicate ranked"):
+            M.per_query({"q": ["a", "a"]}, {"q": {"a"}})
+
     def test_per_query_skips_empty_qrels(self) -> None:
         run = {"q1": ["a", "b"], "q2": ["c"]}
         qrels = {"q1": {"a"}, "q2": set()}
@@ -57,3 +77,29 @@ class TestAggregateAndSignificance:
         a = [1.0] * 10
         b = [0.0] * 10
         assert M.paired_randomization_test(a, b, seed=1) < 0.05
+
+    @pytest.mark.parametrize("fn", [M.paired_delta_ci, M.paired_randomization_test])
+    def test_incomplete_pairs_are_rejected(self, fn) -> None:
+        with pytest.raises(ValueError, match="equal length"):
+            fn([1.0, 0.5], [1.0])
+
+
+class TestBinaryMetrics:
+    def test_pr_auc_ties_share_a_threshold(self) -> None:
+        assert M.pr_auc([0.5, 0.5], [1, 0]) == 0.5
+        assert M.pr_auc([0.5, 0.5], [0, 1]) == 0.5
+        assert M.pr_auc([0.9, 0.5, 0.5], [1, 0, 1]) == pytest.approx(5 / 6)
+
+    def test_risk_coverage_ties_do_not_depend_on_row_order(self) -> None:
+        assert M.risk_coverage_auc([0.5, 0.5], [1, 0]) == 0.5
+        assert M.risk_coverage_auc([0.5, 0.5], [0, 1]) == 0.5
+        assert M.risk_coverage_auc([0.9, 0.5, 0.5], [1, 0, 1]) == pytest.approx(7 / 36)
+
+    @pytest.mark.parametrize("fn", [M.pr_auc, M.roc_auc, M.risk_coverage_auc])
+    def test_invalid_binary_scores_are_rejected(self, fn) -> None:
+        with pytest.raises(ValueError, match="equal length"):
+            fn([0.5], [0, 1])
+        with pytest.raises(ValueError, match="finite"):
+            fn([float("nan"), 0.5], [0, 1])
+        with pytest.raises(ValueError, match="binary"):
+            fn([0.5, 0.6], [0, 2])

@@ -1,7 +1,4 @@
-"""Hermetic unit tests for the generation subsystem.
-
-All heavy models are stubbed: no downloads, no network, no Ollama.
-"""
+"Hermetic unit tests for the generation subsystem."
 
 from __future__ import annotations
 
@@ -105,9 +102,8 @@ class TestSynthesizerFormatting:
         five = [_result(i, f"s{i}") for i in range(1, 6)]
         sources = Synthesizer(StubLLM("x"))._build_sources(five, {})  # type: ignore[arg-type]
 
-        # Formula wins under a generous cap: 256 + 100 * 5 = 756.
         assert Synthesizer(StubLLM("x"), max_tokens=2048)._token_budget(sources) == 756  # type: ignore[arg-type]
-        # A tight configured cap wins over the formula.
+
         assert Synthesizer(StubLLM("x"), max_tokens=300)._token_budget(sources) == 300  # type: ignore[arg-type]
 
 
@@ -125,8 +121,7 @@ class TestOrchestratorWiring:
         assert "[1]" in resp.answer
 
     def test_invalid_citations_handled(self) -> None:
-        # The verifier alone detects, reports, and strips out-of-range
-        # markers, so the warning must surface on the response.
+
         retriever = StubRetriever([_result(1, "only source")])
         llm = StubLLM("Grounded [1] but invalid [9].")
         orch = Orchestrator(retriever, llm)  # type: ignore[arg-type]
@@ -226,7 +221,7 @@ class TestLLMRetry:
             client.generate("hi")
 
         assert "base_url" in str(exc.value)
-        assert fake.posts == 3  # initial + 2 retries
+        assert fake.posts == 3
 
     def test_does_not_retry_on_4xx(self, monkeypatch: pytest.MonkeyPatch) -> None:
         client, fake = _client_with([_Resp(404, {})], monkeypatch)
@@ -241,8 +236,7 @@ class TestLLMRetry:
         assert fake.posts == 2
 
     def test_missing_response_field_raises_llmerror(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # A 200 that lacks the 'response' key must stay inside the LLMError
-        # contract instead of leaking a raw KeyError to the caller.
+
         client, fake = _client_with([_Resp(200, {"done": True})], monkeypatch)
         with pytest.raises(LLMError, match="response"):
             client.generate("hi")
@@ -255,7 +249,7 @@ class TestStripCitations:
 
         text = "Main finding [1].\n\nDetails:\n1. First [2]\n2. Second [3]"
         out = strip_citations(text, {1, 2, 3})
-        assert "\n" in out  # newlines must survive, not collapse to one line
+        assert "\n" in out
         assert out.count("\n") >= 2
 
     def test_drops_out_of_range(self) -> None:
@@ -269,6 +263,6 @@ class TestBuildSourcesIndex:
     def test_no_index_gaps_with_duplicates(self) -> None:
         syn = Synthesizer(StubLLM("x"))
         dup = _result(1, "alpha")
-        results = [dup, dup, _result(2, "beta")]  # duplicate chunk id repeated
+        results = [dup, dup, _result(2, "beta")]
         sources = syn._build_sources(results, {})
-        assert [s.index for s in sources] == [1, 2]  # contiguous, no gap
+        assert [s.index for s in sources] == [1, 2]

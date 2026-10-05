@@ -2,8 +2,6 @@
 
 import re
 
-# One sentence-boundary rule for the whole codebase: split after .!? when the
-# next sentence starts with a capital, digit, or opening paren.
 SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9(])")
 
 

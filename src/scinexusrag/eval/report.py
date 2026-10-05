@@ -11,19 +11,19 @@ from scinexusrag.eval.metrics import holm_correction
 from scinexusrag.eval.metrics import paired_delta_ci as pdci
 from scinexusrag.eval.metrics import paired_randomization_test as prt
 
-RESULTS = Path("benchmarks/results")
+RESULTS = Path("outputs/results")
 COLS = ["nDCG@10", "R@5", "R@10", "R@20", "MRR", "MAP"]
 
 
-def _load(name: str) -> dict[str, Any] | None:
-    path = RESULTS / name
+def _load(name: str, results_dir: Path = RESULTS) -> dict[str, Any] | None:
+    path = results_dir / name
     return json.loads(path.read_text()) if path.exists() else None
 
 
 def _p_vs_baseline(res: dict[str, Any], baseline: str = "BM25") -> dict[str, float]:
     pq = res["per_query_ndcg"]
     base = pq[baseline]
-    return {n: prt(pq[n], base) for n in pq if n != baseline}
+    return {n: prt(pq[n], base, seed=res.get("seed", 0)) for n in pq if n != baseline}
 
 
 def _fmt_p(p: float, significant: bool) -> str:
@@ -151,7 +151,7 @@ def build_macros(
 
     def delta(res: dict[str, Any], sysname: str) -> tuple[float, float, float]:
         pq = res["per_query_ndcg"]
-        return pdci(pq[sysname], pq["BM25"])
+        return pdci(pq[sysname], pq["BM25"], seed=res.get("seed", 0))
 
     sci_p = _p_vs_baseline(sci)
     nf_p = _p_vs_baseline(nf)
@@ -176,6 +176,8 @@ def build_macros(
     if mini:
         import numpy as np
 
+        if sci.get("query_ids") != mini.get("query_ids"):
+            raise ValueError("embedding comparisons require matching query_ids in the same order")
         bge = sci["per_query_ndcg"]["Dense"]
         ml = mini["per_query_ndcg"]["Dense"]
         gain = np.mean(bge) - np.mean(ml)
@@ -216,14 +218,14 @@ def build_macros(
     return macros
 
 
-def write_paper_bundle(paper_dir: Path) -> None:
-    sci = _load("scifact_test.json")
-    nf = _load("nfcorpus_test.json")
+def write_paper_bundle(paper_dir: Path, results_dir: Path = RESULTS) -> None:
+    sci = _load("scifact_test.json", results_dir)
+    nf = _load("nfcorpus_test.json", results_dir)
     if not sci or not nf:
         raise SystemExit("missing scifact_test.json / nfcorpus_test.json; run `make eval` first")
-    mini = _load("scifact_minilm.json")
-    corr_sci = _load("corrective_scifact.json")
-    faith = _load("faithfulness_dev.json")
+    mini = _load("scifact_minilm.json", results_dir)
+    corr_sci = _load("corrective_scifact.json", results_dir)
+    faith = _load("faithfulness_dev.json", results_dir)
 
     (paper_dir / "tables").mkdir(parents=True, exist_ok=True)
     (paper_dir / "figures").mkdir(parents=True, exist_ok=True)
@@ -242,9 +244,12 @@ def write_paper_bundle(paper_dir: Path) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render eval tables, figure, and macros")
-    p.add_argument("--paper", default="paper", help="paper directory to populate")
+    p.add_argument("--paper", default="outputs/generated/paper", help="paper directory to populate")
+    p.add_argument(
+        "--results", default=str(RESULTS), help="directory containing evaluation results"
+    )
     args = p.parse_args()
-    write_paper_bundle(Path(args.paper))
+    write_paper_bundle(Path(args.paper), Path(args.results))
 
 
 if __name__ == "__main__":

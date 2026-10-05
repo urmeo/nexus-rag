@@ -34,12 +34,7 @@ class GroundingReport:
 
 
 class GroundingVerifier:
-    """Checks whether each answer sentence is entailed by a source.
-
-    Uses a cross-encoder NLI model. A sentence is grounded when some
-    source entails it above ``threshold``. Unlike a citation-index check,
-    this inspects the actual semantic content.
-    """
+    "Checks whether each answer sentence is entailed by a source."
 
     def __init__(
         self,
@@ -79,9 +74,6 @@ class GroundingVerifier:
             return np.zeros((0, 3))
         logits = np.asarray(self.model.predict(pairs, convert_to_numpy=True), dtype=np.float64)
         if logits.ndim == 1 or logits.shape[1] == 1:
-            # Single-logit cross-encoder: a softmax over one column is always
-            # 1.0, which would mark every sentence fully entailed. Interpret the
-            # logit as a sigmoid entailment probability instead.
             p = 1.0 / (1.0 + np.exp(-logits.reshape(-1)))
             return np.column_stack([1.0 - p, p])
         exp = np.exp(logits - logits.max(axis=1, keepdims=True))

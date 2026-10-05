@@ -15,7 +15,7 @@ def test_rrf_fuse_orders_by_summed_reciprocal_rank():
     fused = rrf_fuse([a, b], [1.0, 1.0], k=60)
 
     assert [r.chunk.id for r in fused] == ["c2", "c3", "c1", "c4"]
-    assert fused[0].score == 1.0  # top normalized to 1
+    assert fused[0].score == 1.0
 
 
 def test_rrf_fuse_weights_shift_ranking():
@@ -41,7 +41,7 @@ def test_pr_auc_known_value():
 
 def test_holm_is_monotone_and_scales_smallest():
     adj = holm_correction({"a": 0.01, "b": 0.02, "c": 0.5})
-    assert math.isclose(adj["a"], 0.03)  # smallest * m
+    assert math.isclose(adj["a"], 0.03)
     assert adj["a"] <= adj["b"] <= adj["c"]
 
 
@@ -82,7 +82,7 @@ class _FakeBase:
         return [_result("d1", 0.9), _result("d2", 0.8)]
 
     def retrieve_with_dense_top(self, query, top_k=10, depth=50):
-        # Mirrors the real hybrid: one fused pass yields results + top dense score.
+
         self.calls.append(query)
         return [_result("d1", 0.9), _result("d2", 0.8)], self.dense.retrieve(query, 1)[0].score
 
@@ -105,12 +105,12 @@ def test_corrective_expands_when_weak():
 
 
 def test_corrective_disabled_skips_second_pass():
-    # enabled=False must short-circuit even when confidence is below tau.
+
     base = _FakeBase(top_score=0.2)
     cr = CorrectiveRetriever(base, tau=0.55, enabled=False)
     _, triggered = cr.retrieve_traced("kinase inhibits tumor growth", top_k=2)
     assert triggered is False
-    assert len(base.calls) == 1  # no re-retrieval
+    assert len(base.calls) == 1
 
 
 def _content_result(text: str) -> RetrievalResult:
@@ -118,18 +118,18 @@ def _content_result(text: str) -> RetrievalResult:
 
 
 def test_expand_appends_frequent_non_query_terms():
-    # PRF term selection is the headline of the corrective loop; test it directly.
+
     base = _FakeBase(top_score=0.2)
     cr = CorrectiveRetriever(base, feedback_terms=2)
     results = [
         _content_result("apoptosis apoptosis apoptosis signaling pathway"),
         _content_result("signaling pathway pathway"),
     ]
-    added = cr.expand("kinase inhibits", results).split()[2:]  # after the query terms
+    added = cr.expand("kinase inhibits", results).split()[2:]
 
-    assert added == ["apoptosis", "pathway"]  # top-2 by frequency, in order
-    assert "kinase" not in added and "inhibits" not in added  # query terms excluded
-    assert "signaling" not in added  # capped out by feedback_terms=2
+    assert added == ["apoptosis", "pathway"]
+    assert "kinase" not in added and "inhibits" not in added
+    assert "signaling" not in added
 
 
 def test_expand_respects_feedback_terms_cap():
@@ -140,12 +140,12 @@ def test_expand_respects_feedback_terms_cap():
 
 
 def test_corrective_confident_query_does_one_dense_pass():
-    # #5 regression: a high-confidence query must not re-embed/re-search dense.
+
     base = _FakeBase(top_score=0.9)
     cr = CorrectiveRetriever(base, tau=0.55)
     _, triggered = cr.retrieve_traced("kinase inhibits tumor growth", top_k=2)
     assert triggered is False
-    assert base.dense.calls == 1  # was 2 before the fix
+    assert base.dense.calls == 1
 
 
 def test_hybrid_retrieve_with_dense_top_single_pass():
@@ -173,6 +173,6 @@ def test_hybrid_retrieve_with_dense_top_single_pass():
 def test_looks_technical_ignores_trailing_punctuation():
     from scinexusrag.retrieval.hybrid import _looks_technical
 
-    assert _looks_technical("classification.") is False  # 14 chars + period
-    assert _looks_technical("immunodeficiency,") is True  # 16 chars, genuinely long
-    assert _looks_technical("TF-IDF") is True  # acronym still detected
+    assert _looks_technical("classification.") is False
+    assert _looks_technical("immunodeficiency,") is True
+    assert _looks_technical("TF-IDF") is True

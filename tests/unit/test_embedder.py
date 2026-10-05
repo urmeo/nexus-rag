@@ -103,10 +103,8 @@ class TestEmbedder:
         with patch("sentence_transformers.SentenceTransformer") as mock_cls:
             embedder = Embedder(model_name="test-model")
 
-            # Model should not be loaded yet
             mock_cls.assert_not_called()
 
-            # Access model property triggers loading
             _ = embedder.model
 
             mock_cls.assert_called_once_with("test-model", device=None, revision=None)
@@ -133,14 +131,13 @@ class TestEmbedder:
             dtype=np.float32,
         )
 
-        # Manually normalize for test
         doc_embs = doc_embs / np.linalg.norm(doc_embs, axis=1, keepdims=True)
 
         similarities = embedder.similarity(query_emb, doc_embs)
 
         assert similarities.shape == (3,)
-        assert similarities[0] == pytest.approx(1.0, abs=0.01)  # Identical
-        assert similarities[1] == pytest.approx(0.0, abs=0.01)  # Orthogonal
+        assert similarities[0] == pytest.approx(1.0, abs=0.01)
+        assert similarities[1] == pytest.approx(0.0, abs=0.01)
 
     def test_similarity_unnormalized(self, mock_sentence_transformer):
         embedder = Embedder(model_name="test-model", normalize=False)
@@ -157,8 +154,8 @@ class TestEmbedder:
         similarities = embedder.similarity(query_emb, doc_embs)
 
         assert similarities.shape == (2,)
-        assert similarities[0] == pytest.approx(1.0, abs=0.01)  # Same direction
-        assert similarities[1] == pytest.approx(0.0, abs=0.01)  # Orthogonal
+        assert similarities[0] == pytest.approx(1.0, abs=0.01)
+        assert similarities[1] == pytest.approx(0.0, abs=0.01)
 
     def test_show_progress_flag(self, mock_sentence_transformer):
         embedder = Embedder(model_name="test-model")

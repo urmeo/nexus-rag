@@ -74,11 +74,7 @@ class HybridRetriever:
 
 
 class AdaptiveHybridRetriever(HybridRetriever):
-    """Hybrid retriever that shifts fusion weight by query shape.
-
-    Short or notation-heavy queries lean lexical; long natural-language
-    queries lean dense. Falls back to the base split in between.
-    """
+    "Hybrid retriever that shifts fusion weight by query shape."
 
     def __init__(
         self,
@@ -104,8 +100,7 @@ class AdaptiveHybridRetriever(HybridRetriever):
 
 
 def _looks_technical(word: str) -> bool:
-    # Strip surrounding punctuation so it matches the retrieval tokenizer
-    # (e.g. "classification." must not read as a 15-char technical token).
+
     word = word.strip(string.punctuation)
     return bool(word) and (
         word.isupper() or "_" in word or any(c.isdigit() for c in word) or len(word) > 14

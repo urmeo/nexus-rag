@@ -41,11 +41,7 @@ class Chunk:
 
 
 class HierarchicalChunker:
-    """Splits documents by section, then paragraph, then sentence.
-
-    Keeps chunks near a target size without breaking sentences, prepends
-    the section header, and carries page numbers for citation.
-    """
+    "Splits documents by section, then paragraph, then sentence."
 
     DEFAULT_TARGET_SIZE = 1200
     DEFAULT_MAX_SIZE = 1500
@@ -62,6 +58,15 @@ class HierarchicalChunker:
         include_context: bool = True,
         context_chars: int = DEFAULT_CONTEXT_CHARS,
     ):
+        if min_chunk_size <= 0 or target_chunk_size <= 0 or max_chunk_size <= 0:
+            raise ValueError("chunk sizes must be positive")
+        if min_chunk_size > min(target_chunk_size, max_chunk_size):
+            raise ValueError("min_chunk_size must not exceed target or max chunk size")
+        if overlap_size < 0 or overlap_size >= target_chunk_size:
+            raise ValueError("overlap_size must be nonnegative and smaller than target_chunk_size")
+        if context_chars < 0:
+            raise ValueError("context_chars must be nonnegative")
+
         self.min_chunk_size = min_chunk_size
         self.target_chunk_size = target_chunk_size
         self.max_chunk_size = max_chunk_size
@@ -118,16 +123,7 @@ class HierarchicalChunker:
         ]
 
     def _pack_paragraphs(self, paragraphs: list[str], header_prefix: str) -> list[str]:
-        """Pack paragraphs into chunk texts near the target size.
-
-        Pure accumulator shared by both strategies: paragraphs fill a chunk up
-        to the target, oversized paragraphs are split by sentence, and
-        consecutive chunks share ``overlap_size`` characters of tail context. A
-        trailing chunk below ``min_chunk_size`` is merged into the previous
-        chunk of THIS batch (same section) so citation metadata stays correct;
-        if there is nothing to merge into, it is emitted on its own rather than
-        dropped, so a short document is never lost.
-        """
+        "Pack paragraphs into chunk texts near the target size."
         texts: list[str] = []
         current: list[str] = []
         current_length = len(header_prefix)
@@ -138,7 +134,6 @@ class HierarchicalChunker:
                 continue
             para_len = len(para)
 
-            # A paragraph that alone exceeds max: flush, then sentence-split.
             if para_len > self.max_chunk_size - len(header_prefix):
                 if current:
                     texts.append(header_prefix + "\n\n".join(current))
@@ -147,13 +142,9 @@ class HierarchicalChunker:
                     if len(sent_chunk.strip()) >= self.min_chunk_size or not texts:
                         texts.append(sent_chunk)
                     else:
-                        # Merge a short trailing sentence into the previous
-                        # chunk (same section) instead of dropping it; strip
-                        # its duplicate header prefix first.
                         texts[-1] += "\n\n" + sent_chunk.removeprefix(header_prefix).strip()
                 continue
 
-            # Past the target with enough content: emit and carry overlap.
             if current_length + para_len + 2 > self.target_chunk_size:
                 if current and current_length >= self.min_chunk_size:
                     texts.append(header_prefix + "\n\n".join(current))
@@ -172,23 +163,17 @@ class HierarchicalChunker:
         if len(tail) >= self.min_chunk_size or not texts:
             texts.append(tail)
         else:
-            # Merge the short tail into the previous chunk of this same section.
             texts[-1] += "\n\n" + "\n\n".join(current)
         return texts
 
     def _split_into_paragraphs(self, text: str) -> list[str]:
         """Split text into semantic paragraphs, preserving special blocks."""
-        # Split on double newlines
+
         paragraphs = re.split(r"\n\s*\n", text)
         return [p.strip() for p in paragraphs if p.strip()]
 
     def _split_by_sentences(self, text: str, prefix: str) -> list[str]:
-        """Split text into sentence-based chunks, never breaking mid-sentence.
-
-        A single sentence with no usable boundary that still exceeds the size
-        budget is hard-wrapped on whitespace, so no emitted chunk can exceed
-        ``max_chunk_size``.
-        """
+        "Split text into sentence-based chunks, never breaking mid-sentence."
         budget = max(1, self.max_chunk_size - len(prefix))
         sentences: list[str] = []
         for raw in SENTENCE_BOUNDARY.split(text):
@@ -255,7 +240,7 @@ class HierarchicalChunker:
     def _add_context_windows(self, chunks: list[Chunk], full_text: str) -> None:
         for chunk in chunks:
             body = chunk.content
-            header = re.match(r"^\[[^\]]*\]\n\n", body)  # synthetic section prefix
+            header = re.match(r"^\[[^\]]*\]\n\n", body)
             if header:
                 body = body[header.end() :]
             needle = body[:80]
@@ -364,7 +349,6 @@ class FixedSizeChunker:
                 step = self.chunk_size - self.chunk_overlap
                 start += max(step, 1)
         else:
-            # Char-based: split on sentence boundaries when possible
             sentences = re.split(r"(?<=[.!?])\s+", text)
             current = ""
             idx = 0
@@ -391,7 +375,7 @@ class FixedSizeChunker:
                         )
                     )
                     idx += 1
-                    # Overlap: keep tail of current chunk
+
                     if self.chunk_overlap > 0 and len(current) > self.chunk_overlap:
                         current = current[-self.chunk_overlap :] + " " + sentence
                     else:
@@ -421,7 +405,6 @@ class FixedSizeChunker:
         return chunks
 
 
-# Pipeline-facing name for the hierarchical chunker.
 SemanticChunker = HierarchicalChunker
 
 

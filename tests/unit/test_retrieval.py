@@ -63,19 +63,16 @@ class TestBM25Retriever:
         assert r.count() == 3
 
     def test_incremental_add_is_idempotent_by_id(self, sample_chunks):
-        # Re-adding already-indexed chunks must not double-count them; only
-        # genuinely new ids are appended.
+
         r = BM25Retriever()
         r.add(sample_chunks[:3])
-        r.add_incremental(sample_chunks[:3])  # same chunks again
+        r.add_incremental(sample_chunks[:3])
         assert r.count() == 3
-        r.add_incremental(sample_chunks[2:])  # 1 overlap + 2 new
+        r.add_incremental(sample_chunks[2:])
         assert r.count() == 5
 
     def test_add_survives_all_empty_tokenization(self):
-        # A wholly degenerate corpus (stop-words / single chars) tokenizes to
-        # nothing; BM25's average-doc-length term would divide by zero. Ingestion
-        # must survive and simply match nothing rather than crash.
+
         chunks = [
             Chunk(id=f"c{i}", content=c, document_id="d")
             for i, c in enumerate(["the a is", "of to in", "x y z"])
@@ -108,7 +105,7 @@ class TestReranker:
     def test_orders_by_cross_encoder_score_desc(self):
         out = self._reranker([0.1, 0.9, 0.5]).rerank("q", self._results())
         assert [x.chunk.id for x in out] == ["c1", "c2", "c0"]
-        assert out[0].score == 1.0 and out[-1].score == 0.0  # min-max normalized
+        assert out[0].score == 1.0 and out[-1].score == 0.0
         assert all(x.source == "hybrid+rerank" for x in out)
 
     def test_all_equal_scores_map_to_neutral_one(self):
@@ -171,7 +168,7 @@ class TestHybridRetriever:
     def test_fusion_promotes_chunk_in_both_lists(self, dense, sparse):
         hybrid = HybridRetriever(dense, sparse, 0.5, 0.5)
         results = hybrid.retrieve("q", top_k=3)
-        assert results[0].chunk.id == "chunk2"  # ranked by both
+        assert results[0].chunk.id == "chunk2"
         assert all(r.source == "hybrid" for r in results)
 
     def test_negative_weight_rejected(self, dense, sparse):
@@ -188,5 +185,5 @@ class TestSpladeEmptyCorpus:
     def test_empty_corpus_does_not_crash(self):
         from scinexusrag.retrieval.splade import SpladeRetriever
 
-        r = SpladeRetriever([])  # sparse.vstack([]) used to crash here
+        r = SpladeRetriever([])
         assert r.retrieve("query") == []

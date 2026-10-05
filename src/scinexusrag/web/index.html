@@ -11,7 +11,7 @@
 </head>
 <body>
     <div class="app">
-        <!-- Header -->
+        
         <header class="header">
             <div class="header-left">
                 <div class="logo">
@@ -26,6 +26,17 @@
                 </div>
             </div>
             <div class="header-right">
+                <button type="button" class="documents-toggle" id="documentsToggle"
+                        aria-controls="sidebar" aria-expanded="false">Documents</button>
+                <details class="api-key-settings" id="apiKeySettings">
+                    <summary>API key</summary>
+                    <form id="apiKeyForm">
+                        <label for="apiKeyInput">API key (optional)</label>
+                        <input type="password" id="apiKeyInput" autocomplete="off" spellcheck="false">
+                        <small>Stored in this browser. Leave empty to clear it.</small>
+                        <button type="submit">Save</button>
+                    </form>
+                </details>
                 <div class="model-status" id="modelStatus">
                     <span class="status-dot"></span>
                     <span class="model-name">Connecting...</span>
@@ -33,16 +44,16 @@
             </div>
         </header>
 
-        <!-- Main Layout -->
+        
         <main class="main">
-            <!-- Sidebar -->
+            
             <aside class="sidebar" id="sidebar">
                 <div class="sidebar-header">
                     <h2>Documents</h2>
                     <span class="doc-count" id="docCount">0</span>
                 </div>
 
-                <!-- Upload Zone -->
+                
                 <div class="upload-zone" id="uploadZone" role="button" tabindex="0"
                      aria-label="Upload documents. Drop PDF, DOCX, TXT or MD files here, or activate to browse.">
                     <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt,.md"
@@ -65,7 +76,7 @@
                     </div>
                 </div>
 
-                <!-- Document List -->
+                
                 <div class="document-list" id="documentList">
                     <div class="empty-docs" id="emptyDocs">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true" focusable="false">
@@ -78,9 +89,9 @@
                 </div>
             </aside>
 
-            <!-- Chat Area -->
+            
             <section class="chat-area">
-                <!-- Messages -->
+                
                 <div class="messages" id="messages" role="log" aria-live="polite" aria-atomic="false">
                     <div class="welcome" id="welcome">
                         <div class="welcome-icon">
@@ -100,7 +111,7 @@
                     </div>
                 </div>
 
-                <!-- Input Area -->
+                
                 <div class="input-area">
                     <div class="input-container">
                         <textarea
@@ -122,7 +133,7 @@
                 </div>
             </section>
 
-            <!-- Sources Panel (slides in) -->
+            
             <aside class="sources-panel" id="sourcesPanel">
                 <div class="sources-header">
                     <h3>Sources</h3>
@@ -137,7 +148,7 @@
             </aside>
         </main>
 
-        <!-- Status Bar -->
+        
         <footer class="status-bar">
             <div class="status-item">
                 <span class="status-label">LLM:</span>
@@ -158,7 +169,7 @@
         </footer>
     </div>
 
-    <!-- Toast Container -->
+    
     <div class="toast-container" id="toastContainer" role="status" aria-live="polite" aria-atomic="true"></div>
 
     <script src="/js/app.js"></script>

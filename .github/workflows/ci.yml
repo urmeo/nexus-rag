@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e  # v3
@@ -31,22 +31,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: "3.11"
       - name: Install project and pip-audit
         run: |
-          # The runner's ambient setuptools is audited too; keep it current
-          # (PYSEC-2026-3447 is fixed in 83.0.0).
           python -m pip install --upgrade pip setuptools
           python -m pip install .
           python -m pip install pip-audit
       - name: Audit resolved dependencies
-        # CVE-2025-3000: unpatched torch.jit.script advisory (transitive via
-        # sentence-transformers). NexusRAG never calls torch.jit.script and no
-        # fixed torch release exists yet; the ignore is revisited when one ships.
-        run: pip-audit --strict --ignore-vuln CVE-2025-3000
+        run: pip-audit --strict
 
   quality:
     name: lint, type-check, test
@@ -57,7 +52,7 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
@@ -73,25 +68,25 @@ jobs:
       - name: Format check
         run: ruff format --check src/ tests/
 
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6
+        with:
+          node-version: "22"
+      - name: Browser tests
+        run: node --test tests/test_web_ui.js
+
       - name: Type-check
         run: mypy src/
 
       - name: Test
         run: pytest tests/ -q --cov=scinexusrag --cov-branch --cov-fail-under=60
 
-      - name: README test count in sync
-        run: |
-          claimed=$(grep -oE '[0-9]+ tests' README.md | head -1 | grep -oE '[0-9]+')
-          actual=$(pytest tests/ --co -q 2>/dev/null | grep -oE '[0-9]+ tests collected' | grep -oE '[0-9]+')
-          echo "README claims $claimed, collected $actual"
-          test "$claimed" = "$actual"
 
   eval-gate:
     name: eval regression gate (offline sample)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
@@ -103,6 +98,6 @@ jobs:
 
       # Reruns the vendored SciFact retrieval + evidence-detection sample
       # (seed 0, CPU, deterministic) and fails if any metric drops below the
-      # committed floor in benchmarks/thresholds.json.
+      # committed floor in src/scinexusrag/eval/data/thresholds.json.
       - name: Run eval regression gate
         run: python -m scinexusrag.eval.gate

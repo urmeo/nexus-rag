@@ -4,7 +4,7 @@ from scinexusrag.ingestion.chunker import (
     Chunk,
     FixedSizeChunker,
     HierarchicalChunker,
-    SemanticChunker,  # pipeline-facing name for HierarchicalChunker
+    SemanticChunker,
     get_chunker,
 )
 from scinexusrag.ingestion.embedder import Embedder

@@ -25,17 +25,17 @@ from scinexusrag.utils.filenames import resolve_display_name
 
 logger = logging.getLogger(__name__)
 
-# Default-deny API-key auth on every /api route when a key is configured.
+
 router = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
 
-# Upload size and query length come from Settings (single source of truth).
+
 MAX_FILENAME_LENGTH = 255
 
 
 class QueryRequest(BaseModel):
     """Query request body."""
 
-    question: str  # Frontend sends 'question' not 'query'
+    question: str
 
     @field_validator("question")
     @classmethod
@@ -135,11 +135,7 @@ class MetricsResponse(BaseModel):
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
-    """Readiness: pipeline, model, and corpus status.
-
-    Distinct from the app-level `/health` liveness probe, which never
-    touches the pipeline and returns only `{"status": "ok"}`.
-    """
+    "Readiness: pipeline, model, and corpus status."
     try:
         rag = get_scinexusrag()
         stats = await asyncio.to_thread(rag.get_stats)
@@ -165,19 +161,13 @@ async def ingest_document(
     request: Request,
     file: Annotated[UploadFile, File(description="Document to upload")],
 ) -> UploadResponse:
-    """
-    Upload a document for ingestion.
-
-    Accepts PDF, DOCX, TXT, or MD files. Max size: `API_MAX_UPLOAD_MB` (default 50 MB).
-    """
+    "Upload a document for ingestion."
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 
-    # Validate filename length
     if len(file.filename) > MAX_FILENAME_LENGTH:
         raise HTTPException(status_code=400, detail="Filename too long")
 
-    # Sanitize filename - extract just the name, no paths
     filename = file.filename.split("/")[-1].split("\\")[-1]
     if not filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
@@ -192,11 +182,10 @@ async def ingest_document(
     max_mb = get_settings().api.max_upload_mb
     max_bytes = max_mb * 1024 * 1024
     try:
-        # Streaming size check: read in chunks to avoid loading huge files into memory
         chunks: list[bytes] = []
         total_size = 0
         while True:
-            chunk = await file.read(1024 * 1024)  # 1 MB at a time
+            chunk = await file.read(1024 * 1024)
             if not chunk:
                 break
             total_size += len(chunk)
@@ -210,7 +199,6 @@ async def ingest_document(
         if len(content) == 0:
             raise HTTPException(status_code=400, detail="File is empty")
 
-        # Content-type, magic-byte and zip-bomb checks beyond the extension.
         validate_upload(ext, content, file.content_type)
 
         rag = get_scinexusrag()
@@ -230,7 +218,6 @@ async def ingest_document(
     except HTTPException:
         raise
     except Exception:
-        # Log the actual error but return generic message
         logger.exception("Document ingestion failed")
         raise HTTPException(status_code=500, detail="Failed to process document") from None
 
@@ -242,12 +229,8 @@ async def ingest_document(
 )
 @limiter.limit(query_limit)
 async def query_documents(request: Request, payload: QueryRequest) -> QueryResponse:
-    """
-    Query the knowledge base.
+    "Query the knowledge base."
 
-    Returns an answer with sources and confidence score.
-    """
-    # Validation is now handled by pydantic field_validator
     try:
         rag = get_scinexusrag()
         t0 = time.monotonic()
@@ -255,7 +238,6 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
         elapsed_ms = (time.monotonic() - t0) * 1000
         get_metrics_collector().record_query(elapsed_ms)
 
-        # Build document name lookup (prefer original_filename)
         doc_names: dict[str, str] = {}
         try:
             docs = await asyncio.to_thread(rag.list_documents)
@@ -264,15 +246,12 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
         except Exception:
             pass
 
-        # Build clean sources response
         sources = []
         for idx, source in enumerate(response.sources):
             filename = doc_names.get(source.document_id) or source.document_name or "Unknown"
             if "/" in filename:
                 filename = filename.split("/")[-1]
 
-            # Cap content in the response; flag it so the UI can label the
-            # expanded view honestly rather than implying it is the full source.
             content = source.content
             truncated = len(content) > 500
             if truncated:
@@ -312,11 +291,7 @@ async def list_documents(
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DocumentListResponse:
-    """List ingested documents, paginated.
-
-    `total_documents` always reports the full corpus size, so clients can
-    page with `offset` until the list is exhausted.
-    """
+    "List ingested documents, paginated."
     try:
         rag = get_scinexusrag()
         docs = await asyncio.to_thread(rag.list_documents)
@@ -375,7 +350,7 @@ async def get_status() -> StatusResponse:
 )
 async def delete_document(document_id: str) -> DeleteResponse:
     """Delete a specific document."""
-    # Basic validation of document_id format
+
     if not document_id or len(document_id) > MAX_ID_LENGTH:
         raise HTTPException(status_code=400, detail="Invalid document ID")
 
@@ -391,7 +366,6 @@ async def delete_document(document_id: str) -> DeleteResponse:
     except HTTPException:
         raise
     except ValueError:
-        # Validation errors from document store
         raise HTTPException(status_code=400, detail="Invalid document ID format") from None
     except Exception:
         logger.exception("Failed to delete document")
@@ -422,7 +396,6 @@ async def get_metrics() -> MetricsResponse:
         collector = get_metrics_collector()
         stats_data = collector.snapshot()
 
-        # Get pipeline stats for document/chunk counts
         total_documents = 0
         total_chunks = 0
         try:

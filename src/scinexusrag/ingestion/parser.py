@@ -12,7 +12,7 @@ from pypdf import PdfReader
 
 
 class DocumentParseError(ValueError):
-    """A document cannot be parsed for a reason the user can act on."""
+    "Document parsing failed."
 
 
 @dataclass
@@ -84,8 +84,7 @@ class DocumentParser:
 
         try:
             doc = self.parse(tmp_path)
-            # id off the real filename, not the random temp name, so identical
-            # uploads dedup instead of each getting a fresh id
+
             doc.id = self._generate_id(Path(filename), doc.content)
             doc.metadata["filename"] = filename
             doc.metadata["original_filename"] = filename
@@ -120,7 +119,6 @@ class DocumentParser:
                 "a scanned document; OCR is not supported"
             )
 
-        # If no sections found, treat entire content as one section
         if not sections and full_text.strip():
             sections = [Section(title="Content", content=full_text, level=0)]
 
@@ -141,7 +139,6 @@ class DocumentParser:
 
             full_text_parts.append(text)
 
-            # Detect headings by style
             if para.style and para.style.name.startswith("Heading"):
                 if current_section is None and preamble:
                     sections.append(Section(title="", content="\n".join(preamble), level=0))
@@ -153,7 +150,6 @@ class DocumentParser:
             elif current_section:
                 current_section.content += text + "\n"
             else:
-                # Body before the first heading — keep it, do not drop it.
                 preamble.append(text)
 
         if current_section:
@@ -170,8 +166,7 @@ class DocumentParser:
 
     @staticmethod
     def _read_text(path: Path) -> str:
-        """Read a text/markdown file as UTF-8, surfacing an actionable error
-        rather than a bare UnicodeDecodeError on non-UTF-8 uploads."""
+        "Read UTF-8 text with clear decoding errors."
         try:
             return path.read_text(encoding="utf-8")
         except UnicodeDecodeError as exc:
@@ -205,7 +200,6 @@ class DocumentParser:
             elif current_section:
                 current_section.content += line + "\n"
             else:
-                # Body before the first heading — keep it, do not drop it.
                 preamble.append(line)
 
         if current_section:
@@ -225,13 +219,15 @@ class DocumentParser:
         sections: list[Section] = []
         lines = text.split("\n")
         current_section: Section | None = None
+        preamble: list[str] = []
 
         for line in lines:
             stripped = line.strip()
             if not stripped:
+                if current_section is None:
+                    preamble.append(line)
                 continue
 
-            # Heuristic: short uppercase lines or numbered sections are likely headers
             is_header = (
                 (stripped.isupper() and len(stripped) < 100)
                 or re.match(r"^\d+\.\s+[A-Z]", stripped)
@@ -239,6 +235,15 @@ class DocumentParser:
             )
 
             if is_header:
+                if current_section is None and "".join(preamble).strip():
+                    sections.append(
+                        Section(
+                            title="",
+                            content="\n".join(preamble).strip(),
+                            page_number=page_number,
+                        )
+                    )
+                    preamble = []
                 if current_section:
                     sections.append(current_section)
                 current_section = Section(
@@ -246,9 +251,15 @@ class DocumentParser:
                 )
             elif current_section:
                 current_section.content += stripped + " "
+            else:
+                preamble.append(line)
 
         if current_section:
             sections.append(current_section)
+        elif "".join(preamble).strip():
+            sections.append(
+                Section(title="", content="\n".join(preamble).strip(), page_number=page_number)
+            )
 
         return sections
 
@@ -271,10 +282,7 @@ class DocumentParser:
         return text.strip()
 
     def _generate_id(self, path: Path, content: str) -> str:
-        """Stable id from name + full normalized content, so whitespace-only
-        edits do not slip past duplicate detection as a "new" document, while
-        two documents that merely share a long prefix stay distinct (hashing
-        only the first 500 chars collided them, silently dropping the second)."""
+        "Hash the name and normalized content."
         normalized = re.sub(r"\s+", " ", content).strip()
         hash_input = f"{path.name}:{normalized}"
         return hashlib.sha256(hash_input.encode()).hexdigest()[:16]

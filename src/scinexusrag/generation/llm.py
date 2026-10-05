@@ -49,8 +49,6 @@ class LLMClient:
             try:
                 response = self.client.post(path, json=payload)
             except httpx.TimeoutException as exc:
-                # A read timeout means the model is slow; retrying only multiplies
-                # the wall-clock hang, so fail fast after a single timeout.
                 raise LLMError(f"LLM timed out after {self.timeout}s ({self._where()})") from exc
             except (httpx.ConnectError, httpx.RequestError) as exc:
                 last_exc = exc
@@ -121,8 +119,6 @@ class LLMClient:
         if system:
             payload["system"] = system
 
-        # Retrying a partially-consumed stream is unsafe, so we only
-        # classify and wrap connection/timeout errors as LLMError.
         try:
             with self.client.stream("POST", "/api/generate", json=payload) as response:
                 response.raise_for_status()

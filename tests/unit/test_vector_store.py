@@ -1,6 +1,7 @@
 """VectorStore search uses cosine similarity, not raw L2 distance."""
 
 import numpy as np
+import pytest
 
 from scinexusrag.ingestion import Chunk
 from scinexusrag.storage.vector_store import VectorStore
@@ -11,9 +12,7 @@ def _store(tmp_path, dim: int = 4) -> VectorStore:
 
 
 def test_search_scores_are_cosine_similarity(temp_dir) -> None:
-    # b points the same direction as the query but is 3x longer: cosine treats it
-    # as identical (sim 1.0), L2 would not. This is the regression guard for the
-    # old `1 - l2_distance` bug that mis-fed the corrective confidence gate.
+
     store = _store(temp_dir)
     chunks = [
         Chunk(id="a", content="aligned unit", document_id="a"),
@@ -31,8 +30,8 @@ def test_search_scores_are_cosine_similarity(temp_dir) -> None:
     }
 
     assert results["a"] > 0.99
-    assert results["b"] > 0.99  # same direction, larger magnitude -> still cosine 1.0
-    assert abs(results["c"]) < 0.01  # orthogonal -> cosine 0
+    assert results["b"] > 0.99
+    assert abs(results["c"]) < 0.01
 
 
 def test_search_ranks_by_similarity(temp_dir) -> None:
@@ -51,8 +50,7 @@ def test_search_ranks_by_similarity(temp_dir) -> None:
 
 
 def test_search_score_clamped_to_unit_interval(temp_dir) -> None:
-    # An opposite-direction vector has cosine distance 2 (similarity -1);
-    # thresholds like the corrective tau assume [0, 1], so it clamps to 0.
+
     store = _store(temp_dir)
     chunks = [Chunk(id="opp", content="opposite", document_id="opp")]
     store.add(chunks, np.array([[-1, 0, 0, 0]], dtype=np.float32))
@@ -60,3 +58,37 @@ def test_search_score_clamped_to_unit_interval(temp_dir) -> None:
     results = store.search(np.array([1, 0, 0, 0], np.float32), top_k=1)
 
     assert results[0].score == 0.0
+
+
+@pytest.mark.parametrize("access", ["search", "get_all_chunks", "get_chunks_by_document"])
+def test_chunk_context_and_citation_metadata_survive_reload(temp_dir, access) -> None:
+    store = _store(temp_dir)
+    chunk = Chunk(
+        id="context",
+        content="The sample was measured.",
+        document_id="paper",
+        metadata={"file_type": "pdf"},
+        document_name="Paper.pdf",
+        section_title="Methods",
+        page_number=3,
+        chunk_index=7,
+        context_before="The sample contained twelve participants.",
+        context_after="All measurements were blinded.",
+    )
+    store.add([chunk], np.array([[1, 0, 0, 0]], dtype=np.float32))
+
+    reloaded = _store(temp_dir)
+    if access == "search":
+        restored = reloaded.search(np.array([1, 0, 0, 0], np.float32))[0].chunk
+    elif access == "get_all_chunks":
+        restored = reloaded.get_all_chunks()[0]
+    else:
+        restored = reloaded.get_chunks_by_document("paper")[0]
+
+    assert restored.full_context == chunk.full_context
+    assert restored.document_name == "Paper.pdf"
+    assert restored.section_title == "Methods"
+    assert restored.page_number == 3
+    assert restored.chunk_index == 7
+    assert restored.metadata["file_type"] == "pdf"
+    assert reloaded.list_documents() == ["paper"]

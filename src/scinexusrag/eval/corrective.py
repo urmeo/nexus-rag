@@ -14,6 +14,7 @@ from scinexusrag.eval import datasets as D
 from scinexusrag.eval import metrics as M
 from scinexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
 from scinexusrag.eval.indexes import unique_document_ids as _ids
+from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.ingestion import Embedder
 from scinexusrag.retrieval import (
     AdaptiveHybridRetriever,
@@ -22,13 +23,12 @@ from scinexusrag.retrieval import (
     Reranker,
 )
 
-RESULTS_DIR = Path("benchmarks/results")
+RESULTS_DIR = Path("outputs/generated")
 NDCG = M.METRIC_FNS["nDCG@10"]
 
-# Held-out split used to pick tau, so the reported test numbers never tune on
-# themselves. NFCorpus ships a validation split; SciFact only has train/test.
+
 TUNE_SPLITS = {"nfcorpus": "validation", "scifact": "train"}
-TUNE_LIMIT = 250  # cap tuning queries for a tractable, deterministic sweep
+TUNE_LIMIT = 250
 
 
 def _sweep_tau(
@@ -77,10 +77,24 @@ def evaluate(
     depth: int = 50,
     with_reranker: bool = True,
 ) -> dict[str, Any]:
+    if depth <= 0 or not taus or any(not 0 <= t <= 1 for t in taus):
+        raise ValueError("depth must be positive and taus must be nonempty values in [0, 1]")
+    tune_split = tune_split or TUNE_SPLITS.get(dataset, "train")
+    if tune_split == split:
+        raise ValueError("tune and evaluation splits must be different")
+    provenance = evaluation_provenance()
     ds = D.load(dataset, split=split)
     qids = [q for q in ds.queries if ds.qrels.get(q)]
     if not qids:
         raise ValueError(f"no judged queries for {dataset}/{split}")
+    ds_tune = D.load(dataset, split=tune_split)
+    tune_qids = [q for q in ds_tune.queries if ds_tune.qrels.get(q)][:TUNE_LIMIT]
+    if not tune_qids:
+        raise ValueError(f"no judged queries in tune split {dataset}/{tune_split}")
+    if set(qids) & set(tune_qids):
+        raise ValueError("tune and evaluation queries overlap")
+    if ds.corpus != ds_tune.corpus:
+        raise ValueError("tune and evaluation splits must use the same corpus")
     chunks = corpus_to_chunks({d: ds.doc_text(d) for d in ds.corpus})
 
     embedder = Embedder(model_name=embedding_model, device="cpu")
@@ -95,31 +109,33 @@ def evaluate(
         base = {q: _ids(adaptive.retrieve(qs[q], top_k=depth, depth=depth)) for q in ids}
         return {q: NDCG(base[q], rels[q]) for q in ids}
 
-    # Pick tau on a held-out split (same shared corpus, different queries), so the
-    # reported test sweep is never used to select its own hyperparameter.
-    tune_split = tune_split or TUNE_SPLITS.get(dataset, "train")
-    ds_tune = D.load(dataset, split=tune_split)
-    tune_qids = [q for q in ds_tune.queries if ds_tune.qrels.get(q)][:TUNE_LIMIT]
-    if not tune_qids:
-        raise ValueError(f"no judged queries in tune split {dataset}/{tune_split}")
     tune_base = base_ndcg_for(ds_tune.queries, ds_tune.qrels, tune_qids)
     tune_sweep = _sweep_tau(
         adaptive, ds_tune.queries, ds_tune.qrels, tune_qids, tune_base, taus, depth
     )
     best_tau = float(max(tune_sweep, key=lambda s: float(s["ndcg"]))["tau"])
 
-    # Report the full sweep on the test split for transparency.
     base_ndcg = base_ndcg_for(ds.queries, ds.qrels, qids)
     sweep = _sweep_tau(adaptive, ds.queries, ds.qrels, qids, base_ndcg, taus, depth)
     selected = next(s for s in sweep if abs(float(s["tau"]) - best_tau) < 1e-9)
     cost = _cost_quality(adaptive, ds, qids, best_tau, depth, with_reranker)
 
     return {
+        "provenance": provenance,
         "dataset": dataset,
         "split": split,
         "tune_split": tune_split,
         "tune_queries": len(tune_qids),
+        "tune_query_ids": tune_qids,
+        "query_ids": qids,
+        "dataset_revision": ds.revision,
+        "qrels_revision": ds.qrels_revision,
+        "tune_qrels_revision": ds_tune.qrels_revision,
+        "dataset_source": ds.source,
+        "ndcg_gain": "linear",
+        "depth": depth,
         "embedding_model": embedding_model,
+        "embedding_revision": embedder.revision,
         "num_queries": len(qids),
         "base_system": "+ Adaptive weights",
         "base_ndcg": float(np.mean(list(base_ndcg.values()))),
@@ -165,7 +181,7 @@ def _cost_quality(
                 reranker.rerank(q, adaptive.retrieve(q, top_k=depth, depth=depth), top_k=depth)
             ),
         )
-    return {"systems": rows, "timed_queries": len(sample)}
+    return {"systems": rows, "timed_queries": len(sample), "query_ids": sample}
 
 
 def main() -> None:

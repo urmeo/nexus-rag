@@ -1,6 +1,6 @@
-/* ===== CSS Variables ===== */
+ 
 :root {
-    /* Colors - Premium palette */
+     
     --primary: #7C3AED;
     --primary-hover: #6D28D9;
     --primary-light: rgba(124, 58, 237, 0.1);
@@ -24,35 +24,35 @@
     --error: #EF4444;
     --error-light: rgba(239, 68, 68, 0.1);
 
-    /* Spacing */
+     
     --space-xs: 4px;
     --space-sm: 8px;
     --space-md: 16px;
     --space-lg: 24px;
     --space-xl: 32px;
 
-    /* Radii */
+     
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-xl: 20px;
     --radius-full: 9999px;
 
-    /* Shadows */
+     
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
     --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
 
-    /* Transitions */
+     
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Layout */
+     
     --header-height: 64px;
     --sidebar-width: 280px;
     --status-height: 32px;
 }
 
-/* ===== Reset & Base ===== */
+ 
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -73,7 +73,7 @@ body {
     min-height: 100vh;
 }
 
-/* ===== App Layout ===== */
+ 
 .app {
     display: flex;
     flex-direction: column;
@@ -81,7 +81,7 @@ body {
     overflow: hidden;
 }
 
-/* ===== Header ===== */
+ 
 .header {
     height: var(--header-height);
     background: var(--bg-card);
@@ -117,6 +117,46 @@ body {
 
 .header-right { display: flex; align-items: center; gap: var(--space-md); }
 
+.documents-toggle { display: none; }
+
+.api-key-settings { position: relative; font-size: 0.8rem; }
+.api-key-settings summary { cursor: pointer; }
+.api-key-settings form {
+    position: absolute;
+    top: calc(100% + var(--space-md));
+    right: 0;
+    z-index: 400;
+    width: 260px;
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    display: grid;
+    gap: var(--space-sm);
+}
+.api-key-settings input { min-width: 0; padding: var(--space-sm); }
+.api-key-settings small { color: var(--text-secondary); }
+.api-key-settings button,
+.documents-toggle {
+    padding: var(--space-sm);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.progress-fill.indeterminate { animation: uploadPending 1.2s ease-in-out infinite alternate; }
+@keyframes uploadPending {
+    from { transform: translateX(0); }
+    to { transform: translateX(180%); }
+}
+
+button.citation,
+button.sources-link { font-family: inherit; border: 0; }
+button.sources-link { background: transparent; padding: 0; }
+
 .model-status {
     display: flex;
     align-items: center;
@@ -141,7 +181,7 @@ body {
 .model-status.connected .status-dot { background: var(--success); }
 .model-status.error .status-dot { background: var(--error); }
 
-/* ===== Main Layout ===== */
+ 
 .main {
     flex: 1;
     display: flex;
@@ -149,7 +189,7 @@ body {
     position: relative;
 }
 
-/* ===== Sidebar ===== */
+ 
 .sidebar {
     width: var(--sidebar-width);
     background: var(--bg-sidebar);
@@ -182,7 +222,7 @@ body {
     font-weight: 600;
 }
 
-/* Upload Zone */
+ 
 .upload-zone {
     margin: var(--space-md);
     padding: var(--space-lg);
@@ -252,7 +292,7 @@ body {
     color: var(--text-secondary);
 }
 
-/* Document List */
+ 
 .document-list {
     flex: 1;
     overflow-y: auto;
@@ -273,7 +313,7 @@ body {
 .empty-docs p { font-weight: 500; margin-bottom: var(--space-xs); }
 .empty-docs span { font-size: 0.75rem; }
 
-/* Document Item (alternative class names) */
+ 
 .document-item {
     display: flex;
     align-items: center;
@@ -340,7 +380,7 @@ body {
 .document-item:hover .document-delete { opacity: 1; }
 .document-delete:hover { color: var(--error); }
 
-/* ===== Chat Area ===== */
+ 
 .chat-area {
     flex: 1;
     display: flex;
@@ -357,7 +397,7 @@ body {
     gap: var(--space-lg);
 }
 
-/* Welcome */
+ 
 .welcome {
     display: flex;
     flex-direction: column;
@@ -416,7 +456,7 @@ body {
     color: var(--primary);
 }
 
-/* Message Bubbles */
+ 
 .message {
     max-width: 85%;
     animation: fadeIn 0.3s ease;
@@ -483,7 +523,7 @@ body {
 
 .message-content li { margin-bottom: var(--space-xs); }
 
-/* Citations */
+ 
 .citation {
     display: inline-flex;
     align-items: center;
@@ -542,7 +582,7 @@ body {
     color: var(--text-primary);
 }
 
-/* Typing Indicator */
+ 
 .typing-indicator {
     display: flex;
     gap: 4px;
@@ -554,7 +594,7 @@ body {
     40% { transform: scale(1); opacity: 1; }
 }
 
-/* Typing indicator with spans */
+ 
 .typing-indicator span {
     width: 8px;
     height: 8px;
@@ -567,7 +607,7 @@ body {
 .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
 .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
-/* Message time */
+ 
 .message-time {
     font-size: 0.7rem;
     color: var(--text-muted);
@@ -577,7 +617,7 @@ body {
 
 .message.user .message-time { text-align: right; }
 
-/* Message meta with items */
+ 
 .message-meta {
     display: flex;
     align-items: center;
@@ -612,7 +652,7 @@ body {
 
 .meta-item.sources-link:hover { text-decoration: underline; }
 
-/* Message actions */
+ 
 .message-actions {
     display: flex;
     gap: var(--space-xs);
@@ -623,14 +663,14 @@ body {
 
 .message:hover .message-actions { opacity: 1; }
 
-/* Error message bubble */
+ 
 .message-bubble.error {
     background: var(--error-light);
     border-color: var(--error);
     color: var(--error);
 }
 
-/* ===== Input Area ===== */
+ 
 .input-area {
     padding: var(--space-md) var(--space-lg) var(--space-lg);
     background: var(--bg-card);
@@ -697,7 +737,7 @@ body {
     color: var(--text-muted);
 }
 
-/* ===== Sources Panel ===== */
+ 
 .sources-panel {
     position: absolute;
     top: 0;
@@ -711,7 +751,7 @@ body {
     z-index: 100;
     display: flex;
     flex-direction: column;
-    /* Keep the off-screen panel out of the tab order and screen-reader tree. */
+     
     visibility: hidden;
 }
 
@@ -817,7 +857,7 @@ body {
     margin-bottom: var(--space-xs);
 }
 
-/* Source card header with number, filename, score */
+ 
 .source-header {
     display: flex;
     align-items: center;
@@ -854,7 +894,7 @@ body {
     word-break: break-word;
 }
 
-/* ===== Status Bar ===== */
+ 
 .status-bar {
     height: var(--status-height);
     background: var(--bg-card);
@@ -877,7 +917,7 @@ body {
 .status-label { color: var(--text-muted); }
 .status-value { color: var(--text-primary); font-weight: 500; }
 
-/* ===== Toast ===== */
+ 
 .toast-container {
     position: fixed;
     bottom: var(--space-lg);
@@ -925,8 +965,22 @@ body {
     flex: 1;
 }
 
-/* ===== Responsive ===== */
+ 
 @media (max-width: 768px) {
+    .documents-toggle { display: block; }
+    .header {
+        height: auto;
+        min-height: var(--header-height);
+        flex-wrap: wrap;
+        gap: var(--space-sm);
+        padding: var(--space-sm);
+    }
+    .header-right { gap: var(--space-sm); }
+    .api-key-settings form { position: fixed; top: var(--header-height); right: var(--space-sm); }
+    .model-status { max-width: 100px; padding: var(--space-sm); }
+    .model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .logo-icon { display: none; }
+
     .sidebar {
         position: absolute;
         left: 0;
@@ -944,7 +998,7 @@ body {
     .message { max-width: 95%; }
 }
 
-/* Accessibility: keyboard focus + reduced motion */
+ 
 :focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;

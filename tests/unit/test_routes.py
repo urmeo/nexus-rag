@@ -24,7 +24,6 @@ from scinexusrag.config import Settings, get_settings
 from scinexusrag.generation import RAGResponse, Source
 from scinexusrag.pipeline import IngestResult, NexusRAG, SystemStats
 
-# Limits under test come from Settings, same source the routes read.
 MAX_FILE_SIZE_MB = get_settings().api.max_upload_mb
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 MAX_QUERY_LENGTH = get_settings().retrieval.max_query_length
@@ -58,7 +57,6 @@ def client(app):
 def mock_scinexusrag():
     mock = MagicMock(spec=NexusRAG)
 
-    # Default stats response
     mock.get_stats.return_value = SystemStats(
         total_documents=2,
         total_chunks=10,
@@ -69,7 +67,6 @@ def mock_scinexusrag():
         llm_available=True,
     )
 
-    # Default empty document list
     mock.list_documents.return_value = []
 
     return mock
@@ -102,7 +99,6 @@ class TestHealthCheck:
             assert response.status_code == 200
             data = response.json()
 
-            # Should still return 200 but with error status
             assert data["status"] == "error"
             assert data["llm_available"] is False
 
@@ -110,7 +106,6 @@ class TestHealthCheck:
         response = client.get("/api/health")
         data = response.json()
 
-        # Validate against model
         health_response = HealthResponse(**data)
         assert health_response.status in ["ok", "error"]
 
@@ -240,7 +235,7 @@ class TestIngestDocument:
         assert "File is empty" in response.json()["detail"]
 
     def test_ingest_file_too_large(self, client, patch_get_scinexusrag):
-        # Create content larger than MAX_FILE_SIZE_BYTES
+
         oversized_content = b"x" * (MAX_FILE_SIZE_BYTES + 1)
 
         response = client.post(
@@ -261,7 +256,6 @@ class TestIngestDocument:
             success=True,
         )
 
-        # Create content exactly at limit, with a valid PDF signature
         content_at_limit = b"%PDF-1.4\n" + b"x" * (MAX_FILE_SIZE_BYTES - 9)
 
         response = client.post(
@@ -289,9 +283,9 @@ class TestIngestDocument:
             )
 
         assert response.status_code == 200
-        # Verify that the actual filename passed to ingest_bytes is sanitized
+
         call_args = mock_scinexusrag.ingest_bytes.call_args
-        assert call_args[0][1] == "passwd.txt"  # Should be sanitized
+        assert call_args[0][1] == "passwd.txt"
 
     def test_ingest_ingestion_failure(self, client, patch_get_scinexusrag, mock_scinexusrag):
         mock_scinexusrag.ingest_bytes.return_value = IngestResult(
@@ -405,7 +399,7 @@ class TestQueryDocuments:
             json={"question": ""},
         )
 
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
         assert "cannot be empty" in response.json().get("detail", [{}])[0].get("msg", "").lower()
 
     def test_query_whitespace_only_question(self, client, patch_get_scinexusrag):
@@ -474,8 +468,7 @@ class TestQueryDocuments:
 
         assert response.status_code == 200
         data = response.json()
-        # Assert the route's own transform of an empty-source response, not the
-        # canned mock text: no sources, and the processing time is passed through.
+
         assert data["sources"] == []
         assert data["processing_time_ms"] == 10.0
 
@@ -534,7 +527,7 @@ class TestQueryDocuments:
     ):
         from scinexusrag.generation import RAGResponse
 
-        long_content = "x" * 1000  # 1000 characters
+        long_content = "x" * 1000
         source = Source(
             index=1,
             chunk_id="chunk_1",
@@ -563,7 +556,7 @@ class TestQueryDocuments:
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["sources"][0]["content"]) <= 503  # 500 + "..."
+        assert len(data["sources"][0]["content"]) <= 503
         assert data["sources"][0]["content"].endswith("...")
 
     def test_query_exception_returns_500(self, client, patch_get_scinexusrag, mock_scinexusrag):
@@ -652,7 +645,7 @@ class TestListDocuments:
         page = client.get("/api/documents?limit=2&offset=2").json()
 
         assert [d["id"] for d in page["documents"]] == ["doc_2", "doc_3"]
-        assert page["total_documents"] == 2  # global stats, not page size
+        assert page["total_documents"] == 2
 
         assert client.get("/api/documents?limit=0").status_code == 422
         assert client.get("/api/documents?offset=-1").status_code == 422
@@ -744,11 +737,10 @@ class TestDeleteDocument:
     def test_delete_document_empty_id(self, client, patch_get_scinexusrag):
         response = client.delete("/api/documents/")
 
-        # FastAPI routing matches the clear_all endpoint (DELETE /api/documents)
         assert response.status_code == 200
 
     def test_delete_document_id_too_long(self, client, patch_get_scinexusrag):
-        long_id = "a" * 65  # Exceeds 64-char limit
+        long_id = "a" * 65
 
         response = client.delete(f"/api/documents/{long_id}")
 
@@ -877,7 +869,7 @@ class TestIntegration:
         assert len(list_response.json()["documents"]) == 1
 
     def test_workflow_ingest_delete(self, client, patch_get_scinexusrag, mock_scinexusrag):
-        # Ingest
+
         mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_to_delete",
             filename="temp.txt",
@@ -892,7 +884,6 @@ class TestIntegration:
         )
         assert ingest_response.status_code == 200
 
-        # Delete
         mock_scinexusrag.delete_document.return_value = True
 
         delete_response = client.delete("/api/documents/doc_to_delete")
@@ -1017,7 +1008,7 @@ class TestUploadValidationThroughRoute:
         assert r.status_code == 415
 
     def test_zip_bomb_rejected(self, client, patch_get_scinexusrag):
-        # A real (tiny) docx zip trips the guard once the decompressed cap is 0.
+
         with patch(
             "scinexusrag.api.security.get_settings", return_value=_settings(max_uncompressed_mb=0)
         ):

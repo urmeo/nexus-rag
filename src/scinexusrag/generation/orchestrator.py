@@ -98,11 +98,7 @@ class Orchestrator:
         )
 
     def query_streaming(self, question: str) -> Generator[str, None, None]:
-        # Stream tokens, then run the same verification as query() on the
-        # accumulated answer. The transport is a plain string generator, so we
-        # surface the result as a final SSE-style line ("data: {...}\n\n") that
-        # a frontend can detect and safely ignore, and we also log warnings
-        # server-side. The public signature is unchanged.
+
         analyzed = self.analyzer.analyze(question)
         question = self.analyzer.rewrite_vague_query(question)
         results = self.retriever.retrieve(question, top_k=self.top_k)

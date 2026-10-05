@@ -1,25 +1,18 @@
-# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-build/
-dist/
-
-# Environments
-.env
 .venv/
-
-# Tool caches
-.coverage
+.env
+.env.*
+!.env.example
+.coverage*
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .ipynb_checkpoints/
-
-# Project data and generated output
-data/
+build/
+dist/
+/data/
+outputs/generated/
 *.log
-benchmarks/results/*_sample*
-
-# macOS
 .DS_Store

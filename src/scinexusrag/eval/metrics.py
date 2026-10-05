@@ -8,9 +8,6 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-# Relevance for one query: either a binary set of relevant doc ids, or a graded
-# {doc_id: relevance grade} mapping. For both, membership and len() see the
-# relevant docs, so the binary metrics work unchanged; only nDCG reads grades.
 Relevance = Collection[str]
 Qrels = Mapping[str, Relevance]
 Run = Mapping[str, Sequence[str]]
@@ -26,7 +23,7 @@ def precision_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
 
 
 def recall_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
-    if not relevant:
+    if not relevant or k <= 0:
         return 0.0
     top = ranked[:k]
     hits = sum(1 for d in top if d in relevant)
@@ -34,7 +31,7 @@ def recall_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
 
 
 def hit_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
-    return 1.0 if any(d in relevant for d in ranked[:k]) else 0.0
+    return 1.0 if k > 0 and any(d in relevant for d in ranked[:k]) else 0.0
 
 
 def reciprocal_rank(ranked: Sequence[str], relevant: Relevance) -> float:
@@ -57,12 +54,9 @@ def average_precision(ranked: Sequence[str], relevant: Relevance) -> float:
 
 
 def ndcg_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
-    """nDCG@k with graded gains (2**rel - 1), the BEIR/pytrec_eval convention.
-
-    Graded qrels (e.g. NFCorpus, with grades 1 and 2) are scored against their
-    real relevance levels; binary qrels are scored as gain 1, recovering the
-    plain binary nDCG so datasets like SciFact are unaffected.
-    """
+    "nDCG@k with linear relevance gains, matching BEIR/pytrec_eval."
+    if k <= 0:
+        return 0.0
     if isinstance(relevant, Mapping):
         grades: dict[str, float] = {str(d): float(g) for d, g in relevant.items()}
     else:
@@ -72,10 +66,10 @@ def ndcg_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
     for i, d in enumerate(ranked[:k], start=1):
         gain = grades.get(d, 0.0)
         if gain > 0:
-            dcg += (2.0**gain - 1.0) / math.log2(i + 1)
+            dcg += gain / math.log2(i + 1)
 
     ideal = sorted(grades.values(), reverse=True)[:k]
-    idcg = sum((2.0**g - 1.0) / math.log2(i + 1) for i, g in enumerate(ideal, start=1) if g > 0)
+    idcg = sum(g / math.log2(i + 1) for i, g in enumerate(ideal, start=1) if g > 0)
     return dcg / idcg if idcg > 0 else 0.0
 
 
@@ -98,6 +92,8 @@ def per_query(run: Run, qrels: Qrels) -> dict[str, dict[str, float]]:
         if not relevant:
             continue
         ranked = run.get(qid, [])
+        if len(set(ranked)) != len(ranked):
+            raise ValueError(f"duplicate ranked document ids for query {qid}")
         out[qid] = {name: fn(ranked, relevant) for name, fn in METRIC_FNS.items()}
     return out
 
@@ -126,10 +122,21 @@ def _avg_ranks(values: NDArray[np.float64]) -> NDArray[np.float64]:
     return ranks
 
 
+def _binary_inputs(
+    scores: ArrayLike, labels: ArrayLike
+) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
+    s = np.asarray(scores, dtype=np.float64)
+    raw_y = np.asarray(labels)
+    if s.ndim != 1 or raw_y.ndim != 1 or s.size != raw_y.size:
+        raise ValueError("scores and labels must be one-dimensional with equal length")
+    if not np.all(np.isfinite(s)) or not np.all(np.isin(raw_y, [0, 1])):
+        raise ValueError("scores must be finite and labels must be binary")
+    return s, raw_y.astype(np.int64)
+
+
 def roc_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
     """Area under the ROC curve via the rank-sum statistic (tie-aware)."""
-    s = np.asarray(scores, dtype=np.float64)
-    y = np.asarray(labels, dtype=np.int64)
+    s, y = _binary_inputs(scores, labels)
     n_pos = int((y == 1).sum())
     n_neg = int((y == 0).sum())
     if n_pos == 0 or n_neg == 0:
@@ -140,38 +147,53 @@ def roc_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
 
 def pr_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
     """Average precision (area under the precision-recall curve)."""
-    s = np.asarray(scores, dtype=np.float64)
-    y = np.asarray(labels, dtype=np.int64)
+    s, y = _binary_inputs(scores, labels)
     n_pos = int((y == 1).sum())
     if n_pos == 0:
         return float("nan")
     order = np.argsort(-s, kind="mergesort")
     y = y[order]
-    tp = np.cumsum(y)
-    fp = np.cumsum(1 - y)
-    precision = tp / np.maximum(tp + fp, 1)
+
+    ends = np.r_[np.flatnonzero(np.diff(s[order])), s.size - 1]
+    tp = np.cumsum(y)[ends]
+    precision = tp / (ends + 1)
     recall = tp / n_pos
     prev = np.concatenate([[0.0], recall[:-1]])
     return float(np.sum((recall - prev) * precision))
 
 
 def risk_coverage_auc(confidence: ArrayLike, correct: ArrayLike) -> float:
-    """Area under the risk-coverage curve (lower is better)."""
-    conf = np.asarray(confidence, dtype=np.float64)
-    err = 1 - np.asarray(correct, dtype=np.float64)
+    """Mean prefix risk, averaging over random order within tied confidences."""
+    conf, labels = _binary_inputs(confidence, correct)
+    err = 1 - labels
     if conf.size == 0:
         return float("nan")
     order = np.argsort(-conf, kind="mergesort")
-    cum_err = np.cumsum(err[order])
-    risk = cum_err / np.arange(1, conf.size + 1)
+    sorted_err = err[order]
+    ends = np.r_[np.flatnonzero(np.diff(conf[order])) + 1, conf.size]
+    expected_err = np.empty(conf.size, dtype=np.float64)
+    start = 0
+    previous_errors = 0.0
+    for end in ends:
+        group_errors = float(sorted_err[start:end].sum())
+        expected_err[start:end] = previous_errors + np.arange(1, end - start + 1) * (
+            group_errors / (end - start)
+        )
+        previous_errors += group_errors
+        start = end
+    risk = expected_err / np.arange(1, conf.size + 1)
     return float(risk.mean())
 
 
 def bootstrap_ci(
-    values: Sequence[float], n_boot: int = 10000, ci: float = 0.95, seed: int = 0
+    values: ArrayLike, n_boot: int = 10000, ci: float = 0.95, seed: int = 0
 ) -> tuple[float, float, float]:
     """Mean with percentile bootstrap interval."""
     arr = np.asarray(values, dtype=np.float64)
+    if arr.ndim != 1 or not np.all(np.isfinite(arr)):
+        raise ValueError("values must be a finite one-dimensional sequence")
+    if n_boot <= 0 or not 0 < ci < 1:
+        raise ValueError("n_boot must be positive and ci must be between 0 and 1")
     if arr.size == 0:
         return 0.0, 0.0, 0.0
     rng = np.random.default_rng(seed)
@@ -185,23 +207,12 @@ def bootstrap_ci(
 def paired_delta_ci(
     a: Sequence[float], b: Sequence[float], n_boot: int = 10000, ci: float = 0.95, seed: int = 0
 ) -> tuple[float, float, float]:
-    """Bootstrap CI for the paired mean difference mean(a) - mean(b).
-
-    Resamples queries (rows), not systems, so it answers "does a beat b?" with
-    the per-query pairing intact. A CI that excludes 0 is the honest bar for
-    claiming one system beats another.
-    """
+    "Bootstrap CI for the paired mean difference mean(a) - mean(b)."
     x = np.asarray(a, dtype=np.float64)
     y = np.asarray(b, dtype=np.float64)
-    if x.size != y.size or x.size == 0:
-        return 0.0, 0.0, 0.0
-    diff = x - y
-    rng = np.random.default_rng(seed)
-    idx = rng.integers(0, diff.size, size=(n_boot, diff.size))
-    boot = diff[idx].mean(axis=1)
-    lo = float(np.percentile(boot, (1 - ci) / 2 * 100))
-    hi = float(np.percentile(boot, (1 + ci) / 2 * 100))
-    return float(diff.mean()), lo, hi
+    if x.ndim != 1 or y.ndim != 1 or x.size != y.size or x.size == 0:
+        raise ValueError("paired scores must be nonempty one-dimensional sequences of equal length")
+    return bootstrap_ci(x - y, n_boot=n_boot, ci=ci, seed=seed)
 
 
 def paired_randomization_test(
@@ -210,14 +221,16 @@ def paired_randomization_test(
     """Two-sided p-value for mean(a) - mean(b)."""
     x = np.asarray(a, dtype=np.float64)
     y = np.asarray(b, dtype=np.float64)
-    if x.size != y.size or x.size == 0:
-        return 1.0
+    if x.ndim != 1 or y.ndim != 1 or x.size != y.size or x.size == 0:
+        raise ValueError("paired scores must be nonempty one-dimensional sequences of equal length")
+    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(y)) or n_perm <= 0:
+        raise ValueError("paired scores must be finite and n_perm must be positive")
     diff = x - y
     observed = abs(diff.mean())
     rng = np.random.default_rng(seed)
     signs = rng.choice([-1.0, 1.0], size=(n_perm, diff.size))
     perm_means = np.abs((signs * diff).mean(axis=1))
-    # add-one estimator: observed labeling counts as one permutation
+
     exceed = int((perm_means >= observed - 1e-12).sum())
     return (exceed + 1) / (n_perm + 1)
 

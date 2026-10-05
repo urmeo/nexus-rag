@@ -1,11 +1,4 @@
-"""Regression gate for the offline sample eval.
-
-Reruns the vendored SciFact retrieval ablation and the SciFact-claims
-evidence-detection eval (both seed 0, CPU, deterministic) and fails if any
-tracked metric drops below the committed floor in ``benchmarks/thresholds.json``.
-Run in CI so a change that quietly degrades retrieval or faithfulness cannot
-merge. Update the floors deliberately when a real improvement lands.
-"""
+"Regression gate for the offline sample eval."
 
 from __future__ import annotations
 
@@ -15,7 +8,7 @@ from pathlib import Path
 from scinexusrag.eval import faithfulness as F
 from scinexusrag.eval.run import evaluate as run_retrieval
 
-THRESHOLDS = Path("benchmarks/thresholds.json")
+THRESHOLDS = Path(__file__).resolve().parent / "data" / "thresholds.json"
 
 
 def _check(observed: float, floor: float, label: str) -> str | None:

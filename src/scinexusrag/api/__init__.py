@@ -16,11 +16,9 @@ from scinexusrag.api.routes import router
 from scinexusrag.api.security import limiter
 from scinexusrag.config import get_settings
 
-# Optional static UI. Resolved from the working directory (./frontend) so it
-# works both in local dev (run from the repo root) and in the Docker image
-# (WORKDIR /app, frontend copied to /app/frontend); override with an env var
-# for a non-editable install served from elsewhere.
-FRONTEND_DIR = Path(os.environ.get("NEXUSRAG_FRONTEND_DIR") or Path.cwd() / "frontend")
+FRONTEND_DIR = Path(
+    os.environ.get("NEXUSRAG_FRONTEND_DIR") or Path(__file__).resolve().parents[1] / "web"
+)
 
 
 def create_app() -> FastAPI:
@@ -28,7 +26,6 @@ def create_app() -> FastAPI:
     settings = get_settings()
     logging.getLogger("scinexusrag").setLevel(settings.log_level)
 
-    # hide docs/openapi in production (api key set) or when disabled
     docs_on = settings.api.docs_enabled and not settings.api.api_key
     if not docs_on:
         logging.getLogger("scinexusrag").info(
@@ -45,39 +42,30 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json" if docs_on else None,
     )
 
-    # Per-IP rate limiting (slowapi).
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
-    # CORS — never wildcard-with-credentials; disable credentials under wildcard.
     origins = settings.api.cors_origins
     allow_creds = "*" not in origins
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=allow_creds,
-        # Only what the API actually serves and reads.
         allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Content-Type", "X-API-Key"],
     )
 
-    # Liveness only (Docker/k8s): must never init the pipeline or block on
-    # models. Readiness with the full schema lives at /api/health.
     @app.get("/health")
     async def health_probe() -> dict[str, str]:
         return {"status": "ok"}
 
-    # API routes
     app.include_router(router)
 
-    # Serve static files
     if FRONTEND_DIR.exists():
-        # Mount CSS directory
         css_dir = FRONTEND_DIR / "css"
         if css_dir.exists():
             app.mount("/css", StaticFiles(directory=css_dir), name="css")
 
-        # Mount JS directory
         js_dir = FRONTEND_DIR / "js"
         if js_dir.exists():
             app.mount("/js", StaticFiles(directory=js_dir), name="js")
@@ -90,7 +78,6 @@ def create_app() -> FastAPI:
     return app
 
 
-# Create app instance
 app = create_app()
 
 __all__ = ["app", "create_app", "router"]

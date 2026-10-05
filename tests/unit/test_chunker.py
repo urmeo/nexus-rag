@@ -26,8 +26,7 @@ class TestFixedSizeChunker:
         chunker = FixedSizeChunker(chunk_size=chunk_size, chunk_overlap=20)
         chunks = chunker.chunk(parsed_document)
 
-        # Allow some tolerance for sentence boundary adjustments
-        for chunk in chunks[:-1]:  # Last chunk may be smaller
+        for chunk in chunks[:-1]:
             assert len(chunk.content) <= chunk_size + 100
 
     def test_chunk_overlap(self):
@@ -38,7 +37,7 @@ class TestFixedSizeChunker:
         chunks = chunker.chunk(doc)
 
         assert len(chunks) >= 2
-        # The last 5 words of one chunk reappear as the first 5 of the next.
+
         assert chunks[0].content.split()[-5:] == chunks[1].content.split()[:5]
 
     def test_chunk_ids_unique(self, parsed_document):
@@ -64,7 +63,7 @@ class TestFixedSizeChunker:
         assert len(chunks) > 0
         for chunk in chunks[:-1]:
             word_count = len(chunk.content.split())
-            assert word_count <= 25  # Allow some flexibility
+            assert word_count <= 25
 
     def test_overlap_validation(self):
         with pytest.raises(ValueError):
@@ -89,6 +88,41 @@ class TestFixedSizeChunker:
 
 
 class TestSemanticChunker:
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"min_chunk_size": 0},
+            {"target_chunk_size": 0},
+            {"max_chunk_size": 0},
+            {"min_chunk_size": -1},
+            {"target_chunk_size": -1},
+            {"max_chunk_size": -1},
+            {"min_chunk_size": 101},
+            {"max_chunk_size": 19},
+            {"overlap_size": -1},
+            {"overlap_size": 100},
+            {"context_chars": -1},
+        ],
+    )
+    def test_invalid_sizes_fail_before_chunking(self, overrides):
+        kwargs = {
+            "min_chunk_size": 20,
+            "target_chunk_size": 100,
+            "max_chunk_size": 150,
+            "overlap_size": 0,
+            **overrides,
+        }
+        with pytest.raises(ValueError):
+            HierarchicalChunker(**kwargs)
+
+    def test_zero_overlap_and_context_are_valid(self):
+        chunker = HierarchicalChunker(overlap_size=0, context_chars=0)
+        chunks = chunker.chunk(ParsedDocument(id="short", content="Short content."))
+
+        assert len(chunks) == 1
+        assert chunks[0].context_before == ""
+        assert chunks[0].context_after == ""
+
     def test_semantic_chunker_basic(self, parsed_document):
         chunker = SemanticChunker(min_chunk_size=50, max_chunk_size=500)
         chunks = chunker.chunk(parsed_document)
@@ -112,10 +146,8 @@ class TestSemanticChunker:
         chunker = SemanticChunker(min_chunk_size=10, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
-        # Should have chunks corresponding to sections
         assert len(chunks) >= len(sections)
 
-        # Section titles should be in chunks
         titles_found = sum(1 for c in chunks if any(s.title in c.content for s in sections))
         assert titles_found >= 2
 
@@ -140,7 +172,6 @@ class TestSemanticChunker:
         chunker = SemanticChunker(min_chunk_size=50, max_chunk_size=200)
         chunks = chunker.chunk(doc)
 
-        # Large section should be split
         assert len(chunks) > 1
 
     def test_paragraph_based_chunking(self):
@@ -163,7 +194,6 @@ Third paragraph follows."""
         chunker = SemanticChunker(min_chunk_size=20, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
-        # Small chunks should be merged
         assert len(chunks) <= 3
 
     def test_empty_document(self):
@@ -219,9 +249,9 @@ class TestPackParagraphs:
     def test_target_overflow_starts_new_chunk_with_overlap(self):
         paras = ["a" * 50, "b" * 50, "c" * 50]
         texts = self._chunker()._pack_paragraphs(paras, "")
-        # overlap_size=60 fits one 50-char paragraph of tail context
+
         assert texts[0] == "a" * 50
-        assert texts[1].startswith("a" * 50)  # carried overlap
+        assert texts[1].startswith("a" * 50)
         assert "b" * 50 in texts[1]
 
     def test_oversized_paragraph_split_by_sentences(self):
@@ -233,22 +263,20 @@ class TestPackParagraphs:
         assert all(len(t) >= 20 for t in texts)
 
     def test_boundaryless_oversized_paragraph_bounded_by_max(self):
-        # No sentence boundaries at all: must still be hard-wrapped under max.
+
         giant = "word " * 200
         texts = self._chunker()._pack_paragraphs([giant.strip()], "")
         assert texts and all(len(t) <= 120 for t in texts)
 
     def test_short_tail_merges_into_same_batch_chunk(self):
-        # A trailing under-min paragraph merges into the previous chunk of THIS
-        # batch — never returned to a caller to attach across sections.
+
         texts = self._chunker()._pack_paragraphs(["a" * 100, "zz"], "")
         assert len(texts) == 1
         assert texts[0].startswith("a" * 100)
         assert texts[0].endswith("zz")
 
     def test_sole_short_content_still_emitted(self):
-        # A single under-min paragraph with nothing to merge into is kept, not
-        # dropped, so a short document is never lost.
+
         assert self._chunker()._pack_paragraphs(["tiny note"], "") == ["tiny note"]
 
     def test_oversized_paragraph_flushes_pending_content_first(self):
@@ -257,8 +285,7 @@ class TestPackParagraphs:
         assert texts[0] == "preamble text first"
 
     def test_oversized_paragraph_short_trailing_sentence_not_dropped(self):
-        # A >max paragraph whose final sentence-chunk is under min must keep
-        # that sentence (merged), not silently drop it.
+
         ch = self._chunker(min_chunk_size=60, target_chunk_size=90, max_chunk_size=120)
         big = "This is a long lead sentence that fills the budget nicely here. " * 3
         texts = ch._pack_paragraphs([big + "Short unique CONTENTX."], "")
@@ -282,5 +309,5 @@ class TestChunkerNoDataLoss:
         chunks = SemanticChunker(include_context=False).chunk(doc)
         beta = [c for c in chunks if c.section_title == "Beta"]
         assert beta and beta[0].page_number == 2
-        # Beta's text is never attributed to Alpha.
+
         assert not any(c.section_title == "Alpha" and "beta" in c.content.lower() for c in chunks)

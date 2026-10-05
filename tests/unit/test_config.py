@@ -46,7 +46,6 @@ class TestSettings:
         monkeypatch.setenv("OLLAMA_BASE_URL", "http://custom:8080")
         monkeypatch.setenv("LLM_MODEL", "mistral:7b")
 
-        # Need to reimport to pick up new env vars
         from scinexusrag.config import LLMSettings
 
         llm = LLMSettings()
@@ -120,7 +119,6 @@ class TestSettings:
     def test_get_settings_caching(self):
         from scinexusrag.config import get_settings
 
-        # Clear cache first
         get_settings.cache_clear()
 
         settings1 = get_settings()
@@ -129,7 +127,7 @@ class TestSettings:
         assert settings1 is settings2
 
     def test_env_file_loading(self, temp_dir, monkeypatch):
-        # Set env vars directly (pydantic-settings nested models read env independently)
+
         monkeypatch.setenv("OLLAMA_BASE_URL", "http://env-file:1234")
         monkeypatch.setenv("LLM_MODEL", "from-env-file")
 
@@ -151,8 +149,7 @@ class TestConfigPrecedence:
         assert Settings().llm.model == "env-wins"
 
     def test_llm_settings_ignore_bare_env_names(self, monkeypatch):
-        # temperature/timeout must read LLM_TEMPERATURE/LLM_TIMEOUT, never bare
-        # TEMPERATURE/TIMEOUT which collide with unrelated environment vars.
+
         from scinexusrag.config import LLMSettings
 
         monkeypatch.setenv("TEMPERATURE", "0.99")
@@ -168,17 +165,15 @@ class TestConfigPrecedence:
         assert s.timeout == 33
 
     def test_yaml_is_not_a_runtime_source(self, monkeypatch):
-        # default.yaml is documentation only: settings come from env + code
-        # defaults, never from the YAML file, so there is no precedence ambiguity.
+
         from scinexusrag.config import Settings
 
         monkeypatch.delenv("LLM_MODEL", raising=False)
-        assert Settings().llm.model == "llama3.2:3b"  # the code default, not YAML
+        assert Settings().llm.model == "llama3.2:3b"
 
 
 class TestYAMLDocMatchesSettings:
-    """default.yaml is a reference doc, not loaded at runtime; guard only that
-    it does not silently drift from the real Settings model."""
+    "default.yaml is a reference doc, not loaded at runtime; guard only that"
 
     def test_documented_sections_match_settings_submodels(self):
         from pydantic import BaseModel
@@ -193,11 +188,80 @@ class TestYAMLDocMatchesSettings:
             for name, field in Settings.model_fields.items()
             if isinstance(field.annotation, type) and issubclass(field.annotation, BaseModel)
         }
-        # 'logging' documents the flat log_level/data_dir fields.
+
         assert documented - {"logging"} == real
 
 
 class TestConfigValidation:
+    @pytest.mark.parametrize(
+        "env_name",
+        [
+            "LLM_MAX_TOKENS",
+            "LLM_TIMEOUT",
+            "EMBEDDING_BATCH_SIZE",
+            "INGESTION_CHUNK_SIZE",
+            "INGESTION_MIN_CHUNK_SIZE",
+            "RETRIEVAL_TOP_K",
+            "API_QUERY_RATE_PER_MINUTE",
+            "API_UPLOAD_RATE_PER_MINUTE",
+        ],
+    )
+    @pytest.mark.parametrize("value", ["0", "-1"])
+    def test_invalid_runtime_limits_rejected_from_environment(self, monkeypatch, env_name, value):
+        from pydantic import ValidationError
+
+        from scinexusrag.config import Settings
+
+        monkeypatch.setenv(env_name, value)
+        with pytest.raises(ValidationError):
+            Settings()
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [{"chunk_overlap": -1}, {"chunk_overlap": 100}, {"min_chunk_size": 101}],
+    )
+    def test_invalid_chunk_relationships_rejected(self, overrides):
+        from pydantic import ValidationError
+
+        from scinexusrag.config import IngestionSettings
+
+        kwargs = {"chunk_size": 100, "chunk_overlap": 0, "min_chunk_size": 20, **overrides}
+        with pytest.raises(ValidationError):
+            IngestionSettings(**kwargs)
+
+    def test_zero_overlap_and_equal_minimum_are_valid(self):
+        from scinexusrag.config import IngestionSettings, LLMSettings
+
+        assert IngestionSettings(chunk_size=100, chunk_overlap=0, min_chunk_size=100)
+        assert LLMSettings(temperature=0).temperature == 0
+
+    @pytest.mark.parametrize("field", ["confidence_tau", "grounding_threshold"])
+    @pytest.mark.parametrize("value", [-0.1, 1.1])
+    def test_invalid_probability_thresholds_rejected(self, field, value):
+        from pydantic import ValidationError
+
+        from scinexusrag.config import SelfCorrectionSettings
+
+        with pytest.raises(ValidationError):
+            SelfCorrectionSettings(**{field: value})
+
+    def test_embedding_revision_matches_selected_model(self, monkeypatch):
+        from scinexusrag.config import HF_REVISIONS, EmbeddingSettings
+
+        model = "sentence-transformers/all-MiniLM-L6-v2"
+        monkeypatch.setenv("EMBEDDING_MODEL", model)
+        monkeypatch.delenv("EMBEDDING_REVISION", raising=False)
+
+        assert EmbeddingSettings().revision == HF_REVISIONS[model]
+        assert EmbeddingSettings(model="custom-model").revision is None
+
+    def test_explicit_embedding_revision_is_preserved(self, monkeypatch):
+        from scinexusrag.config import EmbeddingSettings
+
+        monkeypatch.setenv("EMBEDDING_REVISION", "custom-sha")
+
+        assert EmbeddingSettings(model="custom-model").revision == "custom-sha"
+
     def test_invalid_log_level(self, monkeypatch):
         monkeypatch.setenv("LOG_LEVEL", "INVALID")
 
@@ -221,7 +285,7 @@ class TestConfigValidation:
 
 class TestNoDeadConfig:
     def test_every_settings_field_is_read_in_src(self) -> None:
-        # Guards the recurring bug class: a config knob that nothing consumes.
+
         import re
 
         from pydantic import BaseModel
@@ -246,8 +310,7 @@ class TestNoDeadConfig:
 
 class TestDotenvLoading:
     def test_env_file_in_cwd_is_loaded(self, tmp_path):
-        # load_dotenv runs at config-import time from the working directory,
-        # so the promise ".env is read" must be verified in a subprocess.
+
         import os
         import subprocess
         import sys

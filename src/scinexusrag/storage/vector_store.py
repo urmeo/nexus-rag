@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import lancedb
 import numpy as np
@@ -17,7 +17,7 @@ from scinexusrag.ingestion import Chunk
 
 logger = logging.getLogger(__name__)
 
-# Pattern for safe IDs (alphanumeric, underscore, hyphen only)
+
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
@@ -98,7 +98,21 @@ class VectorStore:
                 "id": chunk.id,
                 "content": chunk.content,
                 "document_id": chunk.document_id,
-                "metadata": json.dumps(chunk.metadata),
+                "metadata": json.dumps(
+                    {
+                        **chunk.metadata,
+                        "document_name": chunk.document_name
+                        or chunk.metadata.get("document_name", ""),
+                        "section_title": chunk.section_title
+                        or chunk.metadata.get("section_title", ""),
+                        "page_number": chunk.page_number
+                        if chunk.page_number is not None
+                        else chunk.metadata.get("page_number"),
+                        "chunk_index": chunk.chunk_index,
+                        "context_before": chunk.context_before,
+                        "context_after": chunk.context_after,
+                    }
+                ),
                 "vector": embedding.tolist(),
             }
             for chunk, embedding in zip(chunks, embeddings, strict=True)
@@ -107,15 +121,31 @@ class VectorStore:
         self.table.add(records)
         return len(records)
 
+    @staticmethod
+    def _chunk_from_row(row: dict[str, Any]) -> Chunk:
+        metadata = (
+            json.loads(row["metadata"]) if isinstance(row["metadata"], str) else row["metadata"]
+        )
+        return Chunk(
+            id=row["id"],
+            content=row["content"],
+            document_id=row["document_id"],
+            metadata=metadata,
+            document_name=metadata.get("document_name", ""),
+            section_title=metadata.get("section_title", ""),
+            page_number=metadata.get("page_number"),
+            chunk_index=metadata.get("chunk_index", 0),
+            context_before=metadata.get("context_before", ""),
+            context_after=metadata.get("context_after", ""),
+        )
+
     def search(
         self,
         query_embedding: NDArray[np.float32],
         top_k: int = 5,
         filter_expr: str | None = None,
     ) -> list[SearchResult]:
-        # cosine, else LanceDB defaults to L2 and the score is not a similarity.
-        # search() is annotated as the base builder; a vector query returns the
-        # vector subclass at runtime, which is what carries metric().
+
         vector_query = cast(LanceVectorQueryBuilder, self.table.search(query_embedding.tolist()))
         query = vector_query.metric("cosine").limit(top_k)
 
@@ -126,14 +156,7 @@ class VectorStore:
 
         return [
             SearchResult(
-                chunk=Chunk(
-                    id=row["id"],
-                    content=row["content"],
-                    document_id=row["document_id"],
-                    metadata=json.loads(row["metadata"]),
-                ),
-                # Cosine distance spans [0, 2]; clamp so downstream thresholds
-                # and confidence math always see a [0, 1] similarity.
+                chunk=self._chunk_from_row(row),
                 score=max(0.0, 1.0 - row["_distance"]),
             )
             for row in results
@@ -180,8 +203,7 @@ class VectorStore:
     def list_documents(self) -> list[str]:
         """Get all unique document IDs."""
         try:
-            results: list[str] = self.table.to_pandas()["document_id"].unique().tolist()
-            return results
+            return list(dict.fromkeys(self.table.to_arrow().column("document_id").to_pylist()))
         except Exception:
             logger.debug("Failed to list documents from vector store", exc_info=True)
             return []
@@ -198,18 +220,7 @@ class VectorStore:
             if self.count() == 0:
                 return []
 
-            results = self.table.to_pandas()
-            return [
-                Chunk(
-                    id=row["id"],
-                    content=row["content"],
-                    document_id=row["document_id"],
-                    metadata=json.loads(row["metadata"])
-                    if isinstance(row["metadata"], str)
-                    else row["metadata"],
-                )
-                for _, row in results.iterrows()
-            ]
+            return [self._chunk_from_row(row) for row in self.table.to_arrow().to_pylist()]
         except Exception:
             logger.debug("Failed to get all chunks", exc_info=True)
             return []
@@ -221,17 +232,7 @@ class VectorStore:
             results = (
                 self.table.search().where(f"document_id = '{safe_doc_id}'").limit(100000).to_list()
             )
-            return [
-                Chunk(
-                    id=row["id"],
-                    content=row["content"],
-                    document_id=row["document_id"],
-                    metadata=json.loads(row["metadata"])
-                    if isinstance(row["metadata"], str)
-                    else row["metadata"],
-                )
-                for row in results
-            ]
+            return [self._chunk_from_row(row) for row in results]
         except Exception:
             logger.debug("Failed to get chunks by document", exc_info=True)
             return []
