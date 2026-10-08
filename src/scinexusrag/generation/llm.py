@@ -141,7 +141,10 @@ class LLMClient:
             if response.status_code != 200:
                 return False
             models = [m["name"] for m in response.json().get("models", [])]
-            return any(self.model in m for m in models)
+            model = self.model
+            if ":" not in model.rsplit("/", 1)[-1]:
+                model += ":latest"
+            return self.model in models or model in models
         except (httpx.HTTPError, json.JSONDecodeError, KeyError, TypeError):
             return False
 

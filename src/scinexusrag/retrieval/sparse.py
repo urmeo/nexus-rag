@@ -21,7 +21,7 @@ class BM25Retriever:
 
     def __init__(self, stopwords: set[str] | None = None):
         self._index: BM25Index | None = None
-        self.stopwords = stopwords or STOP_WORDS
+        self.stopwords = STOP_WORDS if stopwords is None else stopwords
 
     def tokenize(self, text: str) -> list[str]:
         tokens = re.findall(r"\b[a-z0-9]+\b", text.lower())

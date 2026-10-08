@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from scinexusrag.eval import corrective, datasets, faithfulness, generation, reproduce, run
+from scinexusrag.eval import corrective, datasets, faithfulness, generation, report, reproduce, run
 from scinexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
 from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.ingestion import Embedder
@@ -209,6 +209,32 @@ def test_csv_rejects_scores_without_matching_query_ids(monkeypatch, tmp_path: Pa
             {"query_ids": ["q"], "per_query_ndcg": {"BM25": [0.1, 0.2]}}, "scores.csv"
         )
     assert not (tmp_path / "scores.csv").exists()
+
+
+def test_report_accepts_corrective_results_without_reranker() -> None:
+    scores = {"BM25": [0.4, 0.6], "Dense": [0.5, 0.7], "Hybrid (RRF)": [0.6, 0.8]}
+    retrieval = {
+        "num_queries": 2,
+        "corpus_size": 10,
+        "per_query_ndcg": scores,
+        "systems": {
+            name: {"means": {"nDCG@10": float(np.mean(values))}} for name, values in scores.items()
+        },
+    }
+    correction = {
+        "tau_sweep": [{"trigger_rate": 0.5}],
+        "cost_quality": {
+            "systems": [
+                {"system": "Adaptive", "ndcg": 0.7, "latency_ms": 10},
+                {"system": "Corrective PRF", "ndcg": 0.8, "latency_ms": 12},
+            ]
+        },
+    }
+    macros = "\n".join(report.build_macros(retrieval, retrieval, None, correction, None))
+    assert "\\BaseMs}{10}" in macros
+    assert "\\CorrMs}{12}" in macros
+    assert "\\BaseND}{0.700}" in macros
+    assert "Rerank" not in macros
 
 
 def test_generation_verifies_only_sources_shown_to_generator(monkeypatch) -> None:

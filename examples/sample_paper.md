@@ -1,5 +1,7 @@
 # Retrieval-Augmented Generation for Scientific Literature
 
+Synthetic ingestion fixture. All study results below are invented for parser testing.
+
 ## Abstract
 
 We present a study on retrieval-augmented generation (RAG) applied to

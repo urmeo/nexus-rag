@@ -190,16 +190,20 @@ def build_macros(
         cq = {r["system"]: r for r in corr_sci["cost_quality"]["systems"]}
 
         max_fire = max(s["trigger_rate"] for s in corr_sci["tau_sweep"])
-        speedup = cq["Rerank (cross-enc)"]["latency_ms"] / max(cq["Adaptive"]["latency_ms"], 1e-9)
         macros += [
             _macro("SciCorrMaxFire", f"{max_fire * 100:.0f}\\%"),
-            _macro("RerankMs", f"{cq['Rerank (cross-enc)']['latency_ms']:.0f}"),
             _macro("CorrMs", f"{cq['Corrective PRF']['latency_ms']:.0f}"),
             _macro("BaseMs", f"{cq['Adaptive']['latency_ms']:.0f}"),
-            _macro("RerankSlowdown", f"{speedup:.0f}"),
             _macro("BaseND", f"{cq['Adaptive']['ndcg']:.3f}"),
-            _macro("RerankND", f"{cq['Rerank (cross-enc)']['ndcg']:.3f}"),
         ]
+        if "Rerank (cross-enc)" in cq:
+            rerank = cq["Rerank (cross-enc)"]
+            speedup = rerank["latency_ms"] / max(cq["Adaptive"]["latency_ms"], 1e-9)
+            macros += [
+                _macro("RerankMs", f"{rerank['latency_ms']:.0f}"),
+                _macro("RerankSlowdown", f"{speedup:.0f}"),
+                _macro("RerankND", f"{rerank['ndcg']:.3f}"),
+            ]
     if faith:
         m = faith["methods"]
         lo, hi = m["nli"]["roc_auc_ci"]

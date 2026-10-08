@@ -243,6 +243,25 @@ class TestLLMRetry:
         assert fake.posts == 1
 
 
+@pytest.mark.parametrize(
+    ("configured", "installed", "available"),
+    [
+        ("llama3.2:3b", "llama3.2:3b", True),
+        ("llama3.2:3b", "llama3.2:3b-instruct", False),
+        ("llama3.2", "llama3.2:3b", False),
+        ("llama3.2", "llama3.2:latest", True),
+        ("localhost:5000/model", "localhost:5000/model:latest", True),
+    ],
+)
+def test_model_readiness_matches_exact_tag(configured, installed, available):
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"models": [{"name": installed}]})
+    )
+    with LLMClient(model=configured) as client:
+        client._client = httpx.Client(base_url=client.base_url, transport=transport)
+        assert client.is_available() is available
+
+
 class TestStripCitations:
     def test_preserves_line_structure(self) -> None:
         from scinexusrag.generation.citations import strip_citations

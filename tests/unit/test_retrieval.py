@@ -54,6 +54,13 @@ class TestBM25Retriever:
         assert "the" not in tokens and "is" not in tokens
         assert "quick" in tokens and "brown" in tokens
 
+    def test_explicit_empty_stopwords_keep_common_words(self):
+        assert BM25Retriever(stopwords=set()).tokenize("the quick fox") == [
+            "the",
+            "quick",
+            "fox",
+        ]
+
     def test_incremental_add_and_remove(self, sample_chunks):
         r = BM25Retriever()
         r.add(sample_chunks[:3])
