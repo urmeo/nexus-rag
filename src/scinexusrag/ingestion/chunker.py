@@ -139,10 +139,15 @@ class HierarchicalChunker:
                     texts.append(header_prefix + "\n\n".join(current))
                     current, current_length = [], len(header_prefix)
                 for sent_chunk in self._split_by_sentences(para, header_prefix):
-                    if len(sent_chunk.strip()) >= self.min_chunk_size or not texts:
+                    body = sent_chunk.removeprefix(header_prefix).strip()
+                    if (
+                        len(sent_chunk.strip()) >= self.min_chunk_size
+                        or not texts
+                        or len(texts[-1]) + 2 + len(body) > self.max_chunk_size
+                    ):
                         texts.append(sent_chunk)
                     else:
-                        texts[-1] += "\n\n" + sent_chunk.removeprefix(header_prefix).strip()
+                        texts[-1] += "\n\n" + body
                 continue
 
             if current_length + para_len + 2 > self.target_chunk_size:
@@ -160,10 +165,15 @@ class HierarchicalChunker:
         if not current:
             return texts
         tail = header_prefix + "\n\n".join(current)
-        if len(tail) >= self.min_chunk_size or not texts:
+        body = "\n\n".join(current)
+        if (
+            len(tail) >= self.min_chunk_size
+            or not texts
+            or len(texts[-1]) + 2 + len(body) > self.max_chunk_size
+        ):
             texts.append(tail)
         else:
-            texts[-1] += "\n\n" + "\n\n".join(current)
+            texts[-1] += "\n\n" + body
         return texts
 
     def _split_into_paragraphs(self, text: str) -> list[str]:
@@ -302,8 +312,10 @@ class FixedSizeChunker:
         chunk_overlap: int = 50,
         length_function: str = "chars",
     ):
-        if chunk_overlap >= chunk_size:
-            raise ValueError("chunk_overlap must be smaller than chunk_size")
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be positive")
+        if chunk_overlap < 0 or chunk_overlap >= chunk_size:
+            raise ValueError("chunk_overlap must be nonnegative and smaller than chunk_size")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.length_function = length_function
