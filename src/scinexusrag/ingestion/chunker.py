@@ -124,6 +124,8 @@ class HierarchicalChunker:
 
     def _pack_paragraphs(self, paragraphs: list[str], header_prefix: str) -> list[str]:
         "Pack paragraphs into chunk texts near the target size."
+        if len(header_prefix) >= self.max_chunk_size:
+            raise ValueError("section header leaves no room within max_chunk_size")
         texts: list[str] = []
         current: list[str] = []
         current_length = len(header_prefix)
@@ -150,10 +152,18 @@ class HierarchicalChunker:
                         texts[-1] += "\n\n" + body
                 continue
 
-            if current_length + para_len + 2 > self.target_chunk_size:
-                if current and current_length >= self.min_chunk_size:
+            candidate_length = len(header_prefix) + len("\n\n".join([*current, para]))
+            exceeds_max = candidate_length > self.max_chunk_size
+            if current_length + para_len + 2 > self.target_chunk_size or exceeds_max:
+                if current and (current_length >= self.min_chunk_size or exceeds_max):
                     texts.append(header_prefix + "\n\n".join(current))
-                    current = self._get_overlap_content(current) + [para]
+                    overlap = self._get_overlap_content(current)
+                    if (
+                        len(header_prefix) + len("\n\n".join([*overlap, para]))
+                        > self.max_chunk_size
+                    ):
+                        overlap = []
+                    current = overlap + [para]
                     current_length = len(header_prefix) + sum(len(c) + 2 for c in current)
                 else:
                     current.append(para)
@@ -184,7 +194,9 @@ class HierarchicalChunker:
 
     def _split_by_sentences(self, text: str, prefix: str) -> list[str]:
         """Pack sentences into chunks, wrapping oversized sentences at whitespace."""
-        budget = max(1, self.max_chunk_size - len(prefix))
+        budget = self.max_chunk_size - len(prefix)
+        if budget <= 0:
+            raise ValueError("section header leaves no room within max_chunk_size")
         sentences: list[str] = []
         for raw in SENTENCE_BOUNDARY.split(text):
             raw = raw.strip()
@@ -217,10 +229,12 @@ class HierarchicalChunker:
 
     @staticmethod
     def _wrap_on_whitespace(text: str, width: int) -> list[str]:
-        """Wrap at whitespace; words longer than width remain intact."""
+        """Wrap at whitespace, rejecting words that cannot fit without splitting."""
         windows: list[str] = []
         current = ""
         for word in text.split():
+            if len(word) > width:
+                raise ValueError("word length exceeds available chunk size")
             if current and len(current) + 1 + len(word) > width:
                 windows.append(current)
                 current = word
