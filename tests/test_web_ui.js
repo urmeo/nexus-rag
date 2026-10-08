@@ -1,4 +1,3 @@
-// Run with: node --test tests/test_web_ui.js. No browser or model downloads.
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
@@ -17,8 +16,6 @@ function createApp(fetch, { storageBlocked = false } = {}) {
     const decode = value => value.replace(/&quot;/g, '"').replace(/&#39;/g, "'")
         .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
-    // The DOM stub parses the shipped markup and preserves child-specific event
-    // listeners, so tests click actual answer controls rather than helper copies.
     class Element {
         constructor(tag = 'div') {
             this.tagName = tag;

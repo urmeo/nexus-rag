@@ -1,10 +1,5 @@
 name: Publish to PyPI
 
-# Publishes a wheel + sdist to PyPI when a version tag is pushed (e.g. v1.0.0).
-# Authentication is via PyPI Trusted Publishing (OIDC) — no API token is stored.
-# The project owner must first configure a Trusted Publisher for project
-# "scinexusrag" on PyPI (repo urmeo/NexusRAG, workflow publish.yml, environment
-# pypi) before the first tag will publish.
 
 on:
   push:
@@ -20,9 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: "3.11"
 
@@ -36,7 +31,7 @@ jobs:
           python -m pip install --upgrade twine
           python -m twine check dist/*
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: dist
           path: dist/
@@ -48,12 +43,12 @@ jobs:
     timeout-minutes: 10
     environment: pypi
     permissions:
-      id-token: write  # required for Trusted Publishing (OIDC)
+      id-token: write
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: dist
           path: dist/
 
       - name: Publish
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # release/v1
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b

@@ -1,4 +1,3 @@
-# Reference only; runtime settings come from environment variables.
 
 llm:
   base_url: ${OLLAMA_BASE_URL:http://localhost:11434}
@@ -23,10 +22,10 @@ retrieval:
 
 self_correction:
   enabled: true
-  confidence_tau: 0.55       # re-retrieve when top dense score is below this
-  feedback_docs: 5           # documents used for query expansion
-  feedback_terms: 10         # expansion terms added
-  grounding_enabled: false   # NLI faithfulness check (opt-in)
+  confidence_tau: 0.55
+  feedback_docs: 5
+  feedback_terms: 10
+  grounding_enabled: false
   grounding_model: cross-encoder/nli-deberta-v3-small
   grounding_threshold: 0.5
 
