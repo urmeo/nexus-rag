@@ -108,7 +108,7 @@ python -m pip install -e ".[eval]"
 python -m scinexusrag.eval.report --results outputs/results --figures assets/figures
 ```
 
-This reads the committed retrieval, evidence and threshold-sweep results. It does not run experiments, download models or tune thresholds. It writes `retrieval-comparison.svg`, `evidence-curves.svg` and `corrective-sweep.svg`. Text stays editable in the SVG files. The pipeline diagram is maintained separately in [pipeline.svg](../assets/figures/pipeline.svg).
+This reads the committed retrieval, evidence and threshold-sweep results. It does not run experiments, download models or tune thresholds. It writes `retrieval-comparison.svg`, `evidence-curves.svg` and `corrective-sweep.svg`. Text stays editable in the SVG files. The overview, retrieval and answer-check diagrams are maintained separately; see the [pipeline guide](pipeline.md).
 
 For a fresh run, point `--results` at `outputs/generated` and choose a review directory with `--figures`. Inspect the data and conditions before replacing published charts. Identical inputs regenerate identical SVGs in the same plotting environment; fonts and layout can differ across environments.
 

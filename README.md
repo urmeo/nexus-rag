@@ -4,9 +4,20 @@ Search research papers with dense embeddings and BM25. Ask a local Ollama model 
 
 ## Pipeline
 
-![Two stages: upload, parse, split and index documents; then retrieve passages, generate an answer and return sources.](assets/figures/pipeline.svg)
+![Prepare documents and indexes, then retrieve passages, generate an answer, check it and return sources.](assets/figures/pipeline.svg)
 
-Dense search and BM25 retrieve passages for Ollama. One feedback search can run when the best dense similarity is below **0.55**. NLI grounding is optional and off by default. [Pipeline details](docs/pipeline.md).
+Each dense or BM25 search considers up to **50 candidates**. The pipeline keeps up to **eight passages** and uses at most **five sources** for generation. Correction is limited to one feedback search; NLI grounding is off by default.
+
+<details>
+<summary>Retrieval and answer checks</summary>
+
+![Dense and BM25 rankings are fused; a conditional feedback search is merged with the first pass before selecting passages.](assets/figures/retrieval-flow.svg)
+
+![Build numbered sources, generate once, check citation indices and optionally score sentence grounding before returning the response.](assets/figures/answer-checks.svg)
+
+[Pipeline rules, defaults and source code](docs/pipeline.md).
+
+</details>
 
 ## Interface
 
