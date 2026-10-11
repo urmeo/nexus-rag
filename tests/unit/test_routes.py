@@ -339,8 +339,6 @@ class TestIngestDocument:
 
 class TestQueryDocuments:
     def test_query_success(self, client, patch_get_scinexusrag, mock_scinexusrag):
-        from scinexusrag.generation import RAGResponse
-
         source = Source(
             index=1,
             chunk_id="chunk_1",
@@ -449,8 +447,6 @@ class TestQueryDocuments:
         assert response.status_code == 422
 
     def test_query_no_documents(self, client, patch_get_scinexusrag, mock_scinexusrag):
-        from scinexusrag.generation import RAGResponse
-
         mock_response = RAGResponse(
             answer="No documents have been uploaded yet.",
             sources=[],
@@ -473,8 +469,6 @@ class TestQueryDocuments:
         assert data["processing_time_ms"] == 10.0
 
     def test_query_multiple_sources(self, client, patch_get_scinexusrag, mock_scinexusrag):
-        from scinexusrag.generation import RAGResponse
-
         sources = [
             Source(
                 index=1,
@@ -525,8 +519,6 @@ class TestQueryDocuments:
     def test_query_long_source_content_truncated(
         self, client, patch_get_scinexusrag, mock_scinexusrag
     ):
-        from scinexusrag.generation import RAGResponse
-
         long_content = "x" * 1000
         source = Source(
             index=1,
@@ -571,8 +563,6 @@ class TestQueryDocuments:
         assert "Failed to process query" in response.json()["detail"]
 
     def test_query_response_model(self, client, patch_get_scinexusrag, mock_scinexusrag):
-        from scinexusrag.generation import RAGResponse
-
         mock_response = RAGResponse(
             answer="Test answer",
             sources=[],
@@ -734,10 +724,11 @@ class TestDeleteDocument:
         assert response.status_code == 404
         assert "Document not found" in response.json()["detail"]
 
-    def test_delete_document_empty_id(self, client, patch_get_scinexusrag):
+    def test_trailing_slash_uses_clear_all_route(self, client, patch_get_scinexusrag):
         response = client.delete("/api/documents/")
 
         assert response.status_code == 200
+        patch_get_scinexusrag.clear_all.assert_called_once()
 
     def test_delete_document_id_too_long(self, client, patch_get_scinexusrag):
         long_id = "a" * 65
@@ -810,8 +801,6 @@ class TestClearAllDocuments:
 
 class TestIntegration:
     def test_workflow_ingest_query_list(self, client, patch_get_scinexusrag, mock_scinexusrag):
-        from scinexusrag.generation import RAGResponse
-
         mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_1",
             filename="research.pdf",
@@ -938,7 +927,7 @@ class TestErrorHandling:
 
         assert response.status_code == 200
 
-    def test_concurrent_ingest_requests(self, client, patch_get_scinexusrag, mock_scinexusrag):
+    def test_repeated_ingest_requests(self, client, patch_get_scinexusrag, mock_scinexusrag):
         mock_scinexusrag.ingest_bytes.return_value = IngestResult(
             document_id="doc_1",
             filename="test.txt",

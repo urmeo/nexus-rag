@@ -60,6 +60,21 @@ def test_search_score_clamped_to_unit_interval(temp_dir) -> None:
     assert results[0].score == 0.0
 
 
+@pytest.mark.parametrize("operation", ["delete", "delete_by_document", "search_by_document"])
+def test_trailing_newline_id_is_rejected_before_database_access(temp_dir, operation) -> None:
+    store = _store(temp_dir)
+
+    with pytest.raises(ValueError, match="Invalid ID format"):
+        if operation == "delete":
+            store.delete(["paper\n"])
+        elif operation == "delete_by_document":
+            store.delete_by_document("paper\n")
+        else:
+            store.search_by_document(np.ones(4, dtype=np.float32), "paper\n")
+
+    assert store._db is None
+
+
 @pytest.mark.parametrize("access", ["search", "get_all_chunks", "get_chunks_by_document"])
 def test_chunk_context_and_citation_metadata_survive_reload(temp_dir, access) -> None:
     store = _store(temp_dir)

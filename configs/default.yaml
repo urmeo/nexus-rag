@@ -1,4 +1,7 @@
 
+# Reference defaults only. The application reads environment variables and .env,
+# not this YAML file. ${NAME:default} entries document environment overrides.
+
 llm:
   base_url: ${OLLAMA_BASE_URL:http://localhost:11434}
   model: ${LLM_MODEL:llama3.2:3b}

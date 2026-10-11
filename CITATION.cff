@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use NexusRAG, please cite it as below."
 type: software
-title: "NexusRAG: Local Hybrid Retrieval and Faithfulness Evaluation for Scientific Papers"
+title: "NexusRAG: Local Document Search and Cited Answers"
 version: 1.0.2
 date-released: 2026-07-12
 url: "https://github.com/urmeo/nexus-rag"
@@ -9,11 +9,10 @@ repository-code: "https://github.com/urmeo/nexus-rag"
 license: MIT
 authors:
   - given-names: urme
-    alias: urmeo
 keywords:
   - retrieval-augmented-generation
   - information-retrieval
   - scientific-papers
 abstract: >-
-  Hybrid BM25 and dense retrieval for scientific papers, with local generation,
-  citation checks, and reproducible retrieval and evidence-detection evaluation.
+  Embedding search and BM25 for research documents, with local Ollama generation,
+  citation checks, and separate retrieval and evidence-sentence evaluations.

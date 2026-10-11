@@ -25,7 +25,7 @@ def _sanitize_id(value: str) -> str:
     """Sanitize ID to prevent SQL injection."""
     if not value:
         raise ValueError("ID cannot be empty")
-    if not SAFE_ID_PATTERN.match(value):
+    if not SAFE_ID_PATTERN.fullmatch(value):
         raise ValueError(f"Invalid ID format: {value[:20]}")
     if len(value) > 128:
         raise ValueError("ID too long")
@@ -87,7 +87,7 @@ class VectorStore:
         return self.db.create_table(self.table_name, schema=schema)
 
     def add(self, chunks: list[Chunk], embeddings: NDArray[np.float32]) -> int:
-        if len(chunks) == 0:
+        if not chunks:
             return 0
 
         if len(chunks) != len(embeddings):

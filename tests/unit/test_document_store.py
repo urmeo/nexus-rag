@@ -56,3 +56,12 @@ def test_reserved_index_id_is_rejected(temp_dir) -> None:
     store = DocumentStore(path=temp_dir)
     with pytest.raises(ValueError, match="reserved"):
         store.add(_doc(doc_id="_index"))
+
+
+def test_trailing_newline_id_is_rejected_before_writing(temp_dir) -> None:
+    store = DocumentStore(path=temp_dir)
+
+    with pytest.raises(ValueError, match="invalid characters"):
+        store.add(_doc(doc_id="paper\n"))
+
+    assert list(temp_dir.iterdir()) == []

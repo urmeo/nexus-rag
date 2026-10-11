@@ -38,9 +38,9 @@ class Embedder:
         self._model: SentenceTransformer | None = None
         self._device = device
         self.revision = revision or HF_REVISIONS.get(model_name)
-        qp, dp = default_prefixes(model_name)
-        self.query_prefix = qp if query_prefix is None else query_prefix
-        self.doc_prefix = dp if doc_prefix is None else doc_prefix
+        default_query_prefix, default_doc_prefix = default_prefixes(model_name)
+        self.query_prefix = default_query_prefix if query_prefix is None else query_prefix
+        self.doc_prefix = default_doc_prefix if doc_prefix is None else doc_prefix
 
     @property
     def model(self) -> Any:
@@ -102,13 +102,12 @@ class Embedder:
         query_embedding: NDArray[np.float32],
         document_embeddings: NDArray[np.float32],
     ) -> NDArray[np.float32]:
-        if self.normalize:
-            result: NDArray[np.float32] = np.dot(document_embeddings, query_embedding)
-            return result
-        qn = np.linalg.norm(query_embedding)
-        q = query_embedding / qn if qn else query_embedding
-        dn = np.linalg.norm(document_embeddings, axis=1, keepdims=True)
-        dn[dn == 0] = 1.0
-        d = document_embeddings / dn
-        result2: NDArray[np.float32] = np.dot(d, q)
-        return result2
+        if not self.normalize:
+            query_norm = np.linalg.norm(query_embedding)
+            if query_norm:
+                query_embedding = query_embedding / query_norm
+            document_norms = np.linalg.norm(document_embeddings, axis=1, keepdims=True)
+            document_norms[document_norms == 0] = 1.0
+            document_embeddings = document_embeddings / document_norms
+        similarities: NDArray[np.float32] = np.dot(document_embeddings, query_embedding)
+        return similarities

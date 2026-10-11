@@ -50,7 +50,7 @@ class LLMClient:
                 response = self.client.post(path, json=payload)
             except httpx.TimeoutException as exc:
                 raise LLMError(f"LLM timed out after {self.timeout}s ({self._where()})") from exc
-            except (httpx.ConnectError, httpx.RequestError) as exc:
+            except httpx.RequestError as exc:
                 last_exc = exc
             else:
                 if response.status_code < 500:
@@ -73,31 +73,33 @@ class LLMClient:
         max_tokens: int = 2048,
         stop: list[str] | None = None,
     ) -> str:
+        options: dict[str, object] = {
+            "temperature": temperature,
+            "num_predict": max_tokens,
+            "top_p": 0.9,
+        }
+        if stop:
+            options["stop"] = stop
+
         payload: dict[str, object] = {
             "model": self.model,
             "prompt": prompt,
             "stream": False,
-            "options": {
-                "temperature": temperature,
-                "num_predict": max_tokens,
-                "top_p": 0.9,
-            },
+            "options": options,
         }
 
         if system:
             payload["system"] = system
-
-        if stop:
-            payload["options"]["stop"] = stop  # type: ignore[index]
 
         response = self._post("/api/generate", payload)
         try:
             data = response.json()
         except json.JSONDecodeError as exc:
             raise LLMError(f"LLM returned non-JSON body ({self._where()})") from exc
-        if "response" not in data:
-            raise LLMError(f"LLM response missing 'response' field ({self._where()})")
-        return str(data["response"])
+        answer = data.get("response") if isinstance(data, dict) else None
+        if not isinstance(answer, str):
+            raise LLMError(f"LLM response must contain a string 'response' field ({self._where()})")
+        return answer
 
     def stream(
         self,
@@ -125,13 +127,20 @@ class LLMClient:
                 for line in response.iter_lines():
                     if line:
                         data = json.loads(line)
+                        if not isinstance(data, dict):
+                            raise LLMError(f"LLM stream expected a JSON object ({self._where()})")
+                        if data.get("error"):
+                            raise LLMError(f"LLM stream failed ({self._where()}): {data['error']}")
                         if "response" in data:
-                            yield data["response"]
+                            token = data["response"]
+                            if not isinstance(token, str):
+                                raise LLMError(
+                                    f"LLM stream 'response' field must be a string ({self._where()})"
+                                )
+                            yield token
                         if data.get("done", False):
                             break
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.RequestError) as exc:
-            raise LLMError(f"LLM stream failed ({self._where()}): {exc}") from exc
-        except httpx.HTTPStatusError as exc:
+        except (httpx.RequestError, httpx.HTTPStatusError, json.JSONDecodeError) as exc:
             raise LLMError(f"LLM stream failed ({self._where()}): {exc}") from exc
 
     def is_available(self) -> bool:
@@ -140,7 +149,10 @@ class LLMClient:
             response = self.client.get("/api/tags")
             if response.status_code != 200:
                 return False
-            models = [m["name"] for m in response.json().get("models", [])]
+            data = response.json()
+            if not isinstance(data, dict):
+                return False
+            models = [m["name"] for m in data.get("models", [])]
             model = self.model
             if ":" not in model.rsplit("/", 1)[-1]:
                 model += ":latest"

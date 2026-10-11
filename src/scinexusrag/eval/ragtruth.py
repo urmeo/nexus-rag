@@ -1,9 +1,10 @@
-"Hallucination detection on RAGTruth with the NLI grounding verifier."
+"""Score RAGTruth responses with the NLI grounding verifier."""
 
 from __future__ import annotations
 
 import argparse
 import json
+from itertools import islice
 from pathlib import Path
 from typing import Any
 
@@ -46,7 +47,10 @@ def evaluate(
         raise ValueError("n must be positive")
     provenance = evaluation_provenance()
     data = load_dataset("wandb/RAGTruth-processed", split="train")
-    rows = [r for r in data if task_type is None or r["task_type"] == task_type][:n]
+    selected_rows = (row for row in data if task_type is None or row["task_type"] == task_type)
+    rows = list(islice(selected_rows, n))
+    if not rows:
+        raise ValueError(f"no RAGTruth responses match task_type={task_type!r}")
 
     verifier = (
         GroundingVerifier(model_name=model_name, device="cpu")
@@ -66,7 +70,7 @@ def evaluate(
         "dataset": "ragtruth",
         "task_type": task_type or "all",
         "num_responses": len(rows),
-        "hallucination_rate": sum(labels) / len(labels) if labels else 0.0,
+        "hallucination_rate": sum(labels) / len(labels),
         "nli_model": verifier.model_name,
         "roc_auc": roc_auc(halluc_score, labels),
         "risk_coverage_auc": risk_coverage_auc(grounded, faithful),

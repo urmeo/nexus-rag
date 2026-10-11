@@ -11,7 +11,7 @@
 </head>
 <body>
     <div class="app">
-        
+
         <header class="header">
             <div class="header-left">
                 <div class="logo">
@@ -31,9 +31,9 @@
                 <details class="api-key-settings" id="apiKeySettings">
                     <summary>API key</summary>
                     <form id="apiKeyForm">
-                        <label for="apiKeyInput">API key (optional)</label>
+                        <label for="apiKeyInput">Server API key</label>
                         <input type="password" id="apiKeyInput" autocomplete="off" spellcheck="false">
-                        <small>Stored in this browser. Leave empty to clear it.</small>
+                        <small>Required if your server uses an API key. Saved in this browser. Leave empty to clear it.</small>
                         <button type="submit">Save</button>
                     </form>
                 </details>
@@ -44,16 +44,14 @@
             </div>
         </header>
 
-        
         <main class="main">
-            
+
             <aside class="sidebar" id="sidebar">
                 <div class="sidebar-header">
                     <h2>Documents</h2>
                     <span class="doc-count" id="docCount">0</span>
                 </div>
 
-                
                 <div class="upload-zone" id="uploadZone" role="button" tabindex="0"
                      aria-label="Upload documents. Drop PDF, DOCX, TXT or MD files here, or activate to browse.">
                     <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt,.md"
@@ -64,7 +62,7 @@
                             <polyline points="17 8 12 3 7 8"/>
                             <line x1="12" y1="3" x2="12" y2="15"/>
                         </svg>
-                        <p class="upload-text">Drop files here</p>
+                        <p class="upload-text">Drop files here or click to browse</p>
                         <p class="upload-hint">PDF, DOCX, TXT, MD</p>
                     </div>
                     <div class="upload-progress" id="uploadProgress">
@@ -72,11 +70,10 @@
                              aria-valuemin="0" aria-valuemax="100">
                             <div class="progress-fill" id="progressFill"></div>
                         </div>
-                        <p class="progress-text" id="progressText">Processing...</p>
+                        <p class="progress-text" id="progressText">Uploading and indexing...</p>
                     </div>
                 </div>
 
-                
                 <div class="document-list" id="documentList">
                     <div class="empty-docs" id="emptyDocs">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true" focusable="false">
@@ -84,14 +81,13 @@
                             <polyline points="14 2 14 8 20 8"/>
                         </svg>
                         <p>No documents yet</p>
-                        <span>Upload your first document to get started</span>
+                        <span>Upload a document to ask questions about it.</span>
                     </div>
                 </div>
             </aside>
 
-            
             <section class="chat-area">
-                
+
                 <div class="messages" id="messages" role="log" aria-live="polite" aria-atomic="false">
                     <div class="welcome" id="welcome">
                         <div class="welcome-icon">
@@ -101,22 +97,21 @@
                                 <line x1="12" y1="17" x2="12.01" y2="17"/>
                             </svg>
                         </div>
-                        <h2>Welcome to NexusRAG</h2>
+                        <h2>Ask questions about your papers</h2>
                         <p>Upload papers, ask questions, and check the cited passages.</p>
                         <div class="welcome-suggestions">
-                            <button class="suggestion" onclick="askSuggestion('What is the main methodology used?')">What is the main methodology?</button>
-                            <button class="suggestion" onclick="askSuggestion('Summarize the key findings')">Summarize key findings</button>
-                            <button class="suggestion" onclick="askSuggestion('What are the limitations?')">What are the limitations?</button>
+                            <button class="suggestion" data-question="What methods does the paper use?">What methods does the paper use?</button>
+                            <button class="suggestion" data-question="What did the study find?">What did the study find?</button>
+                            <button class="suggestion" data-question="What limitations does the study report?">What limitations does the study report?</button>
                         </div>
                     </div>
                 </div>
 
-                
                 <div class="input-area">
                     <div class="input-container">
                         <textarea
                             id="chatInput"
-                            placeholder="Ask a question about your documents..."
+                            placeholder="Ask a question about your documents"
                             aria-label="Ask a question about your documents"
                             rows="1"
                         ></textarea>
@@ -133,7 +128,6 @@
                 </div>
             </section>
 
-            
             <aside class="sources-panel" id="sourcesPanel">
                 <div class="sources-header">
                     <h3>Sources</h3>
@@ -148,14 +142,13 @@
             </aside>
         </main>
 
-        
         <footer class="status-bar">
             <div class="status-item">
-                <span class="status-label">LLM:</span>
+                <span class="status-label">Answer model:</span>
                 <span class="status-value" id="llmStatus">--</span>
             </div>
             <div class="status-item">
-                <span class="status-label">Embeddings:</span>
+                <span class="status-label">Embedding model:</span>
                 <span class="status-value" id="embeddingStatus">--</span>
             </div>
             <div class="status-item">
@@ -163,13 +156,12 @@
                 <span class="status-value" id="docStatus">0</span>
             </div>
             <div class="status-item">
-                <span class="status-label">Chunks:</span>
+                <span class="status-label">Passages:</span>
                 <span class="status-value" id="chunkStatus">0</span>
             </div>
         </footer>
     </div>
 
-    
     <div class="toast-container" id="toastContainer" role="status" aria-live="polite" aria-atomic="true"></div>
 
     <script src="/js/app.js"></script>

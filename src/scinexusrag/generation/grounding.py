@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from scinexusrag.config import HF_REVISIONS
 from scinexusrag.utils.text import split_sentences
-
-logger = logging.getLogger(__name__)
 
 __all__ = ["GroundingReport", "GroundingVerifier", "SentenceGrounding", "split_sentences"]
 

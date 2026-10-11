@@ -9,8 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from scinexusrag.config import HF_REVISIONS
-from scinexusrag.eval import datasets as D
-from scinexusrag.eval import metrics as M
+from scinexusrag.eval import datasets, metrics
 from scinexusrag.eval.indexes import corpus_to_chunks
 from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.eval.systems import build_systems
@@ -44,7 +43,7 @@ def evaluate(
         if splade_revision is None:
             splade_revision = HF_REVISIONS.get(splade_model)
         provenance["models"] = {"splade": {"model": splade_model, "revision": splade_revision}}
-    ds = D.load(dataset, split=split, prefer_vendored=use_sample)
+    ds = datasets.load(dataset, split=split, prefer_vendored=use_sample)
     qids = [q for q in ds.queries if ds.qrels.get(q)]
     if limit is not None:
         qids = qids[:limit]
@@ -73,17 +72,17 @@ def evaluate(
         run = {qid: fn(ds.queries[qid], depth) for qid in qids}
         elapsed = time.perf_counter() - t0
 
-        scores = M.per_query(run, qrels)
-        means = M.aggregate(scores)
+        scores = metrics.per_query(run, qrels)
+        means = metrics.aggregate(scores)
         cis = {
-            metric: M.bootstrap_ci([s[metric] for s in scores.values()], seed=seed)
-            for metric in M.METRIC_FNS
+            metric: metrics.bootstrap_ci([s[metric] for s in scores.values()], seed=seed)
+            for metric in metrics.METRIC_FNS
         }
         per_query_ndcg[name] = [scores[q]["nDCG@10"] for q in sorted(scores)]
         results[name] = {
             "means": means,
             "ci": {m: {"mean": c[0], "lo": c[1], "hi": c[2]} for m, c in cis.items()},
-            "latency_ms_per_query": elapsed / max(1, len(qids)) * 1000,
+            "latency_ms_per_query": elapsed / len(qids) * 1000,
         }
         print(f"{name:24s} nDCG@10={means['nDCG@10']:.3f}  R@10={means['R@10']:.3f}")
 
@@ -92,7 +91,7 @@ def evaluate(
         if name == ref:
             results[name]["p_vs_final"] = None
             continue
-        p = M.paired_randomization_test(per_query_ndcg[ref], per_query_ndcg[name], seed=seed)
+        p = metrics.paired_randomization_test(per_query_ndcg[ref], per_query_ndcg[name], seed=seed)
         results[name]["p_vs_final"] = p
 
     if "BM25" in per_query_ndcg:
@@ -102,9 +101,9 @@ def evaluate(
                 results[name]["delta_vs_bm25"] = None
                 results[name]["p_vs_bm25"] = None
                 continue
-            d, lo, hi = M.paired_delta_ci(per_query_ndcg[name], base, seed=seed)
+            d, lo, hi = metrics.paired_delta_ci(per_query_ndcg[name], base, seed=seed)
             results[name]["delta_vs_bm25"] = {"mean": d, "lo": lo, "hi": hi}
-            results[name]["p_vs_bm25"] = M.paired_randomization_test(
+            results[name]["p_vs_bm25"] = metrics.paired_randomization_test(
                 per_query_ndcg[name], base, seed=seed
             )
 
@@ -140,7 +139,7 @@ def main() -> None:
     p.add_argument("--split", default="test")
     p.add_argument("--sample", action="store_true", help="use vendored offline subset")
     p.add_argument("--depth", type=int, default=50)
-    p.add_argument("--rerank", action="store_true", help="add the cross-encoder rerank rung")
+    p.add_argument("--rerank", action="store_true", help="include cross-encoder reranking")
     p.add_argument("--splade", action="store_true", help="add the SPLADE baseline")
     p.add_argument("--splade-model", default=None, help="override the SPLADE model repository")
     p.add_argument("--splade-revision", default=None, help="override the SPLADE model revision")

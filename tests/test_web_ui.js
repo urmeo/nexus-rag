@@ -8,7 +8,7 @@ const webDir = join(__dirname, '..', 'src', 'scinexusrag', 'web');
 const html = readFileSync(join(webDir, 'index.html'), 'utf8');
 const script = readFileSync(join(webDir, 'js', 'app.js'), 'utf8');
 
-function createApp(fetch, { storageBlocked = false } = {}) {
+function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
     const clipboard = [];
     const storage = new Map();
     const timers = new Map();
@@ -103,7 +103,11 @@ function createApp(fetch, { storageBlocked = false } = {}) {
             addEventListener() {}
         },
         window: {},
-        navigator: { clipboard: { writeText: async text => clipboard.push(text) } },
+        navigator: {
+            clipboard: clipboardApi === undefined
+                ? { writeText: async text => clipboard.push(text) }
+                : clipboardApi
+        },
         localStorage: {
             getItem: key => { if (storageBlocked) throw new Error('Storage blocked'); return storage.get(key); },
             setItem: (key, value) => { if (storageBlocked) throw new Error('Storage blocked'); storage.set(key, value); },
@@ -164,7 +168,62 @@ test('older answer controls copy its answer and restore its own citation sources
     assert.match(app.get('sourcesList').textContent, /Old passage/);
     assert(app.get('source-0').classList.contains('highlighted'));
     assert(app.get('sourcesPanel').classList.contains('open'));
+    await app.get('source-0').click();
+    assert(app.get('source-0').classList.contains('expanded'));
+    await app.get('source-0').click();
+    assert(!app.get('source-0').classList.contains('expanded'));
 });
+
+test('a suggested question sends the question displayed on its button', async () => {
+    const questions = [];
+    const app = createApp(async (url, options) => {
+        if (url.endsWith('/health')) return response(health);
+        if (url.startsWith('/api/documents')) return response({ documents: documents(1), total_documents: 1 });
+        questions.push(JSON.parse(options.body).question);
+        return response({ answer: 'The study used a survey.', confidence: 0.75, sources: [] });
+    });
+    await app.api.init();
+    const button = app.get('welcome').querySelector('.suggestion');
+    await button.click();
+    await settle();
+    assert.deepEqual(questions, [button.textContent]);
+    assert.match(app.get('messages').textContent, /The study used a survey/);
+});
+
+test('Enter does not submit a question while text composition is active', async () => {
+    const questions = [];
+    const app = createApp(async (url, options) => {
+        if (url.endsWith('/health')) return response(health);
+        if (url.startsWith('/api/documents')) return response({ documents: documents(1), total_documents: 1 });
+        questions.push(JSON.parse(options.body).question);
+        return response({ answer: 'Answer', sources: [] });
+    });
+    await app.api.init();
+    app.get('chatInput').value = 'Question';
+    await app.get('chatInput').dispatch('keydown', { key: 'Enter', isComposing: true });
+    assert.deepEqual(questions, []);
+    assert.equal(app.get('chatInput').value, 'Question');
+
+    await app.get('chatInput').dispatch('keydown', { key: 'Enter', isComposing: false });
+    await settle();
+    assert.deepEqual(questions, ['Question']);
+});
+
+for (const [scenario, clipboardApi] of [
+    ['unavailable', null],
+    ['denied', { writeText: async () => { throw new Error('Permission denied'); } }]
+]) {
+    test(`copying reports an error when the clipboard is ${scenario}`, async () => {
+        const app = createApp(async () => response({ answer: 'Answer', sources: [] }), { clipboardApi });
+        app.api.state.documents = documents(1);
+        app.get('chatInput').value = 'Question';
+        await app.api.sendMessage();
+
+        await app.get('messages').querySelector('.copy-response').click();
+        assert.match(app.get('toastContainer').textContent, /Could not copy the answer/);
+        assert.deepEqual(app.clipboard, []);
+    });
+}
 
 test('documents beyond the first API page remain visible and deletable', async () => {
     const calls = [];
@@ -278,7 +337,7 @@ test('blocked browser storage still permits a session API key', async () => {
 test('untrusted answers, filenames and source passages stay text rather than executable markup', async () => {
     const app = createApp(async () => response({
         answer: '<img src=x onerror="alert(1)"> [1]',
-        sources: [{ filename: '"><img src=x onerror="alert(2)">', content: '<script>alert(3)</script>' }],
+        sources: [{ filename: '"><img src=x onerror="alert(2)">', content: '<script>alert(3)</script>', page: '<img src=x onerror="alert(5)">' }],
         warnings: ['<svg onload="alert(4)">']
     }));
     app.api.state.documents = documents(1);

@@ -126,7 +126,7 @@ class TestSettings:
 
         assert settings1 is settings2
 
-    def test_env_file_loading(self, temp_dir, monkeypatch):
+    def test_nested_llm_settings_read_environment(self, monkeypatch):
 
         monkeypatch.setenv("OLLAMA_BASE_URL", "http://env-file:1234")
         monkeypatch.setenv("LLM_MODEL", "from-env-file")

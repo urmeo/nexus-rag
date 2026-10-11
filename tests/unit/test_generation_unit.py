@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -241,6 +242,54 @@ class TestLLMRetry:
         with pytest.raises(LLMError, match="response"):
             client.generate("hi")
         assert fake.posts == 1
+
+
+class TestLLMResponseValidation:
+    @pytest.mark.parametrize("payload", [[], None, {"response": None}, {"response": 42}])
+    def test_generate_rejects_invalid_response_fields(self, payload: Any) -> None:
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(200, text=json.dumps(payload))
+        )
+        with LLMClient() as client:
+            client._client = httpx.Client(base_url=client.base_url, transport=transport)
+            with pytest.raises(LLMError, match="string 'response' field"):
+                client.generate("question")
+
+    @pytest.mark.parametrize(
+        ("body", "error"),
+        [
+            ("[]", "JSON object"),
+            ('{"response": null}', "must be a string"),
+            ('{"response": 42}', "must be a string"),
+            ('{"error": "model was unloaded"}', "model was unloaded"),
+            ("invalid JSON", "stream failed"),
+        ],
+    )
+    def test_stream_rejects_invalid_records(self, body: str, error: str) -> None:
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, text=body))
+        with LLMClient() as client:
+            client._client = httpx.Client(base_url=client.base_url, transport=transport)
+            with pytest.raises(LLMError, match=error):
+                list(client.stream("question"))
+
+    def test_stream_surfaces_an_error_after_partial_output(self) -> None:
+        body = '{"response": "Partial answer"}\n{"error": "model was unloaded"}\n'
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, text=body))
+        with LLMClient() as client:
+            client._client = httpx.Client(base_url=client.base_url, transport=transport)
+            tokens = client.stream("question")
+            assert next(tokens) == "Partial answer"
+            with pytest.raises(LLMError, match="model was unloaded"):
+                next(tokens)
+
+    @pytest.mark.parametrize("payload", [[], None])
+    def test_readiness_rejects_non_object_json(self, payload: Any) -> None:
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(200, text=json.dumps(payload))
+        )
+        with LLMClient() as client:
+            client._client = httpx.Client(base_url=client.base_url, transport=transport)
+            assert client.is_available() is False
 
 
 @pytest.mark.parametrize(

@@ -86,7 +86,7 @@ METRIC_FNS: dict[str, MetricFn] = {
 
 
 def per_query(run: Run, qrels: Qrels) -> dict[str, dict[str, float]]:
-    """Score every query, every metric."""
+    """Score each query with relevance judgements using every ranking metric."""
     out: dict[str, dict[str, float]] = {}
     for qid, relevant in qrels.items():
         if not relevant:
@@ -99,7 +99,7 @@ def per_query(run: Run, qrels: Qrels) -> dict[str, dict[str, float]]:
 
 
 def aggregate(scores: Mapping[str, Mapping[str, float]]) -> dict[str, float]:
-    """Mean over queries."""
+    """Return the mean of each metric over queries."""
     if not scores:
         return dict.fromkeys(METRIC_FNS, 0.0)
     means: dict[str, float] = {}
@@ -146,7 +146,7 @@ def roc_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
 
 
 def pr_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
-    """Average precision (area under the precision-recall curve)."""
+    """Average precision, weighted by recall changes at distinct score thresholds."""
     s, y = _binary_inputs(scores, labels)
     n_pos = int((y == 1).sum())
     if n_pos == 0:

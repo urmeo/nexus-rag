@@ -1,4 +1,4 @@
-"Does the faithfulness-gated corrective loop reduce ungrounded answers?"
+"""Compare NLI grounding scores before and after a gated PRF retry on an offline sample."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from scinexusrag.eval import datasets as D
+from scinexusrag.eval import datasets
 from scinexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
 from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.generation.grounding import GroundingVerifier
@@ -31,7 +31,7 @@ Answer:"""
 
 
 class LocalGenerator:
-    """Small CPU instruct model (no API keys, no Ollama)."""
+    """Generate sample answers with a local Transformers instruction model."""
 
     def __init__(self, model_name: str = DEFAULT_MODEL):
         from transformers import pipeline
@@ -66,7 +66,7 @@ def evaluate(
     if n <= 0 or top_k <= 0 or not 0 <= tau <= 1:
         raise ValueError("n and top_k must be positive and tau must be in [0, 1]")
     provenance = evaluation_provenance()
-    ds = D.load("scifact", prefer_vendored=True)
+    ds = datasets.load("scifact", prefer_vendored=True)
     qids = list(ds.queries)[:n]
 
     chunks = corpus_to_chunks({d: ds.doc_text(d) for d in ds.corpus})
@@ -96,15 +96,17 @@ def evaluate(
     model_used = generator.model_name
     base_answer: dict[str, str] = {}
     corr_answer: dict[str, str] = {}
-    for qid in qids:
-        q = ds.queries[qid]
-        base_answer[qid] = generator.generate(
-            PROMPT.format(question=q, sources=_format_sources(initial[qid]))
-        )
-        corr_answer[qid] = generator.generate(
-            PROMPT.format(question=q, sources=_format_sources(reformed[qid]))
-        )
-    generator.close()
+    try:
+        for qid in qids:
+            q = ds.queries[qid]
+            base_answer[qid] = generator.generate(
+                PROMPT.format(question=q, sources=_format_sources(initial[qid]))
+            )
+            corr_answer[qid] = generator.generate(
+                PROMPT.format(question=q, sources=_format_sources(reformed[qid]))
+            )
+    finally:
+        generator.close()
     del generator
     gc.collect()
 

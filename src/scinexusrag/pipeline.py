@@ -63,7 +63,6 @@ class NexusRAG:
 
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
-        self._initialized = False
 
         self._write_lock = threading.RLock()
 
@@ -209,25 +208,11 @@ class NexusRAG:
         """Chunk, embed, and persist an already-parsed document."""
         with self._write_lock:
             if self.document_store.exists(document.id):
-                return IngestResult(
-                    document_id=document.id,
-                    filename=filename,
-                    chunk_count=0,
-                    word_count=document.word_count,
-                    success=False,
-                    error="Document already exists",
-                )
+                return self._failed_ingest(filename, "Document already exists", document)
 
         chunks = self.chunker.chunk(document)
         if not chunks:
-            return IngestResult(
-                document_id=document.id,
-                filename=filename,
-                chunk_count=0,
-                word_count=document.word_count,
-                success=False,
-                error="No content extracted",
-            )
+            return self._failed_ingest(filename, "No content extracted", document)
 
         embeddings = self.embedder.embed(
             [c.content for c in chunks],
@@ -236,14 +221,7 @@ class NexusRAG:
         )
         with self._write_lock:
             if self.document_store.exists(document.id):
-                return IngestResult(
-                    document_id=document.id,
-                    filename=filename,
-                    chunk_count=0,
-                    word_count=document.word_count,
-                    success=False,
-                    error="Document already exists",
-                )
+                return self._failed_ingest(filename, "Document already exists", document)
             self._persist(document, chunks, embeddings)
         gc.collect()
 
@@ -256,12 +234,14 @@ class NexusRAG:
         )
 
     @staticmethod
-    def _failed_ingest(filename: str, error: str) -> IngestResult:
+    def _failed_ingest(
+        filename: str, error: str, document: ParsedDocument | None = None
+    ) -> IngestResult:
         return IngestResult(
-            document_id="",
+            document_id=document.id if document is not None else "",
             filename=filename,
             chunk_count=0,
-            word_count=0,
+            word_count=document.word_count if document is not None else 0,
             success=False,
             error=error,
         )
@@ -275,7 +255,7 @@ class NexusRAG:
         except DocumentParseError as e:
             return self._failed_ingest(path.name, str(e))
         except Exception as e:
-            logger.exception(f"Failed to ingest file: {path.name}")
+            logger.exception("Failed to ingest file: %s", path.name)
             return self._failed_ingest(path.name, f"Ingestion failed: {type(e).__name__}")
 
     def ingest_bytes(self, data: bytes, filename: str, extension: str) -> IngestResult:
@@ -286,7 +266,7 @@ class NexusRAG:
         except DocumentParseError as e:
             return self._failed_ingest(filename, str(e))
         except Exception as e:
-            logger.exception(f"Failed to ingest bytes: {filename}")
+            logger.exception("Failed to ingest bytes: %s", filename)
             return self._failed_ingest(filename, f"Ingestion failed: {type(e).__name__}")
 
     def ingest_directory(self, dir_path: str | Path, recursive: bool = False) -> list[IngestResult]:
@@ -307,13 +287,9 @@ class NexusRAG:
             else:
                 skipped += 1
                 results.append(
-                    IngestResult(
-                        document_id="",
-                        filename=file_path.name,
-                        chunk_count=0,
-                        word_count=0,
-                        success=False,
-                        error=f"Unsupported file type: {file_path.suffix or 'no extension'}",
+                    self._failed_ingest(
+                        file_path.name,
+                        f"Unsupported file type: {file_path.suffix or 'no extension'}",
                     )
                 )
 

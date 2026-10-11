@@ -3,7 +3,6 @@
 import logging
 from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Any
 
 from scinexusrag.generation.llm import LLMClient
 from scinexusrag.generation.query_analyzer import QueryType
@@ -90,6 +89,18 @@ class Synthesizer:
         }
         return hints.get(query_type)
 
+    def _build_prompt(self, query: str, sources: list[Source], query_type: QueryType | None) -> str:
+        formatted_sources = self._format_sources_for_llm(sources)
+        if len(formatted_sources) > self.max_context_length:
+            formatted_sources = formatted_sources[: self.max_context_length] + "\n\n[truncated]"
+
+        prompt = USER_PROMPT_TEMPLATE.format(question=query, formatted_sources=formatted_sources)
+        if query_type is not None:
+            hint = self._get_type_hint(query_type)
+            if hint:
+                prompt += f"\n\nInstruction: {hint}"
+        return prompt
+
     def synthesize(
         self,
         query: str,
@@ -106,18 +117,7 @@ class Synthesizer:
 
         doc_names = doc_names or {}
         sources = self._build_sources(results, doc_names)[: self.max_sources]
-        formatted_sources = self._format_sources_for_llm(sources)
-
-        if len(formatted_sources) > self.max_context_length:
-            formatted_sources = formatted_sources[: self.max_context_length] + "\n\n[truncated]"
-
-        user_prompt = USER_PROMPT_TEMPLATE.format(
-            question=query, formatted_sources=formatted_sources
-        )
-        if query_type is not None:
-            hint = self._get_type_hint(query_type)
-            if hint:
-                user_prompt += f"\n\nInstruction: {hint}"
+        user_prompt = self._build_prompt(query, sources, query_type)
 
         try:
             answer = self.llm.generate(
@@ -150,20 +150,7 @@ class Synthesizer:
 
         doc_names = doc_names or {}
         sources = self._build_sources(results, doc_names)[: self.max_sources]
-        formatted_sources = self._format_sources_for_llm(sources)
-
-        if len(formatted_sources) > self.max_context_length:
-            formatted_sources = formatted_sources[: self.max_context_length]
-            formatted_sources += "\n\n[truncated]"
-
-        user_prompt = USER_PROMPT_TEMPLATE.format(
-            question=query, formatted_sources=formatted_sources
-        )
-
-        if query_type is not None:
-            type_hint = self._get_type_hint(query_type)
-            if type_hint:
-                user_prompt += f"\n\nInstruction: {type_hint}"
+        user_prompt = self._build_prompt(query, sources, query_type)
 
         try:
             yield from self.llm.stream(
@@ -173,7 +160,7 @@ class Synthesizer:
                 max_tokens=self._token_budget(sources),
             )
         except Exception as e:
-            logger.error(f"Streaming failed: {e}")
+            logger.error("Streaming failed: %s", e)
             yield "Unable to generate response."
 
     def _build_sources(
@@ -193,13 +180,11 @@ class Synthesizer:
             metadata = chunk.metadata
             doc_id = chunk.document_id
 
-            doc_name = self._get_document_name(chunk, doc_id, doc_names, index)
-
-            full_ctx = ""
-            if hasattr(chunk, "full_context"):
-                ctx = chunk.full_context
-                if ctx and ctx != chunk.content:
-                    full_ctx = ctx
+            document_name = doc_names.get(
+                doc_id,
+                chunk.document_name or resolve_display_name(metadata, fallback=f"Document {index}"),
+            )
+            full_context = chunk.full_context
 
             sources.append(
                 Source(
@@ -208,30 +193,14 @@ class Synthesizer:
                     document_id=doc_id,
                     content=chunk.content,
                     score=float(result.score),
-                    page_number=getattr(chunk, "page_number", None) or metadata.get("page_number"),  # type: ignore[arg-type]
-                    section_title=getattr(chunk, "section_title", "")
-                    or metadata.get("section_title"),  # type: ignore[arg-type]
-                    document_name=doc_name,
-                    full_content=full_ctx,
+                    page_number=chunk.page_number or metadata.get("page_number"),  # type: ignore[arg-type]
+                    section_title=chunk.section_title or metadata.get("section_title"),  # type: ignore[arg-type]
+                    document_name=document_name,
+                    full_content=full_context if full_context != chunk.content else "",
                 )
             )
 
         return sources
-
-    def _get_document_name(
-        self,
-        chunk: Any,
-        doc_id: str,
-        doc_names: dict[str, str],
-        fallback_index: int,
-    ) -> str:
-        """Resolve a display name: store mapping, then chunk, then metadata."""
-        if doc_id in doc_names:
-            return doc_names[doc_id]
-        name = getattr(chunk, "document_name", "")
-        if name:
-            return str(name)
-        return resolve_display_name(chunk.metadata, fallback=f"Document {fallback_index}")
 
     def _format_sources_for_llm(self, sources: list[Source]) -> str:
         """Format sources in a clear, numbered structure for the LLM."""

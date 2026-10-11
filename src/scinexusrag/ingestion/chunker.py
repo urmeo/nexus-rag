@@ -75,8 +75,10 @@ class HierarchicalChunker:
         self.context_chars = context_chars
 
         logger.info(
-            f"Initialized HierarchicalChunker: target={target_chunk_size}, "
-            f"max={max_chunk_size}, overlap={overlap_size}"
+            "Initialized HierarchicalChunker: target=%d, max=%d, overlap=%d",
+            target_chunk_size,
+            max_chunk_size,
+            overlap_size,
         )
 
     def chunk(self, document: ParsedDocument) -> list[Chunk]:
@@ -87,7 +89,7 @@ class HierarchicalChunker:
             chunks = self._chunk_by_paragraphs(document, doc_name)
         if self.include_context:
             self._add_context_windows(chunks, document.content)
-        logger.info(f"Chunked {doc_name} into {len(chunks)} chunks")
+        logger.info("Chunked %s into %d chunks", doc_name, len(chunks))
         return chunks
 
     def _chunk_by_sections(self, document: ParsedDocument, doc_name: str) -> list[Chunk]:
@@ -154,28 +156,26 @@ class HierarchicalChunker:
 
             candidate_length = len(header_prefix) + len("\n\n".join([*current, para]))
             exceeds_max = candidate_length > self.max_chunk_size
-            if current_length + para_len + 2 > self.target_chunk_size or exceeds_max:
-                if current and (current_length >= self.min_chunk_size or exceeds_max):
-                    texts.append(header_prefix + "\n\n".join(current))
-                    overlap = self._get_overlap_content(current)
-                    if (
-                        len(header_prefix) + len("\n\n".join([*overlap, para]))
-                        > self.max_chunk_size
-                    ):
-                        overlap = []
-                    current = overlap + [para]
-                    current_length = len(header_prefix) + sum(len(c) + 2 for c in current)
-                else:
-                    current.append(para)
-                    current_length += para_len + 2
+            exceeds_target = current_length + para_len + 2 > self.target_chunk_size
+            if (
+                current
+                and (exceeds_target or exceeds_max)
+                and (current_length >= self.min_chunk_size or exceeds_max)
+            ):
+                texts.append(header_prefix + "\n\n".join(current))
+                overlap = self._get_overlap_content(current)
+                if len(header_prefix) + len("\n\n".join([*overlap, para])) > self.max_chunk_size:
+                    overlap = []
+                current = overlap + [para]
+                current_length = len(header_prefix) + sum(len(c) + 2 for c in current)
             else:
                 current.append(para)
                 current_length += para_len + 2
 
         if not current:
             return texts
-        tail = header_prefix + "\n\n".join(current)
         body = "\n\n".join(current)
+        tail = header_prefix + body
         if (
             len(tail) >= self.min_chunk_size
             or not texts
@@ -187,8 +187,7 @@ class HierarchicalChunker:
         return texts
 
     def _split_into_paragraphs(self, text: str) -> list[str]:
-        """Split text into semantic paragraphs, preserving special blocks."""
-
+        """Split on blank lines and discard empty paragraphs."""
         paragraphs = re.split(r"\n\s*\n", text)
         return [p.strip() for p in paragraphs if p.strip()]
 
@@ -318,7 +317,7 @@ class HierarchicalChunker:
 
 
 class FixedSizeChunker:
-    """Simple fixed-size chunking strategy with configurable overlap."""
+    """Group words or sentences into chunks with configurable overlap."""
 
     def __init__(
         self,
@@ -346,89 +345,52 @@ class FixedSizeChunker:
         )
 
         chunks: list[Chunk] = []
+        for index, content in enumerate(self._split_text(text)):
+            chunk_id = hashlib.sha256(
+                f"{document.id}:{index}:{content[:100]}".encode()
+            ).hexdigest()[:12]
+            chunks.append(
+                Chunk(
+                    id=chunk_id,
+                    content=content.strip(),
+                    document_id=document.id,
+                    document_name=doc_name,
+                    chunk_index=index,
+                    metadata={
+                        **document.metadata,
+                        "chunk_index": index,
+                        "filename": doc_name,
+                    },
+                )
+            )
+        return chunks
 
+    def _split_text(self, text: str) -> list[str]:
         if self.length_function == "words":
             words = text.split()
-            start = 0
-            idx = 0
-            while start < len(words):
-                end = min(start + self.chunk_size, len(words))
-                content = " ".join(words[start:end])
-                chunk_id = hashlib.sha256(
-                    f"{document.id}:{idx}:{content[:100]}".encode()
-                ).hexdigest()[:12]
-                chunks.append(
-                    Chunk(
-                        id=chunk_id,
-                        content=content,
-                        document_id=document.id,
-                        document_name=doc_name,
-                        chunk_index=idx,
-                        metadata={
-                            **document.metadata,
-                            "chunk_index": idx,
-                            "filename": doc_name,
-                        },
-                    )
-                )
-                idx += 1
-                step = self.chunk_size - self.chunk_overlap
-                start += max(step, 1)
-        else:
-            sentences = re.split(r"(?<=[.!?])\s+", text)
-            current = ""
-            idx = 0
+            step = self.chunk_size - self.chunk_overlap
+            return [
+                " ".join(words[start : start + self.chunk_size])
+                for start in range(0, len(words), step)
+            ]
 
-            for sentence in sentences:
-                if not sentence.strip():
-                    continue
-                if current and len(current) + len(sentence) + 1 > self.chunk_size:
-                    chunk_id = hashlib.sha256(
-                        f"{document.id}:{idx}:{current[:100]}".encode()
-                    ).hexdigest()[:12]
-                    chunks.append(
-                        Chunk(
-                            id=chunk_id,
-                            content=current.strip(),
-                            document_id=document.id,
-                            document_name=doc_name,
-                            chunk_index=idx,
-                            metadata={
-                                **document.metadata,
-                                "chunk_index": idx,
-                                "filename": doc_name,
-                            },
-                        )
-                    )
-                    idx += 1
-
-                    if self.chunk_overlap > 0 and len(current) > self.chunk_overlap:
-                        current = current[-self.chunk_overlap :] + " " + sentence
-                    else:
-                        current = sentence
+        texts: list[str] = []
+        current = ""
+        for sentence in re.split(r"(?<=[.!?])\s+", text):
+            if not sentence.strip():
+                continue
+            if current and len(current) + len(sentence) + 1 > self.chunk_size:
+                texts.append(current)
+                if self.chunk_overlap > 0 and len(current) > self.chunk_overlap:
+                    current = current[-self.chunk_overlap :] + " " + sentence
                 else:
-                    current = (current + " " + sentence).strip() if current else sentence
+                    current = sentence
+            else:
+                current = (current + " " + sentence).strip() if current else sentence
 
-            if current.strip():
-                chunk_id = hashlib.sha256(
-                    f"{document.id}:{idx}:{current[:100]}".encode()
-                ).hexdigest()[:12]
-                chunks.append(
-                    Chunk(
-                        id=chunk_id,
-                        content=current.strip(),
-                        document_id=document.id,
-                        document_name=doc_name,
-                        chunk_index=idx,
-                        metadata={
-                            **document.metadata,
-                            "chunk_index": idx,
-                            "filename": doc_name,
-                        },
-                    )
-                )
-
-        return chunks
+        if current.strip():
+            texts.append(current)
+        return texts
 
 
 SemanticChunker = HierarchicalChunker

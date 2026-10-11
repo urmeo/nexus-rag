@@ -1,1 +1,1 @@
-"""Reproducible retrieval and faithfulness evaluation."""
+"""Retrieval, evidence detection, and generation evaluations."""

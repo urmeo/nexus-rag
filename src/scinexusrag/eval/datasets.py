@@ -1,4 +1,4 @@
-"""BEIR-format scientific IR datasets (SciFact, NFCorpus)."""
+"""Load BEIR retrieval datasets and the committed offline samples."""
 
 from __future__ import annotations
 
@@ -47,13 +47,9 @@ class IRDataset:
         return f"{title}. {body}".strip(". ").strip() if title else body
 
 
-def _vendored_path(name: str) -> Path:
-    return VENDORED_DIR / f"{name}_sample"
-
-
 def load_vendored(name: str) -> IRDataset:
     """Load the committed offline sample."""
-    base = _vendored_path(name)
+    base = VENDORED_DIR / f"{name}_sample"
     corpus: dict[str, dict[str, str]] = {}
     with open(base / "corpus.jsonl") as f:
         for line in f:

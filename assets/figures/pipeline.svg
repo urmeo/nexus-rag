@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="670" viewBox="0 0 1200 670" role="img" aria-labelledby="title description">
+  <title id="title">NexusRAG: from document to cited answer</title>
+  <desc id="description">Documents are parsed, split into passages and indexed in LanceDB and BM25. A question retrieves passages using embedding and keyword search. Ollama generates an answer and citation indices are checked before showing the answer and sources. One feedback search runs when the best dense similarity is below 0.55. NLI sentence grounding is optional and off by default.</desc>
+  <defs>
+    <style>
+      text { font-family: 'DejaVu Sans', Arial, sans-serif; fill: #172033; }
+      .title { font-size: 30px; font-weight: 700; }
+      .lane { font-size: 13px; font-weight: 700; letter-spacing: 1.8px; fill: #64748b; }
+      .heading { font-size: 20px; font-weight: 700; }
+      .detail { font-size: 14px; fill: #475569; }
+      .note { font-size: 14px; fill: #475569; }
+      .step { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; }
+      .query-step { fill: #eff6ff; stroke: #93c5fd; stroke-width: 1.5; }
+      .result { fill: #f0fdfa; stroke: #5eead4; stroke-width: 1.5; }
+      .flow { fill: none; stroke: #64748b; stroke-width: 2; }
+      .index-flow { fill: none; stroke: #2563eb; stroke-width: 2; }
+      .arrow { fill: #64748b; }
+      .index-arrow { fill: #2563eb; }
+      .optional { fill: none; stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+  <rect width="1200" height="670" rx="20" fill="#fff"/>
+  <text class="title" x="56" y="58">From document to cited answer</text>
+  <text class="note" x="56" y="88">NexusRAG · local document search with Ollama generation</text>
+
+  <text class="lane" x="56" y="130">1  BUILD THE INDEX</text>
+  <rect class="step" x="56" y="150" width="248" height="104" rx="12"/>
+  <text class="heading" x="78" y="192">Upload documents</text>
+  <text class="detail" x="78" y="222">PDF · DOCX · Markdown · TXT</text>
+  <rect class="step" x="336" y="150" width="248" height="104" rx="12"/>
+  <text class="heading" x="358" y="192">Parse text</text>
+  <text class="detail" x="358" y="222">Extract text and sections</text>
+  <rect class="step" x="616" y="150" width="248" height="104" rx="12"/>
+  <text class="heading" x="638" y="192">Split passages</text>
+  <text class="detail" x="638" y="222">Overlapping text chunks</text>
+  <rect class="step" x="896" y="150" width="248" height="104" rx="12"/>
+  <text class="heading" x="918" y="192">Store and index</text>
+  <text class="detail" x="918" y="222">Embeddings + BM25</text>
+  <path class="flow" d="M304 202 H328"/>
+  <path class="flow" d="M584 202 H608"/>
+  <path class="flow" d="M864 202 H888"/>
+  <path class="arrow" d="M320 196 L330 202 L320 208 Z M600 196 L610 202 L600 208 Z M880 196 L890 202 L880 208 Z"/>
+
+  <path class="index-flow" d="M1020 254 V300 H460 V362"/>
+  <path class="index-arrow" d="M454 354 L460 364 L466 354 Z"/>
+  <text class="detail" x="642" y="286">LanceDB vectors + keyword index</text>
+
+  <text class="lane" x="56" y="342">2  ASK A QUESTION</text>
+  <rect class="query-step" x="56" y="370" width="248" height="106" rx="12"/>
+  <text class="heading" x="78" y="413">Enter a question</text>
+  <text class="detail" x="78" y="444">Search your documents</text>
+  <rect class="query-step" x="336" y="370" width="248" height="106" rx="12"/>
+  <text class="heading" x="358" y="413">Retrieve passages</text>
+  <text class="detail" x="358" y="444">Dense + BM25 rank fusion</text>
+  <rect class="query-step" x="616" y="370" width="248" height="106" rx="12"/>
+  <text class="heading" x="638" y="413">Generate an answer</text>
+  <text class="detail" x="638" y="444">Ollama uses the passages</text>
+  <rect class="result" x="896" y="370" width="248" height="106" rx="12"/>
+  <text class="heading" x="918" y="413">Answer and sources</text>
+  <text class="detail" x="918" y="444">Citation indices checked</text>
+  <path class="flow" d="M304 423 H328"/>
+  <path class="flow" d="M584 423 H608"/>
+  <path class="flow" d="M864 423 H888"/>
+  <path class="arrow" d="M320 417 L330 423 L320 429 Z M600 417 L610 423 L600 429 Z M880 417 L890 423 L880 429 Z"/>
+
+  <path class="optional" d="M460 476 V520"/>
+  <rect x="336" y="520" width="248" height="90" rx="12" fill="#fff" stroke="#cbd5e1" stroke-dasharray="5 5"/>
+  <text class="heading" x="358" y="555">One feedback search</text>
+  <text class="detail" x="358" y="582">Dense similarity &lt; 0.55</text>
+  <path class="optional" d="M1020 476 V520"/>
+  <rect x="896" y="520" width="248" height="90" rx="12" fill="#fff" stroke="#cbd5e1" stroke-dasharray="5 5"/>
+  <text class="heading" x="918" y="555">Optional NLI check</text>
+  <text class="detail" x="918" y="582">Off by default</text>
+  <text class="note" x="56" y="646">Read the cited passages when checking an answer. Model scores do not establish factual correctness.</text>
+</svg>

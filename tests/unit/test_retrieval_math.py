@@ -25,6 +25,16 @@ def test_rrf_fuse_weights_shift_ranking():
     assert sparse_heavy[0].chunk.id == "c2"
 
 
+def test_rrf_fuse_zero_weights_return_zero_scores_in_stable_order():
+    first = [_result("c1"), _result("c2")]
+    second = [_result("c2"), _result("c3")]
+
+    fused = rrf_fuse([first, second], [0.0, 0.0], top_k=2)
+
+    assert [result.chunk.id for result in fused] == ["c1", "c2"]
+    assert all(result.score == 0.0 for result in fused)
+
+
 def test_roc_auc_known_value():
     assert math.isclose(roc_auc([0.1, 0.4, 0.35, 0.8], [0, 0, 1, 1]), 0.75)
     assert roc_auc([0.1, 0.2, 0.3, 0.4], [0, 0, 1, 1]) == 1.0

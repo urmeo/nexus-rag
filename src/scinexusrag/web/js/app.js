@@ -1,9 +1,3 @@
-
-
-const API_BASE = '';
-
-
-
 function apiHeaders(extra = {}) {
     const key = state.apiKey;
     return key ? { ...extra, 'X-API-Key': key } : { ...extra };
@@ -17,14 +11,10 @@ function storedApiKey() {
     }
 }
 
-
 const state = {
     documents: [],
-    sources: [],
     llmModel: '',
     embeddingModel: '',
-    lastResponse: null,
-    lastQuery: '',
     isProcessing: false,
     apiKey: storedApiKey()
 };
@@ -33,16 +23,13 @@ let documentRequest = 0;
 let uploadQueue = Promise.resolve();
 let uploadHideTimer = null;
 
-
 const el = {
-    
     modelStatus: document.getElementById('modelStatus'),
     apiKeyForm: document.getElementById('apiKeyForm'),
     apiKeyInput: document.getElementById('apiKeyInput'),
     apiKeySettings: document.getElementById('apiKeySettings'),
     documentsToggle: document.getElementById('documentsToggle'),
 
-    
     sidebar: document.getElementById('sidebar'),
     docCount: document.getElementById('docCount'),
     uploadZone: document.getElementById('uploadZone'),
@@ -53,28 +40,23 @@ const el = {
     documentList: document.getElementById('documentList'),
     emptyDocs: document.getElementById('emptyDocs'),
 
-    
     messages: document.getElementById('messages'),
     welcome: document.getElementById('welcome'),
     chatInput: document.getElementById('chatInput'),
     sendBtn: document.getElementById('sendBtn'),
     statusHint: document.getElementById('statusHint'),
 
-    
     sourcesPanel: document.getElementById('sourcesPanel'),
     closeSources: document.getElementById('closeSources'),
     sourcesList: document.getElementById('sourcesList'),
 
-    
     llmStatus: document.getElementById('llmStatus'),
     embeddingStatus: document.getElementById('embeddingStatus'),
     docStatus: document.getElementById('docStatus'),
     chunkStatus: document.getElementById('chunkStatus'),
 
-    
     toastContainer: document.getElementById('toastContainer')
 };
-
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -91,7 +73,7 @@ function setupEventListeners() {
         const open = el.sidebar.classList.toggle('open');
         el.documentsToggle.setAttribute('aria-expanded', String(open));
     });
-    
+
     el.uploadZone.addEventListener('click', () => el.fileInput.click());
     el.uploadZone.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -104,22 +86,28 @@ function setupEventListeners() {
     el.uploadZone.addEventListener('dragleave', handleDragLeave);
     el.uploadZone.addEventListener('drop', handleDrop);
 
-    
-    el.chatInput.addEventListener('input', handleInputChange);
+    el.chatInput.addEventListener('input', () => {
+        updateInputState();
+        autoResize();
+    });
     el.chatInput.addEventListener('keydown', handleKeyDown);
     el.sendBtn.addEventListener('click', sendMessage);
 
-    
     el.closeSources.addEventListener('click', closeSources);
 
-    
-    el.chatInput.addEventListener('input', autoResize);
+    document.querySelectorAll('.suggestion').forEach(button => {
+        button.addEventListener('click', () => {
+            el.chatInput.value = button.dataset.question;
+            updateInputState();
+            sendMessage();
+        });
+    });
 }
 
 async function saveApiKey(event) {
     event.preventDefault();
     state.apiKey = el.apiKeyInput.value.trim();
-    
+
     documentRequest++;
     try {
         if (state.apiKey) localStorage.setItem('scinexusrag_api_key', state.apiKey);
@@ -158,7 +146,7 @@ function handleFileSelect(e) {
 }
 
 function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
         sendMessage();
     }
@@ -169,11 +157,10 @@ function autoResize() {
     el.chatInput.style.height = Math.min(el.chatInput.scrollHeight, 120) + 'px';
 }
 
-
 async function checkHealth() {
     const key = state.apiKey;
     try {
-        const res = await fetch(`${API_BASE}/api/health`, { headers: apiHeaders() });
+        const res = await fetch('/api/health', { headers: apiHeaders() });
         const data = await res.json();
         if (key !== state.apiKey) return;
         if (!res.ok) {
@@ -189,9 +176,10 @@ async function checkHealth() {
 
         updateConnectionStatus(data);
         updateStatusBar(data);
-    } catch (e) {
+    } catch {
         if (key !== state.apiKey) return;
         updateConnectionStatus({ llm_available: false });
+        el.modelStatus.querySelector('.model-name').textContent = 'Server unavailable';
         updateStatusBar({});
     }
 }
@@ -202,10 +190,10 @@ function updateConnectionStatus(data) {
 
     if (data.llm_available) {
         statusDot.className = 'status-dot connected';
-        modelName.textContent = state.llmModel || 'Connected';
+        modelName.textContent = state.llmModel || 'Answer model available';
     } else {
         statusDot.className = 'status-dot disconnected';
-        modelName.textContent = 'Disconnected';
+        modelName.textContent = 'Answer model unavailable';
     }
 }
 
@@ -216,14 +204,13 @@ function updateStatusBar(data) {
     el.chunkStatus.textContent = data.total_chunks || 0;
 }
 
-
 async function loadDocuments() {
     const request = ++documentRequest;
     try {
         const documents = [];
         let data;
         do {
-            const res = await fetch(`${API_BASE}/api/documents?limit=1000&offset=${documents.length}`, { headers: apiHeaders() });
+            const res = await fetch(`/api/documents?limit=1000&offset=${documents.length}`, { headers: apiHeaders() });
             data = await res.json();
             if (request !== documentRequest) return;
             if (!res.ok) {
@@ -250,26 +237,14 @@ async function loadDocuments() {
 }
 
 function renderDocuments() {
-    if (state.documents.length === 0) {
-        el.emptyDocs.style.display = 'flex';
-        
-        const items = el.documentList.querySelectorAll('.document-item');
-        items.forEach(item => item.remove());
-        return;
-    }
+    el.emptyDocs.style.display = state.documents.length ? 'none' : 'flex';
+    el.documentList.querySelectorAll('.document-item').forEach(item => item.remove());
 
-    el.emptyDocs.style.display = 'none';
-
-    
-    
-    const existingItems = el.documentList.querySelectorAll('.document-item');
-    existingItems.forEach(item => item.remove());
-
-    const frag = document.createDocumentFragment();
-    state.documents.forEach(doc => {
-        frag.appendChild(buildDocumentItem(doc));
+    const fragment = document.createDocumentFragment();
+    state.documents.forEach(document => {
+        fragment.appendChild(buildDocumentItem(document));
     });
-    el.documentList.appendChild(frag);
+    el.documentList.appendChild(fragment);
 }
 
 function buildDocumentItem(doc) {
@@ -296,7 +271,7 @@ function buildDocumentItem(doc) {
     meta.className = 'document-meta';
     if (doc.chunk_count) {
         const chunks = document.createElement('span');
-        chunks.textContent = `${doc.chunk_count} chunks`;
+        chunks.textContent = `${doc.chunk_count} passage${doc.chunk_count === 1 ? '' : 's'}`;
         meta.appendChild(chunks);
     }
     if (uploadTime) {
@@ -308,16 +283,17 @@ function buildDocumentItem(doc) {
     info.appendChild(name);
     info.appendChild(meta);
 
-    const del = document.createElement('button');
-    del.className = 'document-delete';
-    del.title = 'Delete';
-    del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'document-delete';
+    deleteButton.title = 'Delete document';
+    deleteButton.setAttribute('aria-label', `Delete ${doc.filename || 'document'}`);
+    deleteButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
         '<path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path></svg>';
-    del.addEventListener('click', () => deleteDocument(doc.id));
+    deleteButton.addEventListener('click', () => deleteDocument(doc.id));
 
     item.appendChild(icon);
     item.appendChild(info);
-    item.appendChild(del);
+    item.appendChild(deleteButton);
     return item;
 }
 
@@ -327,14 +303,9 @@ function getFileExtension(filename) {
 }
 
 function formatTime(isoString) {
-    try {
-        const date = new Date(isoString);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    } catch {
-        return '';
-    }
+    const date = new Date(isoString);
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
-
 
 function uploadFiles(files) {
     const batch = Array.from(files);
@@ -351,13 +322,13 @@ async function uploadFile(file) {
         return;
     }
 
-    showUploadProgress(`Processing ${file.name}...`);
+    showUploadProgress(`Uploading and indexing ${file.name}...`);
 
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-        const res = await fetch(`${API_BASE}/api/ingest`, {
+        const res = await fetch('/api/ingest', {
             method: 'POST',
             headers: apiHeaders(),
             body: formData
@@ -366,24 +337,24 @@ async function uploadFile(file) {
         const data = await res.json();
 
         if (res.ok && data.success) {
-            showToast(`Added: ${file.name}`, 'success');
+            showToast(`Indexed ${file.name}`, 'success');
             await loadDocuments();
             await checkHealth();
         } else {
             showToast(data.detail || data.error || 'Upload failed', 'error');
         }
-    } catch (e) {
-        showToast('Upload error - check server connection', 'error');
+    } catch {
+        showToast('Could not upload the document. Check the server connection.', 'error');
     } finally {
         hideUploadProgress();
     }
 }
 
 async function deleteDocument(docId) {
-    if (!confirm('Delete this document and all its chunks?')) return;
+    if (!confirm('Delete this document and its indexed passages?')) return;
 
     try {
-        const res = await fetch(`${API_BASE}/api/documents/${docId}`, {
+        const res = await fetch(`/api/documents/${docId}`, {
             method: 'DELETE',
             headers: apiHeaders()
         });
@@ -393,10 +364,10 @@ async function deleteDocument(docId) {
             await loadDocuments();
             await checkHealth();
         } else {
-            showToast('Delete failed', 'error');
+            showToast('Could not delete the document.', 'error');
         }
-    } catch (e) {
-        showToast('Delete error', 'error');
+    } catch {
+        showToast('Could not delete the document. Check the server connection.', 'error');
     }
 }
 
@@ -417,11 +388,6 @@ function hideUploadProgress() {
     }, 300);
 }
 
-
-function handleInputChange() {
-    updateInputState();
-}
-
 function updateInputState() {
     const hasText = el.chatInput.value.trim().length > 0;
     const hasDocs = state.documents.length > 0;
@@ -431,41 +397,35 @@ function updateInputState() {
     if (!hasDocs) {
         el.statusHint.textContent = 'Upload documents to start asking questions';
     } else if (state.isProcessing) {
-        el.statusHint.textContent = 'Processing your question...';
+        el.statusHint.textContent = 'Searching documents and generating an answer...';
     } else {
-        el.statusHint.textContent = `${state.documents.length} document${state.documents.length !== 1 ? 's' : ''} loaded - ready to answer`;
+        el.statusHint.textContent = `${state.documents.length} document${state.documents.length !== 1 ? 's' : ''} indexed. Check the cited passages when reading an answer.`;
     }
 }
-
 
 async function sendMessage() {
     const question = el.chatInput.value.trim();
     if (!question || state.documents.length === 0 || state.isProcessing) return;
 
-    state.lastQuery = question;
     state.isProcessing = true;
 
     el.chatInput.value = '';
     el.chatInput.style.height = 'auto';
     updateInputState();
 
-    
     if (el.welcome) {
         el.welcome.style.display = 'none';
     }
 
-    
     closeSources();
 
-    
     addUserMessage(question);
 
-    
     const typingEl = showTypingIndicator();
     const startTime = Date.now();
 
     try {
-        const res = await fetch(`${API_BASE}/api/query`, {
+        const res = await fetch('/api/query', {
             method: 'POST',
             headers: apiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ question })
@@ -473,26 +433,24 @@ async function sendMessage() {
 
         const data = await res.json();
 
-        
         typingEl.remove();
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
         if (res.ok) {
-            state.lastResponse = data;
             addAssistantMessage(data, elapsed);
 
             updateSourcesPanel(data.sources || []);
         } else {
-            const d = data.detail;
-            const msg = Array.isArray(d)
-                ? d.map(e => (e && e.msg) ? e.msg : String(e)).join('; ')
-                : (d || 'An error occurred processing your question.');
-            addErrorMessage(msg);
+            const detail = data.detail;
+            const message = Array.isArray(detail)
+                ? detail.map(error => error?.msg || String(error)).join('; ')
+                : (detail || 'Could not answer the question.');
+            addErrorMessage(message);
         }
-    } catch (e) {
+    } catch {
         typingEl.remove();
-        addErrorMessage('Could not connect to server. Please check your connection.');
+        addErrorMessage('Could not connect to the server. Check your connection.');
     } finally {
         state.isProcessing = false;
         updateInputState();
@@ -507,7 +465,7 @@ function addUserMessage(content) {
 
     div.innerHTML = `
         <div class="message-bubble">
-            <div class="message-content">${esc(content)}</div>
+            <div class="message-content">${escapeHtml(content)}</div>
         </div>
         <div class="message-time">${time}</div>
     `;
@@ -522,17 +480,14 @@ function addAssistantMessage(data, elapsed) {
 
     const time = formatMessageTime();
     const confidence = data.confidence || 0;
-    const confClass = confidence >= 0.6 ? 'high' : confidence >= 0.4 ? 'medium' : 'low';
-    const confPercent = Math.round(confidence * 100);
+    const confidenceClass = confidence >= 0.6 ? 'high' : confidence >= 0.4 ? 'medium' : 'low';
     const sourceCount = data.sources?.length || 0;
 
-    
     const formattedContent = formatResponse(data.answer, data.sources || []);
 
-    
     const warnings = data.warnings || [];
     const warningsBlock = warnings.length
-        ? `<div class="answer-warnings">${warnings.map((w) => `<span>⚠ ${esc(w)}</span>`).join('')}</div>`
+        ? `<div class="answer-warnings">${warnings.map((w) => `<span>⚠ ${escapeHtml(w)}</span>`).join('')}</div>`
         : '';
 
     div.innerHTML = `
@@ -540,9 +495,9 @@ function addAssistantMessage(data, elapsed) {
             <div class="message-content">${formattedContent}</div>
             ${warningsBlock}
             <div class="message-meta">
-                <span class="meta-item">${elapsed}s</span>
-                <span class="meta-item confidence ${confClass}">${confPercent}% conf</span>
-                ${sourceCount > 0 ? `<button type="button" class="meta-item sources-link">${sourceCount} sources</button>` : ''}
+                <span class="meta-item">Answered in ${elapsed}s</span>
+                <span class="meta-item confidence ${confidenceClass}" title="Based on source scores and citation coverage, or entailment checks when enabled. This score is not a probability of correctness.">Confidence score ${confidence.toFixed(2)}</span>
+                ${sourceCount > 0 ? `<button type="button" class="meta-item sources-link">${sourceCount} source${sourceCount === 1 ? '' : 's'}</button>` : ''}
             </div>
         </div>
         <div class="message-time">${time}</div>
@@ -578,7 +533,7 @@ function addErrorMessage(content) {
 
     div.innerHTML = `
         <div class="message-bubble error">
-            <div class="message-content">${esc(content)}</div>
+            <div class="message-content">${escapeHtml(content)}</div>
         </div>
     `;
 
@@ -589,35 +544,28 @@ function addErrorMessage(content) {
 function formatResponse(text, sources) {
     if (!text) return '';
 
-    let html = esc(text);
+    let html = escapeHtml(text);
 
-    
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
-    
     html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-    
     html = html.replace(/^[\-•]\s+(.+)$/gm, '<li>$1</li>');
 
-    
     html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
 
-    
     html = html.replace(/(<li>.*?<\/li>\s*)+/gs, match => `<ul>${match}</ul>`);
 
-    
     html = html.replace(/\[(\d+)\]/g, (match, num) => {
         const idx = parseInt(num) - 1;
         if (idx >= 0 && idx < sources.length) {
             const src = sources[idx];
             const tooltip = src.filename || `Source ${num}`;
-            return `<button type="button" class="citation" data-source-index="${idx}" title="${esc(tooltip)}">${num}</button>`;
+            return `<button type="button" class="citation" data-source-index="${idx}" title="${escapeHtml(tooltip)}">${num}</button>`;
         }
         return match;
     });
 
-    
     html = html.split('\n\n').map(p => p.trim() ? `<p>${p}</p>` : '').join('');
     html = html.replace(/\n/g, '<br>');
 
@@ -650,34 +598,33 @@ function scrollToBottom() {
     el.messages.scrollTop = el.messages.scrollHeight;
 }
 
-
 function updateSourcesPanel(sources) {
-    state.sources = sources;
-
     el.sourcesList.innerHTML = sources.map((src, idx) => {
         const score = src.score || 0;
-        const scorePercent = Math.round(score * 100);
         const scoreClass = score >= 0.6 ? 'high' : score >= 0.4 ? 'medium' : 'low';
         const content = src.content || src.text || '';
         const preview = content.substring(0, 200).replace(/\n/g, ' ');
 
         return `
-            <div class="source-card" id="source-${idx}" onclick="toggleSourceExpand(${idx})">
+            <div class="source-card" id="source-${idx}">
                 <div class="source-header">
                     <span class="source-number">${idx + 1}</span>
-                    <span class="source-filename">${esc(src.filename || 'Unknown document')}</span>
-                    <span class="source-score ${scoreClass}">${scorePercent}%</span>
+                    <span class="source-filename">${escapeHtml(src.filename || 'Unknown document')}</span>
+                    <span class="source-score ${scoreClass}" title="The retrieval score ranks passages for this question. It is not a probability of correctness.">Match ${score.toFixed(2)}</span>
                 </div>
-                ${src.section_title ? `<div class="source-section">${esc(src.section_title)}</div>` : ''}
-                ${src.page ? `<div class="source-page">Page ${src.page}</div>` : ''}
-                <div class="source-preview">${esc(preview)}${content.length > 200 ? '...' : ''}</div>
-                <div class="source-full" style="display: none;">
-                    <div class="source-full-content">${esc(content)}</div>
-                    ${src.truncated ? '<div class="source-truncated-note">Preview — first 500 characters of the source passage.</div>' : ''}
+                ${src.section_title ? `<div class="source-section">${escapeHtml(src.section_title)}</div>` : ''}
+                ${src.page ? `<div class="source-page">Page ${escapeHtml(src.page)}</div>` : ''}
+                <div class="source-preview">${escapeHtml(preview)}${content.length > 200 ? '...' : ''}</div>
+                <div class="source-full">
+                    <div class="source-full-content">${escapeHtml(content)}</div>
+                    ${src.truncated ? '<div class="source-truncated-note">Only the first 500 characters of this passage are shown.</div>' : ''}
                 </div>
             </div>
         `;
     }).join('');
+    el.sourcesList.querySelectorAll('.source-card').forEach(card => {
+        card.addEventListener('click', () => card.classList.toggle('expanded'));
+    });
 }
 
 function openSources() {
@@ -688,60 +635,31 @@ function closeSources() {
     el.sourcesPanel.classList.remove('open');
 }
 
-function toggleSourceExpand(idx) {
-    const card = document.getElementById(`source-${idx}`);
-    if (!card) return;
-
-    const preview = card.querySelector('.source-preview');
-    const full = card.querySelector('.source-full');
-
-    if (full.style.display === 'none') {
-        preview.style.display = 'none';
-        full.style.display = 'block';
-        card.classList.add('expanded');
-    } else {
-        preview.style.display = 'block';
-        full.style.display = 'none';
-        card.classList.remove('expanded');
-    }
-}
-
 function highlightSource(idx) {
-    
     openSources();
 
-    
     document.querySelectorAll('.source-card.highlighted').forEach(el => {
         el.classList.remove('highlighted');
     });
 
-    
     const card = document.getElementById(`source-${idx}`);
     if (card) {
         card.classList.add('highlighted');
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        
         setTimeout(() => card.classList.remove('highlighted'), 2000);
     }
 }
 
-
-function askSuggestion(question) {
-    el.chatInput.value = question;
-    handleInputChange();
-    sendMessage();
-}
-
-
-function copyResponse(answer = state.lastResponse?.answer) {
-    if (answer) {
-        navigator.clipboard.writeText(answer)
-            .then(() => showToast('Copied to clipboard', 'success'))
-            .catch(() => showToast('Failed to copy', 'error'));
+async function copyResponse(answer) {
+    if (!answer) return;
+    try {
+        await navigator.clipboard.writeText(answer);
+        showToast('Copied to clipboard', 'success');
+    } catch {
+        showToast('Could not copy the answer.', 'error');
     }
 }
-
 
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
@@ -755,20 +673,18 @@ function showToast(message, type = 'info') {
 
     toast.innerHTML = `
         ${icon}
-        <span class="toast-message">${esc(message)}</span>
+        <span class="toast-message">${escapeHtml(message)}</span>
     `;
 
     el.toastContainer.appendChild(toast);
 
-    
     setTimeout(() => {
         toast.classList.add('fade-out');
         setTimeout(() => toast.remove(), 300);
     }, 4000);
 }
 
-
-function esc(text) {
+function escapeHtml(text) {
     if (!text) return '';
     return String(text)
         .replace(/&/g, '&amp;')
@@ -777,11 +693,3 @@ function esc(text) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
-
-
-window.highlightSource = highlightSource;
-window.toggleSourceExpand = toggleSourceExpand;
-window.openSources = openSources;
-window.closeSources = closeSources;
-window.copyResponse = copyResponse;
-window.askSuggestion = askSuggestion;

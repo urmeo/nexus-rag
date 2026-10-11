@@ -35,7 +35,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="NexusRAG",
-        description="Local hybrid retrieval and faithfulness evaluation for scientific papers",
+        description="Search uploaded documents and ask Ollama for answers with cited passages.",
         version=__version__,
         docs_url="/docs" if docs_on else None,
         redoc_url="/redoc" if docs_on else None,
@@ -46,11 +46,11 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
     origins = settings.api.cors_origins
-    allow_creds = "*" not in origins
+    allow_credentials = "*" not in origins
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
-        allow_credentials=allow_creds,
+        allow_credentials=allow_credentials,
         allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Content-Type", "X-API-Key"],
     )

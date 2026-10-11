@@ -1,19 +1,18 @@
-"""Trigger analysis and cost/quality for the corrective retriever."""
+"""Measure corrective retrieval triggers, ranking scores, and query latency."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from scinexusrag.eval import datasets as D
-from scinexusrag.eval import metrics as M
-from scinexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
-from scinexusrag.eval.indexes import unique_document_ids as _ids
+from scinexusrag.eval import datasets, metrics
+from scinexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks, unique_document_ids
 from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.ingestion import Embedder
 from scinexusrag.retrieval import (
@@ -24,7 +23,7 @@ from scinexusrag.retrieval import (
 )
 
 RESULTS_DIR = Path("outputs/generated")
-NDCG = M.METRIC_FNS["nDCG@10"]
+NDCG = metrics.METRIC_FNS["nDCG@10"]
 
 
 TUNE_SPLITS = {"nfcorpus": "validation", "scifact": "train"}
@@ -40,29 +39,35 @@ def _sweep_tau(
     taus: tuple[float, ...],
     depth: int,
 ) -> list[dict[str, Any]]:
-    """nDCG, trigger rate and triggered-only delta for each tau over ``qids``."""
+    """Measure nDCG, trigger rate, and score changes among triggered queries for each tau."""
     sweep: list[dict[str, Any]] = []
     for tau in taus:
         cr = CorrectiveRetriever(adaptive, tau=tau)
         corr_ndcg: dict[str, float] = {}
         triggered: list[str] = []
         for q in qids:
-            res, trig = cr.retrieve_traced(queries[q], top_k=depth, depth=depth)
-            corr_ndcg[q] = NDCG(_ids(res), qrels[q])
-            if trig:
+            results, did_trigger = cr.retrieve_traced(queries[q], top_k=depth, depth=depth)
+            corr_ndcg[q] = NDCG(unique_document_ids(results), qrels[q])
+            if did_trigger:
                 triggered.append(q)
-        a = [base_ndcg[q] for q in triggered]
-        b = [corr_ndcg[q] for q in triggered]
+        baseline_scores = [base_ndcg[q] for q in triggered]
+        corrected_scores = [corr_ndcg[q] for q in triggered]
         sweep.append(
             {
                 "tau": tau,
                 "ndcg": float(np.mean([corr_ndcg[q] for q in qids])),
                 "trigger_rate": len(triggered) / len(qids),
                 "triggered_n": len(triggered),
-                "triggered_base_ndcg": float(np.mean(a)) if a else None,
-                "triggered_corr_ndcg": float(np.mean(b)) if b else None,
-                "triggered_delta": float(np.mean(b) - np.mean(a)) if a else None,
-                "triggered_p": M.paired_randomization_test(b, a) if a else None,
+                "triggered_base_ndcg": float(np.mean(baseline_scores)) if baseline_scores else None,
+                "triggered_corr_ndcg": float(np.mean(corrected_scores))
+                if corrected_scores
+                else None,
+                "triggered_delta": float(np.mean(corrected_scores) - np.mean(baseline_scores))
+                if baseline_scores
+                else None,
+                "triggered_p": metrics.paired_randomization_test(corrected_scores, baseline_scores)
+                if baseline_scores
+                else None,
             }
         )
     return sweep
@@ -83,11 +88,11 @@ def evaluate(
     if tune_split == split:
         raise ValueError("tune and evaluation splits must be different")
     provenance = evaluation_provenance()
-    ds = D.load(dataset, split=split)
+    ds = datasets.load(dataset, split=split)
     qids = [q for q in ds.queries if ds.qrels.get(q)]
     if not qids:
         raise ValueError(f"no judged queries for {dataset}/{split}")
-    ds_tune = D.load(dataset, split=tune_split)
+    ds_tune = datasets.load(dataset, split=tune_split)
     tune_qids = [q for q in ds_tune.queries if ds_tune.qrels.get(q)][:TUNE_LIMIT]
     if not tune_qids:
         raise ValueError(f"no judged queries in tune split {dataset}/{tune_split}")
@@ -104,10 +109,15 @@ def evaluate(
     adaptive = AdaptiveHybridRetriever(dense, bm25, 0.5, 0.5)
 
     def base_ndcg_for(
-        qs: dict[str, str], rels: dict[str, dict[str, int]], ids: list[str]
+        queries: dict[str, str], qrels: dict[str, dict[str, int]], query_ids: list[str]
     ) -> dict[str, float]:
-        base = {q: _ids(adaptive.retrieve(qs[q], top_k=depth, depth=depth)) for q in ids}
-        return {q: NDCG(base[q], rels[q]) for q in ids}
+        return {
+            query_id: NDCG(
+                unique_document_ids(adaptive.retrieve(queries[query_id], top_k=depth, depth=depth)),
+                qrels[query_id],
+            )
+            for query_id in query_ids
+        }
 
     tune_base = base_ndcg_for(ds_tune.queries, ds_tune.qrels, tune_qids)
     tune_sweep = _sweep_tau(
@@ -150,7 +160,7 @@ def evaluate(
 
 def _cost_quality(
     adaptive: AdaptiveHybridRetriever,
-    ds: D.IRDataset,
+    ds: datasets.IRDataset,
     qids: list[str],
     tau: float,
     depth: int,
@@ -160,24 +170,27 @@ def _cost_quality(
     sample = qids[:120]
     sub_qrels = {q: ds.qrels[q] for q in sample}
 
-    def timed(name: str, fn: Any) -> None:
+    def timed(name: str, fn: Callable[[str], list[str]]) -> None:
         t0 = time.perf_counter()
         run = {q: fn(ds.queries[q]) for q in sample}
         ms = (time.perf_counter() - t0) / len(sample) * 1000
-        scores = M.per_query(run, sub_qrels)
+        scores = metrics.per_query(run, sub_qrels)
         ndcg = float(np.mean([s["nDCG@10"] for s in scores.values()]))
         r20 = float(np.mean([s["R@20"] for s in scores.values()]))
         rows.append({"system": name, "ndcg": ndcg, "r20": r20, "latency_ms": ms})
 
     corrective = CorrectiveRetriever(adaptive, tau=tau)
 
-    timed("Adaptive", lambda q: _ids(adaptive.retrieve(q, top_k=depth, depth=depth)))
-    timed("Corrective PRF", lambda q: _ids(corrective.retrieve(q, top_k=depth, depth=depth)))
+    timed("Adaptive", lambda q: unique_document_ids(adaptive.retrieve(q, top_k=depth, depth=depth)))
+    timed(
+        "Corrective PRF",
+        lambda q: unique_document_ids(corrective.retrieve(q, top_k=depth, depth=depth)),
+    )
     if with_reranker:
         reranker = Reranker(device="cpu")
         timed(
             "Rerank (cross-enc)",
-            lambda q: _ids(
+            lambda q: unique_document_ids(
                 reranker.rerank(q, adaptive.retrieve(q, top_k=depth, depth=depth), top_k=depth)
             ),
         )

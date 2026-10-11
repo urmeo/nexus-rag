@@ -39,15 +39,15 @@ class QueryRequest(BaseModel):
 
     @field_validator("question")
     @classmethod
-    def validate_question(cls, v: str) -> str:
+    def validate_question(cls, question: str) -> str:
         """Validate question length and content."""
-        v = v.strip()
-        if not v:
+        question = question.strip()
+        if not question:
             raise ValueError("Question cannot be empty")
         max_length = get_settings().retrieval.max_query_length
-        if len(v) > max_length:
+        if len(question) > max_length:
             raise ValueError(f"Question too long (max {max_length} characters)")
-        return v
+        return question
 
 
 class QueryResponse(BaseModel):
@@ -135,7 +135,7 @@ class MetricsResponse(BaseModel):
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
-    "Readiness: pipeline, model, and corpus status."
+    """Report pipeline, model and document status."""
     try:
         rag = get_scinexusrag()
         stats = await asyncio.to_thread(rag.get_stats)
@@ -161,7 +161,7 @@ async def ingest_document(
     request: Request,
     file: Annotated[UploadFile, File(description="Document to upload")],
 ) -> UploadResponse:
-    "Upload a document for ingestion."
+    """Upload, parse and index a document."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 
@@ -196,7 +196,7 @@ async def ingest_document(
             chunks.append(chunk)
         content = b"".join(chunks)
 
-        if len(content) == 0:
+        if not content:
             raise HTTPException(status_code=400, detail="File is empty")
 
         validate_upload(ext, content, file.content_type)
@@ -229,13 +229,13 @@ async def ingest_document(
 )
 @limiter.limit(query_limit)
 async def query_documents(request: Request, payload: QueryRequest) -> QueryResponse:
-    "Query the knowledge base."
+    """Answer a question using passages from uploaded documents."""
 
     try:
         rag = get_scinexusrag()
-        t0 = time.monotonic()
+        started = time.monotonic()
         response = await asyncio.to_thread(rag.query, payload.question)
-        elapsed_ms = (time.monotonic() - t0) * 1000
+        elapsed_ms = (time.monotonic() - started) * 1000
         get_metrics_collector().record_query(elapsed_ms)
 
         doc_names: dict[str, str] = {}
@@ -244,13 +244,12 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
             for doc in docs:
                 doc_names[doc.get("id", "")] = resolve_display_name(doc)
         except Exception:
-            pass
+            logger.debug("Could not load source filenames", exc_info=True)
 
         sources = []
         for idx, source in enumerate(response.sources):
             filename = doc_names.get(source.document_id) or source.document_name or "Unknown"
-            if "/" in filename:
-                filename = filename.split("/")[-1]
+            filename = filename.rsplit("/", 1)[-1]
 
             content = source.content
             truncated = len(content) > 500
@@ -291,7 +290,7 @@ async def list_documents(
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DocumentListResponse:
-    "List ingested documents, paginated."
+    """List uploaded documents with pagination."""
     try:
         rag = get_scinexusrag()
         docs = await asyncio.to_thread(rag.list_documents)
@@ -404,7 +403,7 @@ async def get_metrics() -> MetricsResponse:
             total_documents = pipeline_stats.total_documents
             total_chunks = pipeline_stats.total_chunks
         except Exception:
-            pass
+            logger.debug("Could not load pipeline statistics for metrics", exc_info=True)
 
         return MetricsResponse(
             uptime_seconds=round(stats_data["uptime_seconds"], 1),

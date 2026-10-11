@@ -1,20 +1,21 @@
-"Regression gate for the offline sample eval."
+"""Check offline sample results against the committed regression floors."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from scinexusrag.eval import faithfulness as F
+from scinexusrag.eval import faithfulness
 from scinexusrag.eval.run import evaluate as run_retrieval
 
 THRESHOLDS = Path(__file__).resolve().parent / "data" / "thresholds.json"
 
 
 def _check(observed: float, floor: float, label: str) -> str | None:
-    status = "ok" if observed >= floor else "FAIL"
+    passed = observed >= floor
+    status = "ok" if passed else "FAIL"
     print(f"  {label:38s} {observed:.4f}  (floor {floor:.4f})  {status}")
-    return None if observed >= floor else f"{label}: {observed:.4f} < floor {floor:.4f}"
+    return None if passed else f"{label}: {observed:.4f} < floor {floor:.4f}"
 
 
 def main() -> int:
@@ -31,8 +32,8 @@ def main() -> int:
             if fail:
                 failures.append(fail)
 
-    print("Faithfulness (sample):")
-    faith = F.evaluate(prefer_vendored=True, with_reranker=True, seed=0)
+    print("Evidence-sentence detection (sample):")
+    faith = faithfulness.evaluate(prefer_vendored=True, with_reranker=True, seed=0)
     for name, metrics in spec["faithfulness"]["floors"].items():
         got = faith["methods"][name]
         for metric, floor in metrics.items():
@@ -42,8 +43,8 @@ def main() -> int:
 
     if failures:
         print("\nEVAL REGRESSION GATE FAILED:")
-        for f in failures:
-            print(f"  - {f}")
+        for failure in failures:
+            print(f"  - {failure}")
         return 1
     print("\nEval regression gate passed.")
     return 0

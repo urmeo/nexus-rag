@@ -42,14 +42,11 @@ class DocumentStore:
         if len(doc_id) > MAX_ID_LENGTH:
             raise ValueError(f"Document ID too long (max {MAX_ID_LENGTH} chars)")
 
-        if not SAFE_ID_PATTERN.match(doc_id):
+        if not SAFE_ID_PATTERN.fullmatch(doc_id):
             raise ValueError("Document ID contains invalid characters")
 
         if doc_id == INDEX_STEM:
             raise ValueError(f"Document ID '{INDEX_STEM}' is reserved for the store index")
-
-        if ".." in doc_id or "/" in doc_id or "\\" in doc_id:
-            raise ValueError("Document ID contains invalid path characters")
 
         return doc_id
 
@@ -86,7 +83,7 @@ class DocumentStore:
                 len(dangling),
                 len(orphaned),
             )
-            self._write_index(index)
+            self._write_json(self._index_path, index)
         return index
 
     def _index_entry_from_file(self, doc_id: str) -> dict[str, Any] | None:
@@ -108,16 +105,16 @@ class DocumentStore:
         }
 
     def _save_index(self) -> None:
-        self._write_index(self.index)
+        self._write_json(self._index_path, self.index)
 
-    def _write_index(self, index: dict[str, dict[str, Any]]) -> None:
-        """Persist index to disk atomically via write-to-temp-then-rename."""
-        data = json.dumps(index, indent=2, ensure_ascii=False)
+    def _write_json(self, target: Path, value: dict[str, Any]) -> None:
+        """Write JSON to a temporary file, then atomically replace the target."""
+        data = json.dumps(value, indent=2, ensure_ascii=False)
         fd, tmp_path = tempfile.mkstemp(dir=self.path, suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(data)
-            os.replace(tmp_path, self._index_path)
+            os.replace(tmp_path, target)
         except BaseException:
             with contextlib.suppress(OSError):
                 os.unlink(tmp_path)
@@ -138,17 +135,7 @@ class DocumentStore:
             "sections": [asdict(s) for s in document.sections],
         }
 
-        target = self._doc_path(document.id)
-        data = json.dumps(doc_dict, indent=2, ensure_ascii=False)
-        fd, tmp_path = tempfile.mkstemp(dir=self.path, suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(data)
-            os.replace(tmp_path, target)
-        except BaseException:
-            with contextlib.suppress(OSError):
-                os.unlink(tmp_path)
-            raise
+        self._write_json(self._doc_path(document.id), doc_dict)
 
         original_name = resolve_display_name(document.metadata, fallback="unknown")
 
@@ -197,7 +184,7 @@ class DocumentStore:
 
     def clear(self) -> int:
         count = len(self.index)
-        for doc_id in list(self.index.keys()):
+        for doc_id in list(self.index):
             self.delete(doc_id)
         return count
 

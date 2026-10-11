@@ -1,4 +1,4 @@
-"Evidence-sentence detection: NLI vs lexical and cross-encoder baselines."
+"""Find supporting or contradicting evidence sentences in annotated SciFact abstracts."""
 
 from __future__ import annotations
 
@@ -26,6 +26,8 @@ THRESHOLD_GRID = [round(x, 2) for x in np.arange(0.30, 0.96, 0.05)]
 
 @dataclass
 class Claim:
+    """An annotated claim and candidate sentences from its evidence documents."""
+
     id: int
     text: str
     label: str
@@ -40,13 +42,13 @@ def ensure_raw() -> bool:
     import tarfile
     import urllib.request
 
-    RAW_DIR.parent.mkdir(parents=True, exist_ok=True)
     archive = RAW_DIR.parent / "data.tar.gz"
     try:
+        RAW_DIR.parent.mkdir(parents=True, exist_ok=True)
         urllib.request.urlretrieve(SCIFACT_URL, archive)
         with tarfile.open(archive) as tar:
             tar.extractall(RAW_DIR.parent, filter="data")
-    except Exception:
+    except (OSError, tarfile.TarError):
         return False
     return all((RAW_DIR / name).exists() for name in required)
 
@@ -99,11 +101,13 @@ def _tokens(text: str) -> set[str]:
 
 
 def lexical_overlap(claim: str, sentence: str) -> float:
+    """Return Jaccard overlap after tokenization and stop-word removal."""
     c, s = _tokens(claim), _tokens(sentence)
     return len(c & s) / len(c | s) if c and s else 0.0
 
 
 def _nli_relatedness(verifier: GroundingVerifier, claims: list[Claim]) -> list[list[float]]:
+    """Score evidence by the sum of entailment and contradiction probabilities."""
     out = []
     for c in claims:
         probs = verifier.class_probs([(sent, c.text) for (_, _, sent) in c.candidates])
@@ -162,7 +166,7 @@ def _bootstrap_auroc(
     for _ in range(n_boot):
         pick = np.concatenate([members[c] for c in rng.choice(keys, len(keys), replace=True)])
         a = roc_auc(s[pick], y[pick])
-        if a == a:
+        if not np.isnan(a):
             vals.append(a)
     if not vals:
         raise ValueError("AUROC bootstrap requires both positive and negative labels")
@@ -264,7 +268,7 @@ def main() -> None:
         f"claims={res['num_claims']}  candidates={res['num_candidates']}  base_rate={res['gold_base_rate']:.3f}"
     )
     for name, m in res["methods"].items():
-        print(f"{name:16s} AUROC={m['roc_auc']:.3f}  PR-AUC={m['pr_auc']:.3f}  F1={m['f1']:.3f}")
+        print(f"{name:16s} AUROC={m['roc_auc']:.3f}  AP={m['pr_auc']:.3f}  F1={m['f1']:.3f}")
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     tag = "sample" if args.sample else "dev"

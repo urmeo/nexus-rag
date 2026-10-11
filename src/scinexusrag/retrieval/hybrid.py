@@ -18,18 +18,18 @@ def rrf_fuse(
 ) -> list[RetrievalResult]:
     """Weighted reciprocal rank fusion of ranked result lists."""
     scores: dict[str, float] = defaultdict(float)
-    best: dict[str, RetrievalResult] = {}
-    for results, w in zip(ranked_lists, weights, strict=True):
-        for rank, r in enumerate(results, start=1):
-            scores[r.chunk.id] += w / (k + rank)
-            best.setdefault(r.chunk.id, r)
+    results_by_id: dict[str, RetrievalResult] = {}
+    for results, weight in zip(ranked_lists, weights, strict=True):
+        for rank, result in enumerate(results, start=1):
+            scores[result.chunk.id] += weight / (k + rank)
+            results_by_id.setdefault(result.chunk.id, result)
 
     order = sorted(scores, key=lambda cid: scores[cid], reverse=True)
     if top_k is not None:
         order = order[:top_k]
-    norm = max(scores.values()) if scores else 1.0
+    norm = max(scores.values(), default=0.0) or 1.0
     return [
-        RetrievalResult(chunk=best[cid].chunk, score=scores[cid] / norm, source="hybrid")
+        RetrievalResult(chunk=results_by_id[cid].chunk, score=scores[cid] / norm, source="hybrid")
         for cid in order
     ]
 
@@ -57,10 +57,10 @@ class HybridRetriever:
         return self.dense_weight, self.sparse_weight
 
     def _run(self, query: str, top_k: int, depth: int) -> tuple[list[RetrievalResult], float]:
-        dw, sw = self._weights(query)
+        dense_weight, sparse_weight = self._weights(query)
         dense = self.dense.retrieve(query, depth)
         sparse = self.sparse.retrieve(query, depth)
-        fused = rrf_fuse([dense, sparse], [dw, sw], self.rrf_k, top_k)
+        fused = rrf_fuse([dense, sparse], [dense_weight, sparse_weight], self.rrf_k, top_k)
         return fused, (dense[0].score if dense else 0.0)
 
     def retrieve(self, query: str, top_k: int = 10, depth: int = 50) -> list[RetrievalResult]:
@@ -100,7 +100,6 @@ class AdaptiveHybridRetriever(HybridRetriever):
 
 
 def _looks_technical(word: str) -> bool:
-
     word = word.strip(string.punctuation)
     return bool(word) and (
         word.isupper() or "_" in word or any(c.isdigit() for c in word) or len(word) > 14

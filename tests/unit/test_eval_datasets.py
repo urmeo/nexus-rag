@@ -1,20 +1,19 @@
 """Tests for vendored dataset loaders and sentence splitting."""
 
-from scinexusrag.eval import datasets as D
-from scinexusrag.eval import faithfulness as F
+from scinexusrag.eval import datasets, faithfulness
 from scinexusrag.generation.grounding import split_sentences
 
 
 class TestVendoredIR:
     def test_load_scifact_sample(self) -> None:
-        ds = D.load("scifact", prefer_vendored=True)
+        ds = datasets.load("scifact", prefer_vendored=True)
         assert ds.corpus and ds.queries and ds.qrels
         qid = next(iter(ds.qrels))
         assert ds.qrels[qid]
         assert all(d in ds.corpus for rel in ds.qrels.values() for d in rel)
 
     def test_doc_text_joins_title_body(self) -> None:
-        ds = D.load("scifact", prefer_vendored=True)
+        ds = datasets.load("scifact", prefer_vendored=True)
         doc_id = next(iter(ds.corpus))
         text = ds.doc_text(doc_id)
         assert isinstance(text, str) and len(text) > 0
@@ -22,21 +21,23 @@ class TestVendoredIR:
 
 class TestClaims:
     def test_load_claims_have_gold(self) -> None:
-        claims = F.load_claims("dev", prefer_vendored=True)
+        claims = faithfulness.load_claims("dev", prefer_vendored=True)
         assert claims
         c = claims[0]
         assert c.gold and c.candidates
         assert c.label in {"SUPPORT", "CONTRADICT"}
 
     def test_lexical_overlap_is_jaccard(self) -> None:
-        assert F.lexical_overlap("kinase inhibits tumor", "tumor kinase growth") == 0.5
-        assert F.lexical_overlap("abc def", "xyz wuv") == 0.0
+        assert faithfulness.lexical_overlap("kinase inhibits tumor", "tumor kinase growth") == 0.5
+        assert faithfulness.lexical_overlap("abc def", "xyz wuv") == 0.0
 
     def test_f1_at_perfect_separation(self) -> None:
-        assert F._f1_at([0.9, 0.8, 0.2, 0.1], [1, 1, 0, 0], 0.5) == 1.0
+        assert faithfulness._f1_at([0.9, 0.8, 0.2, 0.1], [1, 1, 0, 0], 0.5) == 1.0
 
     def test_bootstrap_auroc_brackets_perfect(self) -> None:
-        lo, hi = F._bootstrap_auroc([0.9, 0.8, 0.2, 0.1], [1, 1, 0, 0], [0, 0, 1, 1], n_boot=200)
+        lo, hi = faithfulness._bootstrap_auroc(
+            [0.9, 0.8, 0.2, 0.1], [1, 1, 0, 0], [0, 0, 1, 1], n_boot=200
+        )
         assert 0.5 <= lo <= 1.0 and hi == 1.0
 
 

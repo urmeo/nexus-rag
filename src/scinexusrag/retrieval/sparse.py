@@ -40,17 +40,18 @@ class BM25Retriever:
 
     def add_incremental(self, chunks: list[Chunk]) -> int:
         "Add chunks to the existing index (rebuilds internally)."
-        if self._index is None:
-            return self.add(chunks)
-
-        existing = {c.id for c in self._index.chunks}
-        fresh = [c for c in chunks if c.id not in existing]
+        existing_chunks = self._index.chunks if self._index is not None else []
+        seen_ids = {chunk.id for chunk in existing_chunks}
+        fresh: list[Chunk] = []
+        for chunk in chunks:
+            if chunk.id not in seen_ids:
+                fresh.append(chunk)
+                seen_ids.add(chunk.id)
         if not fresh:
-            return len(self._index.chunks)
-        return self.add(self._index.chunks + fresh)
+            return len(existing_chunks)
+        return self.add(existing_chunks + fresh)
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
-
         index = self._index
         if index is None:
             return []
@@ -61,7 +62,8 @@ class BM25Retriever:
 
         scores = index.bm25.get_scores(tokenized_query)
         top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
-        max_score = max(scores) if max(scores) > 0 else 1.0
+        peak_score = max(scores)
+        max_score = peak_score if peak_score > 0 else 1.0
 
         return [
             RetrievalResult(

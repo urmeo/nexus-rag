@@ -26,19 +26,18 @@ class CorrectiveRetriever:
         self.enabled = enabled
 
     def expand(self, query: str, results: list[RetrievalResult]) -> str:
-        qterms = set(self.base.sparse.tokenize(query))
+        query_terms = set(self.base.sparse.tokenize(query))
         counts: Counter[str] = Counter()
-        for r in results[: self.feedback_docs]:
-            for t in self.base.sparse.tokenize(r.chunk.content):
-                if t not in qterms:
-                    counts[t] += 1
-        extra = [t for t, _ in counts.most_common(self.feedback_terms)]
+        for result in results[: self.feedback_docs]:
+            for term in self.base.sparse.tokenize(result.chunk.content):
+                if term not in query_terms:
+                    counts[term] += 1
+        extra = [term for term, _ in counts.most_common(self.feedback_terms)]
         return f"{query} {' '.join(extra)}".strip()
 
     def retrieve_traced(
         self, query: str, top_k: int = 10, depth: int = 50
     ) -> tuple[list[RetrievalResult], bool]:
-
         first, dense_top = self.base.retrieve_with_dense_top(query, top_k=depth, depth=depth)
         if not self.enabled or not first or dense_top >= self.tau:
             return first[:top_k], False

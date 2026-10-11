@@ -1,6 +1,10 @@
 """Offline regressions for benchmark provenance and held-out evaluation."""
 
 import csv
+import sys
+import tarfile
+import urllib.error
+import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -8,7 +12,16 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from scinexusrag.eval import corrective, datasets, faithfulness, generation, report, reproduce, run
+from scinexusrag.eval import (
+    corrective,
+    datasets,
+    faithfulness,
+    generation,
+    ragtruth,
+    report,
+    reproduce,
+    run,
+)
 from scinexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
 from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.ingestion import Embedder
@@ -274,3 +287,100 @@ def test_generation_verifies_only_sources_shown_to_generator(monkeypatch) -> Non
     assert output["dataset"] == "scifact"
     assert output["num_corrected"] == 1
     assert output["correction_strategy"] == "forced_prf_on_answer_gate"
+
+
+@pytest.mark.parametrize("answers_before_failure", [0, 1])
+def test_generation_closes_model_when_an_answer_fails(monkeypatch, answers_before_failure) -> None:
+    ds = _dataset()
+    results = [RetrievalResult(chunk=corpus_to_chunks({"doc": "Scientific evidence."})[0], score=1)]
+    retriever = SimpleNamespace(retrieve=lambda *a, **k: results, rrf_k=60)
+    monkeypatch.setattr(datasets, "load", lambda *a, **k: ds)
+    monkeypatch.setattr(generation, "ExactDenseRetriever", lambda *a, **k: object())
+    monkeypatch.setattr(generation, "AdaptiveHybridRetriever", lambda *a, **k: retriever)
+    monkeypatch.setattr(
+        generation,
+        "CorrectiveRetriever",
+        lambda *a, **k: SimpleNamespace(expand=lambda *a: "query"),
+    )
+    generator = SimpleNamespace(
+        model_name="fake-generator",
+        generate=Mock(
+            side_effect=["Answer."] * answers_before_failure + [RuntimeError("failed answer")]
+        ),
+        close=Mock(),
+    )
+    monkeypatch.setattr(generation, "LocalGenerator", lambda *a: generator)
+    verifier = Mock()
+    monkeypatch.setattr(generation, "GroundingVerifier", verifier)
+    with pytest.raises(RuntimeError, match="failed answer"):
+        generation.evaluate(n=1)
+    generator.close.assert_called_once_with()
+    verifier.assert_not_called()
+
+
+@pytest.mark.parametrize("rows,task_type", [([], None), ([{"task_type": "Summary"}], "QA")])
+def test_ragtruth_rejects_empty_selection_before_models(monkeypatch, rows, task_type) -> None:
+    monkeypatch.setitem(sys.modules, "datasets", SimpleNamespace(load_dataset=lambda *a, **k: rows))
+    verifier = Mock()
+    monkeypatch.setattr(ragtruth, "GroundingVerifier", verifier)
+    with pytest.raises(ValueError, match="no RAGTruth responses"):
+        ragtruth.evaluate(task_type=task_type)
+    verifier.assert_not_called()
+
+
+def test_ragtruth_stops_reading_after_requested_response_count(monkeypatch) -> None:
+    def responses():
+        yield {"task_type": "QA", "output": "Answer.", "context": "Evidence."}
+        raise AssertionError("read beyond the requested response count")
+
+    monkeypatch.setitem(
+        sys.modules, "datasets", SimpleNamespace(load_dataset=lambda *a, **k: responses())
+    )
+    monkeypatch.setattr(
+        ragtruth, "GroundingVerifier", lambda **k: SimpleNamespace(model_name="fake-nli")
+    )
+    monkeypatch.setattr(ragtruth, "_groundedness", lambda *a: 0.9)
+    result = ragtruth.evaluate(n=1, task_type="QA")
+    assert result["num_responses"] == 1
+    assert result["hallucination_rate"] == 0
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        OSError("cache unavailable"),
+        urllib.error.URLError("offline"),
+        urllib.error.HTTPError("https://example.test/data.tar.gz", 503, "unavailable", None, None),
+        TimeoutError("download timed out"),
+    ],
+)
+def test_claims_expected_download_errors_return_false(monkeypatch, tmp_path, failure) -> None:
+    monkeypatch.setattr(faithfulness, "RAW_DIR", tmp_path / "data")
+    monkeypatch.setattr(urllib.request, "urlretrieve", Mock(side_effect=failure))
+    assert faithfulness.ensure_raw() is False
+
+
+def test_claims_unreadable_archive_returns_false(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(faithfulness, "RAW_DIR", tmp_path / "data")
+    monkeypatch.setattr(urllib.request, "urlretrieve", Mock())
+    monkeypatch.setattr(tarfile, "open", Mock(side_effect=tarfile.ReadError("bad archive")))
+    assert faithfulness.ensure_raw() is False
+
+
+def test_claims_cache_directory_error_returns_false(monkeypatch, tmp_path) -> None:
+    cache = tmp_path / "cache"
+    cache.write_text("a file blocks the required cache directory")
+    monkeypatch.setattr(faithfulness, "RAW_DIR", cache / "data")
+    download = Mock()
+    monkeypatch.setattr(urllib.request, "urlretrieve", download)
+    assert faithfulness.ensure_raw() is False
+    download.assert_not_called()
+
+
+def test_claims_unexpected_download_errors_are_not_hidden(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(faithfulness, "RAW_DIR", tmp_path / "data")
+    monkeypatch.setattr(
+        urllib.request, "urlretrieve", Mock(side_effect=RuntimeError("programming error"))
+    )
+    with pytest.raises(RuntimeError, match="programming error"):
+        faithfulness.ensure_raw()

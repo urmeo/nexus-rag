@@ -11,7 +11,7 @@ from scinexusrag.generation.grounding import GroundingVerifier
 from scinexusrag.generation.llm import LLMClient
 from scinexusrag.generation.query_analyzer import QueryAnalyzer
 from scinexusrag.generation.synthesizer import Source, Synthesizer
-from scinexusrag.generation.verifier import AnswerVerifier
+from scinexusrag.generation.verifier import AnswerVerifier, VerificationResult
 from scinexusrag.retrieval import CorrectiveRetriever, RetrievalResult
 from scinexusrag.utils.filenames import resolve_display_name
 
@@ -73,15 +73,9 @@ class Orchestrator:
             question, results, doc_names=doc_names, query_type=analyzed.query_type
         )
 
-        verification = self.verifier.verify(synthesis.answer, synthesis.sources)
-        warnings = list(verification.warnings)
-
-        faithfulness: float | None = None
-        if self.grounding_verifier is not None and synthesis.sources:
-            report = self.grounding_verifier.verify(verification.verified_answer, synthesis.sources)
-            faithfulness = report.faithfulness
-            if report.unsupported:
-                warnings.append(f"{len(report.unsupported)} sentence(s) not grounded in sources")
+        verification, faithfulness, warnings = self._verify_answer(
+            synthesis.answer, synthesis.sources
+        )
 
         confidence = self._confidence(synthesis.sources, verification.citations_valid, faithfulness)
         trace.append(ReasoningStep("synthesis", f"confidence={confidence:.2f}"))
@@ -98,7 +92,6 @@ class Orchestrator:
         )
 
     def query_streaming(self, question: str) -> Generator[str, None, None]:
-
         analyzed = self.analyzer.analyze(question)
         question = self.analyzer.rewrite_vague_query(question)
         results = self.retriever.retrieve(question, top_k=self.top_k)
@@ -115,18 +108,10 @@ class Orchestrator:
         sources = self.synthesizer._build_sources(results, doc_names)[
             : self.synthesizer.max_sources
         ]
-        verification = self.verifier.verify(answer, sources)
-        warnings = list(verification.warnings)
+        verification, faithfulness, warnings = self._verify_answer(answer, sources)
 
-        faithfulness: float | None = None
-        if self.grounding_verifier is not None and sources:
-            report = self.grounding_verifier.verify(verification.verified_answer, sources)
-            faithfulness = report.faithfulness
-            if report.unsupported:
-                warnings.append(f"{len(report.unsupported)} sentence(s) not grounded in sources")
-
-        for w in warnings:
-            logger.warning("streaming verification: %s", w)
+        for warning in warnings:
+            logger.warning("streaming verification: %s", warning)
 
         event = {
             "event": "verification",
@@ -135,6 +120,19 @@ class Orchestrator:
             "warnings": warnings,
         }
         yield f"\ndata: {json.dumps(event)}\n\n"
+
+    def _verify_answer(
+        self, answer: str, sources: list[Source]
+    ) -> tuple[VerificationResult, float | None, list[str]]:
+        verification = self.verifier.verify(answer, sources)
+        warnings = list(verification.warnings)
+        faithfulness: float | None = None
+        if self.grounding_verifier is not None and sources:
+            report = self.grounding_verifier.verify(verification.verified_answer, sources)
+            faithfulness = report.faithfulness
+            if report.unsupported:
+                warnings.append(f"{len(report.unsupported)} sentence(s) not grounded in sources")
+        return verification, faithfulness, warnings
 
     @staticmethod
     def _confidence(sources: list[Source], cited: list[int], faithfulness: float | None) -> float:

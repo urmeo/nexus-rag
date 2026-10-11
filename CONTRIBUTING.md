@@ -1,13 +1,20 @@
 # Contributing
 
-## Setup
+urmeo is the sole contributor.
 
-Python 3.11+ and Node 22; run from repository root:
+## Development setup
+
+Use Python 3.11 or later. Node.js 22 is used for the JavaScript tests. Run commands from the repository root:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev,eval]"
+```
+
+Check changes with:
+
+```bash
 ruff check src tests
 ruff format --check src tests
 mypy src
@@ -16,36 +23,65 @@ node --test tests/test_web_ui.js
 python -m scinexusrag.eval.gate
 ```
 
-Test changed behavior; keep commit titles short.
+The evaluation gate uses packaged data and cached models. Download the pinned BGE-small, NLI and reranking models before running it offline. Add tests for changed behavior. Use short commit messages such as `updated readme`, `updated results`, `updated pipeline` or `updated visuals`.
 
-## App and configuration
+## Run the application
 
-Start Ollama and pull `llama3.2:3b`, then:
+Start Ollama and download the default model:
+
+```bash
+ollama pull llama3.2:3b
+scinexusrag
+```
+
+Use `ollama serve` if Ollama is not already running. Open [http://127.0.0.1:8000](http://127.0.0.1:8000), upload a PDF, DOCX, Markdown or UTF-8 text file, and ask a question. Embedding models may download on first use. Storage defaults to `data/`.
+
+You can also start the server directly:
 
 ```bash
 python -m uvicorn scinexusrag.api:app --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000`. Upload PDF, DOCX, Markdown or UTF-8 text; enter `NEXUSRAG_API_KEY` through **API key**. Models may download initially; storage defaults to `data/`.
+## Configuration
 
-Copy [.env.example](.env.example) to `.env`; never commit secrets. Runtime uses environment variables; `configs/default.yaml` is reference-only. `NEXUSRAG_FRONTEND_DIR` overrides the UI.
+Copy [.env.example](.env.example) to `.env` and edit the settings you need. The application reads environment variables and `.env`; [configs/default.yaml](configs/default.yaml) is a reference and is not loaded. Never commit secrets.
 
-`docker compose up --build` binds to loopback. Configure both services with `LLM_MODEL`; record Ollama digests. Bind-mounted `data/` must be writable by container UID 1000.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama address; retrieved passages are sent here |
+| `LLM_MODEL` | `llama3.2:3b` | Ollama model tag |
+| `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Embedding model |
+| `EMBEDDING_DEVICE` | `cpu` | `cpu`, `cuda` or `mps` |
+| `DATA_DIR` | `./data` | Document metadata directory |
+| `LANCEDB_PATH` | `./data/lancedb` | Vector index directory; set separately from `DATA_DIR` |
+| `SELF_CORRECTION_ENABLED` | `true` | Allow one search using feedback terms when confidence is low |
+| `SELF_CORRECTION_GROUNDING_ENABLED` | `false` | Check answer sentences with an NLI model |
+| `NEXUSRAG_API_KEY` | Empty | Require an API key on `/api` routes |
+| `NEXUSRAG_FRONTEND_DIR` | Packaged `web/` directory | Serve a different interface directory |
 
-For network access, set `NEXUSRAG_API_KEY`, use TLS, restrict `API_CORS_ORIGINS`, and trust forwarded headers only from your proxy. Use one worker: BM25 and rate counters are per process. Default limits: 50 MiB uploads, 200 MiB decompressed DOCX, 60 queries/10 uploads per minute per IP.
+When a server key is configured, enter it through **API key** in the interface. Interactive API documentation is disabled when a key is set. Without a key, `/docs` is available unless `API_DOCS_ENABLED=false`.
 
-## Evaluation
+The defaults allow 50 MiB per upload, 200 MiB of declared uncompressed DOCX content, and 60 queries or 10 uploads per minute per IP. Optional MIME detection needs the system `libmagic` library; signature and UTF-8 checks also run. See [.env.example](.env.example) for the request-limit settings.
+
+For network access, configure `NEXUSRAG_API_KEY`, TLS and `API_CORS_ORIGINS`. Trust forwarded headers only from your proxy. Run one worker because BM25 indexes and rate counters are per process.
+
+## Docker
 
 ```bash
-python -m scinexusrag.eval --sample
-python -m scinexusrag.eval
-python -m scinexusrag.eval.report --results outputs/generated
+mkdir -p data
+docker compose up --build
 ```
 
-Samples use packaged data; uncached models need downloads. Full runs require pinned datasets/models and fail if unavailable. New results: `outputs/generated/`; published results: `outputs/results/` (the report's default input).
+Compose binds the application to loopback and downloads the Ollama model before starting it. The bind-mounted `data/` directory must be writable by container UID 1000. Set `LLM_MODEL` for both services through the Compose environment or `.env`; record the Ollama model digest for comparisons.
 
-Retrieval/evidence scores do not measure generated answers; generation/RAGTruth evaluations are separate. Preserve query IDs, revisions, hashes, environments and raw scores; review before publishing. Never replace published results with samples or lower CI floors. Respect dataset/model licenses.
+The app service passes `OLLAMA_BASE_URL`, `LLM_MODEL` and `NEXUSRAG_API_KEY`. Add other application settings to its `environment` section in [docker-compose.yml](docker-compose.yml); the host `.env` is not mounted inside the container.
 
-## Security
+## Evaluation and results
 
-Report vulnerabilities through [private advisories](https://github.com/urmeo/nexus-rag/security/advisories/new) with version, reproduction and impact. Omit secrets/personal data; keep details private until fixed. Treat contributors respectfully.
+See [docs/evaluation.md](docs/evaluation.md) for protocols, commands and result files. Fresh runs write to `outputs/generated/`; published results are in `outputs/results/`.
+
+Keep query IDs, model and dataset revisions, source hashes, runtime versions and raw scores. Review new runs before publishing them. Samples do not replace full runs, and retrieval or evidence scores do not measure generated-answer accuracy. Do not lower regression thresholds to hide a failure. Follow dataset and model licenses.
+
+## Security reports
+
+Use [private security advisories](https://github.com/urmeo/nexus-rag/security/advisories/new) to report vulnerabilities. Include the version, steps to reproduce and impact. Omit secrets and personal data. Keep details private until a fix is available.

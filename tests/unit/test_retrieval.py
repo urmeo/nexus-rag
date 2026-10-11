@@ -78,6 +78,17 @@ class TestBM25Retriever:
         r.add_incremental(sample_chunks[2:])
         assert r.count() == 5
 
+    @pytest.mark.parametrize("preload", [False, True])
+    def test_incremental_add_deduplicates_the_new_batch(self, sample_chunks, preload):
+        retriever = BM25Retriever()
+        if preload:
+            retriever.add(sample_chunks[:1])
+
+        assert retriever.add_incremental([*sample_chunks[:2], *sample_chunks[:2]]) == 2
+        assert retriever.count() == 2
+        assert retriever.remove({sample_chunks[0].id}) == 1
+        assert retriever.count() == 1
+
     def test_add_survives_all_empty_tokenization(self):
 
         chunks = [

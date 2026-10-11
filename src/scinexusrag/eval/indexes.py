@@ -11,14 +11,14 @@ from scinexusrag.retrieval.dense import RetrievalResult
 
 
 def unique_document_ids(results: Sequence[RetrievalResult]) -> list[str]:
-    """Document ids from ranked results, de-duplicated, first-seen order kept."""
+    """Return document IDs in rank order, keeping the first occurrence of each."""
     seen: set[str] = set()
     out: list[str] = []
-    for r in results:
-        d = r.chunk.document_id
-        if d not in seen:
-            seen.add(d)
-            out.append(d)
+    for result in results:
+        document_id = result.chunk.document_id
+        if document_id not in seen:
+            seen.add(document_id)
+            out.append(document_id)
     return out
 
 
@@ -30,10 +30,9 @@ def corpus_to_chunks(corpus_text: dict[str, str]) -> list[Chunk]:
 
 
 class ExactDenseRetriever:
-    """Brute-force cosine search over precomputed embeddings, for reproducible eval."""
+    """Search every precomputed embedding by cosine similarity."""
 
     def __init__(self, embedder: Embedder, chunks: list[Chunk], batch_size: int = 64):
-
         if not embedder.normalize:
             raise ValueError("ExactDenseRetriever needs a normalized embedder for cosine scoring")
         self.embedder = embedder

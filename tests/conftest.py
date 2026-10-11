@@ -20,11 +20,11 @@ def _disable_rate_limits() -> Generator[None, None, None]:
 @pytest.fixture(autouse=True)
 def _reset_scinexusrag_singleton() -> Generator[None, None, None]:
     """Keep the global singleton from leaking a stale instance across tests."""
-    import scinexusrag.pipeline as _p
+    import scinexusrag.pipeline as pipeline
 
-    _p._instance = None
+    pipeline._instance = None
     yield
-    _p._instance = None
+    pipeline._instance = None
 
 
 @pytest.fixture
