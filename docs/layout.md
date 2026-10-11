@@ -3,9 +3,11 @@
 ```text
 nexus-rag/
 ├── .github/workflows/       Checks and package release
-├── assets/figures/          Diagrams, charts and interface snapshot
+├── assets/
+│   ├── figures/            Diagrams, charts and interface screenshots
+│   └── media/              Interface recordings
 ├── configs/                Configuration reference
-├── docs/                   Pipeline, layout and evaluation guides
+├── docs/                   Pipeline, evaluation, media and layout guides
 ├── examples/               Sample documents for ingestion
 ├── notebooks/              Python quickstart
 ├── outputs/
@@ -27,6 +29,7 @@ nexus-rag/
 | Keep here | Purpose |
 | --- | --- |
 | `assets/figures/` | Images referenced by documentation; new charts are SVG for readable text and export |
+| `assets/media/` | MP4 recordings shown in the README; sources and conditions are in [media.md](media.md) |
 | `outputs/results/` | Original benchmark JSON and CSV; retain query IDs, scores and provenance |
 | `outputs/generated/` | New results and reports for review before publication |
 | `src/scinexusrag/eval/data/` | Small datasets and thresholds that must be included in the installed package |

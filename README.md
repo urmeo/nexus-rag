@@ -21,9 +21,33 @@ Each dense or BM25 search considers up to **50 candidates**. The pipeline keeps 
 
 ## Interface
 
-![Recorded NexusRAG interface showing document upload and the empty question view.](assets/figures/nexusrag-ui.png)
+![Current NexusRAG interface with the sample document indexed into six passages.](assets/figures/interface-desktop.png)
 
-Earlier interface screenshot, captured with no documents indexed and the service disconnected. It shows the upload and question layout, not a generated answer.
+**Current walkthrough · 21 seconds.** Upload the [fictional sample paper](examples/sample_paper.md), index six passages and open the mobile document drawer. Recorded with BGE-small embeddings. Ollama was unavailable, so answer generation is not shown.
+
+https://github.com/user-attachments/assets/aea90800-ffe2-4820-bb18-d0527570c0bb
+
+[Download the walkthrough (MP4)](assets/media/interface-walkthrough.mp4).
+
+<details>
+<summary>Mobile document drawer</summary>
+
+![Current mobile document drawer showing the indexed sample and its six passages.](assets/figures/interface-mobile.png)
+
+</details>
+
+<details>
+<summary>Historical Q&A recording · 92 seconds</summary>
+
+Upload a PDF and ask two questions. This older recording uses MiniLM embeddings; its interface and defaults differ from the current version. Responses are examples, not validated results.
+
+https://github.com/user-attachments/assets/190555b4-b444-4626-ab0e-3ef5bc31bf92
+
+[Download the historical recording (MP4)](assets/media/historical-qa.mp4).
+
+</details>
+
+[Recording sources and conditions](docs/media.md).
 
 ## Run locally
 
