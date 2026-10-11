@@ -95,7 +95,7 @@ Library helper: [`DenseRetriever.retrieve_with_threshold`](src/scinexusrag/retri
 ## Ethics & data use
 
 1. Process documents you have permission to use; restrict sensitive uploads.
-2. Keep Ollama local for local processing; review answers against their sources.
+2. Run Ollama locally and check answers against their cited sources.
 3. Respect dataset and model terms; the repository license applies to its code.
 
 ## References
