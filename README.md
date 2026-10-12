@@ -23,9 +23,9 @@ Uploads build the indexes. Each question searches them, with at most one feedbac
 
 ## Interface
 
-![Recorded NexusRAG interface with the sample document indexed into six passages.](assets/figures/interface-desktop.png)
+![Recorded NexusRAG interface with a fictional document indexed into six passages.](assets/figures/interface-desktop.png)
 
-**Upload walkthrough · 21 seconds.** Upload the [fictional sample paper](examples/sample_paper.md), index six passages and open the mobile document drawer. Recorded with BGE-small embeddings. Ollama was unavailable, so answer generation is not shown.
+**Upload walkthrough · 21 seconds.** The recording uploads a fictional document, indexes six passages and opens the mobile document drawer. Recorded with BGE-small embeddings. Ollama was unavailable, so answer generation is not shown.
 
 https://github.com/user-attachments/assets/aea90800-ffe2-4820-bb18-d0527570c0bb
 
@@ -34,7 +34,7 @@ https://github.com/user-attachments/assets/aea90800-ffe2-4820-bb18-d0527570c0bb
 <details>
 <summary>Mobile document drawer</summary>
 
-![Recorded mobile document drawer showing the indexed sample and its six passages.](assets/figures/interface-mobile.png)
+![Recorded mobile document drawer showing the fictional document and its six passages.](assets/figures/interface-mobile.png)
 
 </details>
 
@@ -65,7 +65,7 @@ ollama pull llama3.2:3b
 scinexusrag
 ```
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Upload PDF, DOCX, Markdown or UTF-8 text and ask a question. [Try the fictional sample paper](examples/sample_paper.md).
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Upload PDF, DOCX, Markdown or UTF-8 text and ask a question.
 
 Open **Pipeline** in the app header to see the document and question stages, default limits and recorded retrieval results.
 
@@ -140,6 +140,6 @@ Retrieval intervals use **10,000 query bootstrap samples**. Paired tests use **1
 - Exact vector search scales linearly. BM25 rebuilds in memory and requires one application worker.
 - Corrective retrieval can reduce ranking quality. Ollama model tags can change.
 
-[Folder guide](docs/layout.md) · [Notebook](notebooks/01_quickstart.ipynb) · [Examples](examples) · [Regenerate charts](docs/evaluation.md#regenerate-the-charts) · [References](docs/evaluation.md#references) · [MIT license](LICENSE)
+[Folder guide](docs/layout.md) · [Notebook](notebooks/01_quickstart.ipynb) · [Regenerate charts](docs/evaluation.md#regenerate-the-charts) · [References](docs/evaluation.md#references) · [MIT license](LICENSE)
 
 Sole contributor: [urme](https://github.com/urmeo).

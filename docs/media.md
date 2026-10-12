@@ -12,7 +12,7 @@ Captured on 12 October 2026 from the application at commit [609c0c8](https://git
 | [Mobile screenshot](../assets/figures/interface-mobile.png) | 390 × 844; the document drawer open |
 | [Walkthrough](../assets/media/interface-walkthrough.mp4) | 21.1 seconds; upload, indexing, desktop view, mobile drawer and a question typed without submitting |
 
-The input is the repository's [fictional sample paper](../examples/sample_paper.md): 301 words, indexed into six passages with `BAAI/bge-small-en-v1.5`. Data was stored in an isolated capture directory. Ollama was unavailable; the interface shows that state and no generated answer is presented.
+The recording used a 301-word fictional document, indexed into six passages with `BAAI/bge-small-en-v1.5`. Data was stored in an isolated capture directory. Ollama was unavailable; the interface shows that state and no generated answer is presented.
 
 Screenshots are direct browser captures. The video preserves the capture timing and fits each viewport inside a 1440 × 1000 canvas. White space around the mobile view keeps its proportions. It is an H.264 MP4 without audio.
 

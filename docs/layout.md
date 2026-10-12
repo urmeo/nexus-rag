@@ -8,7 +8,6 @@ nexus-rag/
 │   └── media/              Interface recordings
 ├── configs/                Configuration reference
 ├── docs/                   Pipeline, evaluation, media and layout guides
-├── examples/               Sample documents for ingestion
 ├── notebooks/              Python quickstart
 ├── outputs/
 │   ├── results/            Committed measurements and provenance
