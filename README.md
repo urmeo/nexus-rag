@@ -4,9 +4,9 @@ Search research papers with dense embeddings and BM25. Ask a local Ollama model 
 
 ## Pipeline
 
-![Prepare documents and indexes, then retrieve passages, generate an answer, check it and return sources.](assets/figures/pipeline.svg)
+![Index research papers, retrieve passages with dense and BM25 search, then generate an answer with sources. Recorded retrieval results appear below.](assets/figures/pipeline.svg)
 
-Each dense or BM25 search considers up to **50 candidates**. The pipeline keeps up to **eight passages** and uses at most **five sources** for generation. Correction is limited to one feedback search; NLI grounding is off by default.
+Uploads build the indexes; questions reuse them. The results strip covers retrieval benchmarks. [Editable Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=2-2) · [Evaluation conditions](docs/evaluation.md).
 
 <details>
 <summary>Retrieval and answer checks</summary>

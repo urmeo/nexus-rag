@@ -2,7 +2,9 @@
 
 NexusRAG builds passage indexes from uploaded documents. A question retrieves passages, Ollama generates an answer, and checks run before the standard API response is returned. The diagrams below describe the application with its default settings.
 
-![Document indexing followed by retrieval, generation, checks and a response with sources.](../assets/figures/pipeline.svg)
+![Document indexing, passage retrieval, answer generation and checks, with recorded retrieval comparisons below.](../assets/figures/pipeline.svg)
+
+The overview separates indexing on upload from the work done for each question. Its results strip uses full BEIR test splits: 300 SciFact queries and 323 NFCorpus queries. Each benchmark document is one passage, searched with exact NumPy CPU retrieval; the application chunks documents and uses LanceDB. [Evaluation conditions and uncertainty](evaluation.md).
 
 ## Index documents
 
@@ -76,3 +78,9 @@ Python streaming helpers emit text before the later verification event. The diag
 | [config.py](../src/scinexusrag/config.py) | Application defaults and environment settings |
 
 Cross-encoder reranking and SPLADE are available in library or evaluation tools; they are not stages in this application path. The separate evidence benchmark counts both supporting and contradicting rationale sentences. [Evaluation conditions](evaluation.md).
+
+## Edit the overview
+
+The [Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=2-2) contains editable text and vector shapes. Export the `Pipeline overview` frame as SVG with text retained. The committed [pipeline.svg](../assets/figures/pipeline.svg) adds an accessible title and description, plus Arial and sans-serif font fallbacks; its geometry matches the Figma export.
+
+The figure follows the emphasis and readability guidance in [Ten Simple Rules for Better Figures](https://doi.org/10.1371/journal.pcbi.1003833). Its results strip keeps the evaluation setting and limits visible, following the [NeurIPS reporting checklist](https://neurips.cc/public/guides/PaperChecklist).
