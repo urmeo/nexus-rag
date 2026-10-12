@@ -90,24 +90,6 @@ The points are measured settings; connecting lines guide the eye. Thresholds of 
 
 F1 thresholds were selected on **120 training claims**. This task measures evidence detection, not generated-answer accuracy.
 
-<details>
-<summary>Evaluation protocol and source results</summary>
-
-Retrieval uses exact CPU search over NumPy vectors, seed **0**, depth **50**, RRF **k=60** and linear nDCG gains. Each benchmark document is one passage; the application chunks documents and uses LanceDB.
-
-Retrieval intervals use **10,000 query bootstrap samples**. Paired tests use **10,000 randomizations**, with Holm correction within each dataset. Evidence ROC-AUC intervals use **2,000 claim bootstraps**. [Raw results](outputs/results) retain individual scores, revisions, source hashes and runtime versions. [Evaluation details and reproduction commands](docs/evaluation.md).
-
-</details>
-
-## Limitations
-
-- Abstract-level retrieval and evidence benchmarks do not establish full-paper answer accuracy. Check answers against the retrieved passages.
-- PDF extraction requires embedded text; there is no OCR. DOCX extraction reads paragraphs, not tables, headers or footers.
-- Citation validation checks source indices. Optional NLI scores each answer sentence against all supplied sources; it does not verify that a particular inline citation supports the sentence.
-- Confidence is a heuristic unless NLI grounding is enabled. Neither score guarantees correctness.
-- Exact vector search scales linearly. BM25 rebuilds in memory and requires one application worker.
-- Corrective retrieval can reduce ranking quality. Ollama model tags can change.
-
 [Folder guide](docs/layout.md) · [Notebook](notebooks/01_quickstart.ipynb) · [Regenerate charts](docs/evaluation.md#regenerate-the-charts) · [References](docs/evaluation.md#references) · [MIT license](LICENSE)
 
 Sole contributor: [urme](https://github.com/urmeo).

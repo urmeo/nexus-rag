@@ -72,7 +72,7 @@ mkdir -p data
 docker compose up --build
 ```
 
-Compose binds the application to loopback and downloads the Ollama model before starting it. The bind-mounted `data/` directory must be writable by container UID 1000. Set `LLM_MODEL` for both services through the Compose environment or `.env`; record the Ollama model digest for comparisons.
+Compose binds the application to loopback and downloads the Ollama model before starting it. The bind-mounted `data/` directory must be writable by container UID 1000. Set `LLM_MODEL` for both services through the Compose environment or `.env`. Ollama model tags can change; record the model digest for comparisons.
 
 The app service passes `OLLAMA_BASE_URL`, `LLM_MODEL` and `NEXUSRAG_API_KEY`. Add other application settings to its `environment` section in [docker-compose.yml](docker-compose.yml); the host `.env` is not mounted inside the container.
 

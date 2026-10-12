@@ -29,7 +29,7 @@ Duplicate documents and empty extracted content produce failed ingestion results
 
 The API trims and validates the question. If the index is empty, it returns an upload-needed message. Otherwise, pattern matching chooses an answer-format hint, and a fixed map rewrites six known vague questions.
 
-Dense search embeds the question and searches LanceDB by cosine similarity. BM25 ranks stored passage text by keyword matches. Each branch returns up to **50 candidates**. Weighted reciprocal rank fusion combines the rankings with **k=60**; the highest fused score is normalized to 1.
+Dense search embeds the question and searches LanceDB by cosine similarity. Exact vector search scales linearly with stored passages. BM25 ranks stored passage text by keyword matches. Each branch returns up to **50 candidates**. Weighted reciprocal rank fusion combines the rankings with **k=60**; the highest fused score is normalized to 1.
 
 Fusion weights follow these rules:
 
