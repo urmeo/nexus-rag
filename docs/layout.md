@@ -2,7 +2,6 @@
 
 ```text
 nexus-rag/
-├── .github/workflows/       Checks and package release
 ├── assets/
 │   ├── figures/            Diagrams, charts and interface screenshots
 │   └── media/              Interface recordings
