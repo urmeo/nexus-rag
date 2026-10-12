@@ -47,7 +47,7 @@ The gate uses dense similarity, which is separate from the final answer confiden
 
 ## Generate and check the answer
 
-![Select up to five sources, generate once with Ollama, remove invalid citation indices, then choose optional NLI grounding or the default heuristic before returning the response.](../assets/figures/answer-checks.svg)
+![Build up to five sources, generate with Ollama, check citation indices, then use the default heuristic or optional NLI before returning the response. Generation failures retain sources with zero confidence and bypass answer checks.](../assets/figures/answer-checks.svg)
 
 The synthesizer removes duplicate passage IDs and keeps at most **five sources**. Sources retain document names, available sections and pages, and nearby context. It numbers them for `[n]` citations, clips formatted source context at **6,000 characters** when needed, and adds a truncation marker. The question, instructions and answer-format hint sit outside that source-context limit.
 
@@ -81,8 +81,16 @@ Python streaming helpers emit text before the later verification event. The diag
 
 Cross-encoder reranking and SPLADE are available in library or evaluation tools; they are not stages in this application path. The separate evidence benchmark counts both supporting and contradicting rationale sentences. [Evaluation conditions](evaluation.md).
 
-## Edit the overview
+## Edit the diagrams
 
-The [Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) contains editable text and vector shapes. Export the `Pipeline signal flow` frame as SVG with text retained. The committed [pipeline.svg](../assets/figures/pipeline.svg) adds an accessible title and description, plus font fallbacks for Inter and IBM Plex Mono; its geometry matches the Figma export.
+All three diagrams contain editable text and vector shapes in Figma.
+
+| Diagram | Figma frame | Repository image |
+| --- | --- | --- |
+| Overview | [Pipeline signal flow](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) | [pipeline.svg](../assets/figures/pipeline.svg) |
+| Retrieval | [Retrieval flow](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2) | [retrieval-flow.svg](../assets/figures/retrieval-flow.svg) |
+| Answer checks | [Answer checks](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20) | [answer-checks.svg](../assets/figures/answer-checks.svg) |
+
+Export the matching frame as SVG with text retained. The committed SVGs add accessible titles and descriptions, plus font fallbacks for Inter and IBM Plex Mono; their geometry matches the Figma exports.
 
 The original `Pipeline overview` frame remains in the file as the source for the app's responsive `/pipeline` guide and its recorded results table.

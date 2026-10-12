@@ -11,7 +11,11 @@ Uploads build the indexes. Each question searches them, with at most one feedbac
 
 ![Dense and BM25 rankings are fused; a conditional feedback search is merged with the first pass before selecting passages.](assets/figures/retrieval-flow.svg)
 
-![Build numbered sources, generate once, check citation indices and optionally score sentence grounding before returning the response.](assets/figures/answer-checks.svg)
+[Edit retrieval in Figma](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2).
+
+![Build numbered sources, generate an answer, check citation indices and compute confidence. Generation failures retain sources with zero confidence and skip checks. Optional NLI is off by default.](assets/figures/answer-checks.svg)
+
+[Edit answer checks in Figma](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20).
 
 [Pipeline rules, defaults and source code](docs/pipeline.md).
 

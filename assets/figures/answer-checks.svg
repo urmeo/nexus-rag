@@ -1,76 +1,54 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="950" viewBox="0 0 1120 950" role="img" aria-labelledby="title description">
-  <title id="title">From passages to response</title>
-  <desc id="description">The standard query API builds at most five numbered sources, clips formatted source context at 6000 characters, and calls Ollama once. It removes out-of-range citation indices. If NLI is enabled, it checks each answer sentence against every source and uses the best entailment to report the fraction grounded and warnings. Otherwise it computes a retrieval and citation-coverage heuristic. It returns an answer, source excerpts, confidence, timing and warnings. NLI does not rewrite the answer or trigger generation.</desc>
-  <defs>
-    <style>
-      text { font-family: Arial, 'DejaVu Sans', sans-serif; fill: #172b45; }
-      .title { font-size: 34px; font-weight: 700; }
-      .subtitle { font-size: 18px; fill: #52647a; }
-      .lane { font-size: 17px; font-weight: 700; letter-spacing: 1.5px; fill: #52647a; }
-      .heading { font-size: 23px; font-weight: 700; }
-      .detail { font-size: 18px; fill: #42566e; }
-      .edge-label { font-size: 17px; fill: #52647a; }
-      .flow { fill: none; stroke: #60758c; stroke-width: 2; stroke-linejoin: round; }
-      .feedback-flow { fill: none; stroke: #ae691a; stroke-width: 2; stroke-linejoin: round; }
-      .index-flow { fill: none; stroke: #2465ad; stroke-width: 2; stroke-linejoin: round; }
-    </style>
-  </defs>
-  <rect width="1120" height="950" rx="18" fill="#fff"/>
-  <text class="title" x="40" y="52">From passages to response</text>
-  <text class="subtitle" x="40" y="84">Standard POST /api/query path · answer checks finish before the response is returned.</text>
-  <g><rect x="40" y="144" width="296" height="132" rx="12" fill="#f0f6ff" stroke="#a6c7ee" stroke-width="1.5"/>
-  <text class="heading" x="58" y="180">Build sources</text>
-    <text class="detail" x="58" y="210">Deduplicate chunk IDs</text>
-    <text class="detail" x="58" y="235">Use at most 5 sources</text>
-    <text class="detail" x="58" y="260">Context cap: 6,000 chars</text>
-  </g>
-  <g><rect x="400" y="144" width="280" height="132" rx="12" fill="#f0f6ff" stroke="#a6c7ee" stroke-width="1.5"/>
-  <text class="heading" x="418" y="180">Generate once</text>
-    <text class="detail" x="418" y="210" style="font-size:17px">Ollama · llama3.2:3b</text>
-    <text class="detail" x="418" y="235" style="font-size:17px">Numbered-source prompt</text>
-    <text class="detail" x="418" y="260" style="font-size:17px">Type hint shapes format</text>
-  </g>
-  <g><rect x="744" y="144" width="336" height="132" rx="12" fill="#f0f6ff" stroke="#a6c7ee" stroke-width="1.5"/>
-  <text class="heading" x="762" y="180">Check citations</text>
-    <text class="detail" x="762" y="210">Keep valid [n] indices</text>
-    <text class="detail" x="762" y="235">Remove out-of-range [n]</text>
-    <text class="detail" x="762" y="260">Warn if citations missing</text>
-  </g>
-  <path class="flow" d="M336 210 H394"/>
-  <polygon points="394,210 385,214 385,206" fill="#60758c"/>
-  <path class="flow" d="M680 210 H738"/>
-  <polygon points="738,210 729,214 729,206" fill="#60758c"/>
-  <path class="flow" d="M912 276 V328 H848 V356"/>
-  <polygon points="848,356 844,347 852,347" fill="#60758c"/>
-  <text class="subtitle" x="40" y="326">NLI is optional and off by default.</text>
-  <polygon points="848,356 1048,432 848,508 648,432" fill="#fff8ed" stroke="#dec39e" stroke-width="1.5"/>
-  <text x="848" y="438" text-anchor="middle" style="font-size:19px;font-weight:700">NLI enabled?</text>
-  <path class="flow" d="M648 432 H526"/>
-  <polygon points="526,432 535,428 535,436" fill="#60758c"/>
-  <text class="edge-label" x="582" y="414">Yes</text>
-  <g><rect x="40" y="366" width="480" height="132" rx="12" fill="#f0f6ff" stroke="#a6c7ee" stroke-width="1.5"/>
-  <text class="heading" x="58" y="402">Score sentence grounding</text>
-    <text class="detail" x="58" y="432">Every sentence × every source</text>
-    <text class="detail" x="58" y="457">Best entailment ≥0.5 → grounded</text>
-    <text class="detail" x="58" y="482">Report fraction grounded + warnings</text>
-  </g>
-  <path class="flow" d="M848 508 V546"/>
-  <polygon points="848,546 844,537 852,537" fill="#60758c"/>
-  <text class="edge-label" x="866" y="536">No</text>
-  <g><rect x="648" y="552" width="432" height="100" rx="12" fill="#f7f9fc" stroke="#ccd6e2" stroke-width="1.5"/>
-  <text class="heading" x="666" y="588">Use heuristic score</text>
-    <text class="detail" x="666" y="618">Retrieval scores + citation coverage</text>
-  </g>
-  <path class="flow" d="M280 498 V704 H560"/>
-  <path class="flow" d="M864 652 V704 H560"/>
-  <circle cx="560" cy="704" r="4" fill="#60758c"/>
-  <path class="flow" d="M560 704 V734"/>
-  <polygon points="560,734 556,725 564,725" fill="#60758c"/>
-  <g><rect x="352" y="740" width="416" height="132" rx="12" fill="#effaf6" stroke="#9fd6c3" stroke-width="1.5"/>
-  <text class="heading" x="370" y="776">Return response</text>
-    <text class="detail" x="370" y="806">Answer + source excerpts</text>
-    <text class="detail" x="370" y="831">500-char preview + ellipsis</text>
-    <text class="detail" x="370" y="856">Confidence + warnings + time</text>
-  </g>
-  <text class="detail" x="40" y="914">NLI reports support estimates. It does not rewrite the answer or trigger another generation.</text>
+<svg role="img" aria-labelledby="diagram-title diagram-description" width="1280" height="1120" viewBox="0 0 1280 1120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<title id="diagram-title">NexusRAG answer checks: sources, confidence and response</title>
+<desc id="diagram-description">The standard query API deduplicates passage IDs, keeps up to five numbered sources and clips formatted source context at 6000 characters before a truncation marker. Local Ollama defaults to llama3.2:3b. Generation errors or empty output retain sources, return zero confidence and a warning, and skip answer checks. Successful answers have out-of-range citation indices removed and missing or invalid citations flagged. NLI is off by default: heuristic confidence gives equal weight to mean normalized source score and distinct-source citation coverage. With NLI enabled, compare every answer sentence with every source; best entailment of at least 0.5 counts as grounded. Confidence becomes the fraction grounded, with support warnings. Return the answer, source excerpts, confidence, warnings and processing time. NLI does not rewrite or regenerate the answer, and citation indices do not prove factual support.</desc>
+<rect width="1280" height="1120" fill="#14191C"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="600" letter-spacing="0em"><tspan x="48" y="66.1364">ANSWER CHECKS</tspan></text>
+<path d="M48 90H1232" stroke="#A8B5BD" stroke-width="2"/>
+<rect x="24" y="112" width="1232" height="944" rx="8" fill="#1B2327" stroke="#303B41" stroke-width="1.5"/>
+<rect x="48" y="156" width="320" height="192" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="72" y="199.727">Build sources</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="72" y="243.273">Deduplicate passage IDs&#10;</tspan><tspan x="72" y="271.273">&#x2264;5 numbered sources&#10;</tspan><tspan x="72" y="299.273">Source context clipped&#10;</tspan><tspan x="72" y="327.273">at 6,000 characters</tspan></text>
+<rect x="432" y="156" width="320" height="192" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="456" y="199.727">Generate answer</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="19" letter-spacing="0em"><tspan x="456" y="242.625">Ollama &#xb7; llama3.2:3b</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="456" y="279.273">Numbered-source prompt&#10;</tspan><tspan x="456" y="307.273">Question-format hint</tspan></text>
+<rect x="816" y="156" width="416" height="192" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="840" y="199.727">Check citation indices</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="840" y="243.273">Keep [1]&#x2026;[N]&#10;</tspan><tspan x="840" y="271.273">Remove out-of-range indices&#10;</tspan><tspan x="840" y="299.273">Warn on invalid or missing citations</tspan></text>
+<path d="M370 252H424" stroke="#55C4E0" stroke-width="2"/>
+<path d="M424 252L413 247V257L424 252Z" fill="#55C4E0"/>
+<path d="M754 252H808" stroke="#55C4E0" stroke-width="2"/>
+<path d="M808 252L797 247V257L808 252Z" fill="#55C4E0"/>
+<rect x="816" y="438" width="416" height="104" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="840" y="477.727">NLI enabled?</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="840" y="517.273">Off by default</tspan></text>
+<path d="M1024 350V430" stroke="#55C4E0" stroke-width="2"/>
+<path d="M1024 430L1029 419H1019L1024 430Z" fill="#55C4E0"/>
+<rect x="48" y="446" width="320" height="168" rx="8" fill="#1B2327" stroke="#F08B79" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="72" y="487.727">Generation failed</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="72" y="527.273">Keep retrieved sources&#10;</tspan><tspan x="72" y="555.273">Confidence 0 + warning&#10;</tspan><tspan x="72" y="583.273">Skip answer checks</tspan></text>
+<path d="M592 350V390H208V438" stroke="#F08B79" stroke-width="2" stroke-dasharray="7 6"/>
+<path d="M208 438L213 427H203L208 438Z" fill="#F08B79"/>
+<text fill="#F08B79" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="18" letter-spacing="0em"><tspan x="240" y="421.25">failed / empty</tspan></text>
+<rect x="432" y="654" width="360" height="160" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="456" y="695.727">Heuristic confidence</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="456" y="735.273">Mean retrieval score&#10;</tspan><tspan x="456" y="763.273">+ cited-source coverage&#10;</tspan><tspan x="456" y="791.273">Equal weights (50:50)</tspan></text>
+<rect x="856" y="654" width="376" height="160" rx="8" fill="#1B2327" stroke="#F08B79" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="880" y="695.727">Score sentence support</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="880" y="735.273">Every sentence &#xd7; all sources&#10;</tspan><tspan x="880" y="763.273">Best entailment &#x2265;0.5&#10;</tspan><tspan x="880" y="791.273">Confidence: fraction grounded</tspan></text>
+<path d="M814 490H776V610H612V646" stroke="#55C4E0" stroke-width="2"/>
+<path d="M612 646L617 635H607L612 646Z" fill="#55C4E0"/>
+<text fill="#55C4E0" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="18" letter-spacing="0em"><tspan x="688" y="571.25">off</tspan></text>
+<path d="M1044 544V646" stroke="#F08B79" stroke-width="2" stroke-dasharray="7 6"/>
+<path d="M1044 646L1049 635H1039L1044 646Z" fill="#F08B79"/>
+<text fill="#F08B79" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="18" letter-spacing="0em"><tspan x="1060" y="603.25">on</tspan></text>
+<rect x="432" y="912" width="800" height="128" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="456" y="953.727">Return response</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="456" y="992.136">Answer + source excerpts&#10;</tspan><tspan x="456" y="1021.14">Confidence + warnings + processing time</tspan></text>
+<path d="M612 816V868H832V904" stroke="#55C4E0" stroke-width="2"/>
+<path d="M832 904L837 893H827L832 904Z" fill="#55C4E0"/>
+<path d="M1044 816V868H832" stroke="#F08B79" stroke-width="2" stroke-dasharray="7 6"/>
+<path d="M208 616V976H424" stroke="#F08B79" stroke-width="2" stroke-dasharray="7 6"/>
+<path d="M424 976L413 971V981L424 976Z" fill="#F08B79"/>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" letter-spacing="0em"><tspan x="48" y="1099.05">Defaults shown. NLI does not regenerate answers. Valid citation numbers do not prove support.</tspan></text>
 </svg>
