@@ -4,9 +4,9 @@ NexusRAG builds passage indexes from uploaded documents. A question retrieves pa
 
 Open **Pipeline** in the app header, or visit `/pipeline`, for the responsive diagram and results table. This page explains the defaults; it does not report live stage progress.
 
-![Document indexing, passage retrieval, answer generation and checks, with recorded retrieval comparisons below.](../assets/figures/pipeline.svg)
+![Document indexing feeds passage retrieval. A conditional feedback search merges with the first pass before Ollama generates an answer. Citation checks, optional NLI, confidence and warnings accompany the returned sources.](../assets/figures/pipeline.svg)
 
-The overview separates indexing on upload from the work done for each question. Its results strip uses full BEIR test splits: 300 SciFact queries and 323 NFCorpus queries. Each benchmark document is one passage, searched with exact NumPy CPU retrieval; the application chunks documents and uses LanceDB. [Evaluation conditions and uncertainty](evaluation.md).
+The overview separates indexing on upload from the work done for each question. Solid cyan arrows show the main flow. The dashed coral path adds one search when dense similarity is low, then merges both rankings before generation. It does not repeat the gate or regenerate the answer. [Recorded results and evaluation conditions](evaluation.md).
 
 ## Index documents
 
@@ -83,6 +83,6 @@ Cross-encoder reranking and SPLADE are available in library or evaluation tools;
 
 ## Edit the overview
 
-The [Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=2-2) contains editable text and vector shapes. Export the `Pipeline overview` frame as SVG with text retained. The committed [pipeline.svg](../assets/figures/pipeline.svg) adds an accessible title and description, plus Arial and sans-serif font fallbacks; its geometry matches the Figma export.
+The [Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) contains editable text and vector shapes. Export the `Pipeline signal flow` frame as SVG with text retained. The committed [pipeline.svg](../assets/figures/pipeline.svg) adds an accessible title and description, plus font fallbacks for Inter and IBM Plex Mono; its geometry matches the Figma export.
 
-The figure follows the emphasis and readability guidance in [Ten Simple Rules for Better Figures](https://doi.org/10.1371/journal.pcbi.1003833). Its results strip keeps the evaluation setting and limits visible, following the [NeurIPS reporting checklist](https://neurips.cc/public/guides/PaperChecklist).
+The original `Pipeline overview` frame remains in the file as the source for the app's responsive `/pipeline` guide and its recorded results table.

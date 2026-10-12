@@ -1,12 +1,10 @@
 # NexusRAG
 
-Search research papers with dense embeddings and BM25. Ask a local Ollama model for answers with cited passages, then inspect the sources. Built with Python, PyTorch, sentence-transformers, NumPy, LanceDB and FastAPI.
+Search uploaded research papers with dense embeddings and BM25. Ask a local Ollama model for answers with cited passages, then inspect the sources. Built with Python, PyTorch, sentence-transformers, NumPy, LanceDB and FastAPI.
 
-## Pipeline
+![Upload documents, parse overlapping passages and build dense and BM25 indexes. Each question retrieves passages, optionally searches once more, then generates an answer with checked citation indices and source excerpts.](assets/figures/pipeline.svg)
 
-![Index research papers, retrieve passages with dense and BM25 search, then generate an answer with sources. Recorded retrieval results appear below.](assets/figures/pipeline.svg)
-
-Uploads build the indexes; questions reuse them. The results strip covers retrieval benchmarks. [Editable Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=2-2) · [Evaluation conditions](docs/evaluation.md).
+Uploads build the indexes. Each question searches them, with at most one feedback pass before answer generation. [Editable Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) · [Pipeline details](docs/pipeline.md).
 
 <details>
 <summary>Retrieval and answer checks</summary>

@@ -1,69 +1,62 @@
-<svg role="img" aria-labelledby="pipeline-title pipeline-description" width="1280" height="940" viewBox="0 0 1280 940" fill="none" xmlns="http://www.w3.org/2000/svg">
-<title id="pipeline-title">NexusRAG: from papers to cited answers</title>
-<desc id="pipeline-description">Upload papers, parse overlapping passages, and build dense and BM25 indexes. Each question retrieves up to eight passages through adaptive rank fusion and at most one feedback search. Ollama uses up to five sources; citation indices are checked and NLI is optional. Recorded SciFact and NFCorpus retrieval results compare dense search, hybrid RRF, and corrective PRF. Fusion can help or hurt; these benchmarks do not measure answer accuracy.</desc>
-<rect width="1280" height="940" fill="white"/>
-<text fill="#7C3AED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600" letter-spacing="0em"><tspan x="48" y="53.0909">NEXUSRAG  /  PIPELINE</tspan></text>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="36" font-weight="bold" letter-spacing="0em"><tspan x="48" y="108.091">Find passages. Answer with sources.</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="19" letter-spacing="0em"><tspan x="48" y="146.409">Search uploaded research papers and generate answers with local Ollama.</tspan></text>
-<rect x="48.5" y="184.5" width="1183" height="161" rx="15.5" fill="#F8FAFC" stroke="#E2E8F0"/>
-<text fill="#475569" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="bold" letter-spacing="0em"><tspan x="68" y="216.091">ON UPLOAD</tspan></text>
-<rect x="68.5" y="238.5" width="249" height="83" rx="11.5" fill="white" stroke="#CBD5E1"/>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="88" y="270.273">Research papers</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="88" y="298.818">PDF / DOCX / MD / TXT</tspan></text>
-<rect x="384.5" y="238.5" width="299" height="83" rx="11.5" fill="white" stroke="#CBD5E1"/>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="404" y="270.273">Parse + split</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="404" y="298.818">Overlapping text passages</tspan></text>
-<rect x="750.5" y="238.5" width="461" height="83" rx="11.5" fill="white" stroke="#CBD5E1"/>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="770" y="270.273">Build two indexes</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="770" y="298.818">BGE-small vectors + BM25 keywords</tspan></text>
-<path d="M326 280H371M364 285L371 280L364 275" stroke="#64748B" stroke-width="2"/>
-<path d="M692 280H737M730 285L737 280L730 275" stroke="#64748B" stroke-width="2"/>
-<text fill="#475569" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="bold" letter-spacing="0em"><tspan x="48" y="397.091">FOR EACH QUESTION</tspan></text>
-<path d="M978 326V374H444V421M449 414L444 421L439 414" stroke="#7C3AED" stroke-width="2"/>
-<text fill="#7C3AED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="600" letter-spacing="0em"><tspan x="750" y="364.091">document indexes</tspan></text>
-<rect x="48.5" y="428.5" width="159" height="209" rx="13.5" fill="#F8FAFC" stroke="#CBD5E1"/>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="68" y="471.273">Question</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="68" y="513.818">What methods&#10;</tspan><tspan x="68" y="535.818">were used?</tspan></text>
-<rect x="244.5" y="428.5" width="399" height="209" rx="13.5" fill="#F5F3FF" stroke="#7C3AED"/>
-<text fill="#5B21B6" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="bold" letter-spacing="0em"><tspan x="264" y="471.727">Retrieve passages</tspan></text>
-<rect x="264.5" y="493.5" width="163" height="35" rx="7.5" fill="white" stroke="#DDD6FE"/>
-<text fill="#5B21B6" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="276" y="515.818">Dense meaning</tspan></text>
-<rect x="444.5" y="493.5" width="179" height="35" rx="7.5" fill="white" stroke="#DDD6FE"/>
-<text fill="#5B21B6" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="456" y="515.818">BM25 keywords</tspan></text>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600" letter-spacing="0em"><tspan x="264" y="563.045">Adaptive rank fusion</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="264" y="593.818">One feedback search if needed</tspan></text>
-<text fill="#5B21B6" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="264" y="621.818">&#x2264;50 candidates each &#x2192; &#x2264;8 passages</tspan></text>
-<rect x="680.5" y="428.5" width="253" height="209" rx="13.5" fill="#F8FAFC" stroke="#CBD5E1"/>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="700" y="471.273">Generate + check</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" letter-spacing="0em"><tspan x="700" y="516.045">Ollama &#xb7; &#x2264;5 sources</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="700" y="557.818">Clean citation indices</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="700" y="593.818">NLI optional&#10;</tspan><tspan x="700" y="615.818">Off by default</tspan></text>
-<rect x="970.5" y="428.5" width="261" height="209" rx="13.5" fill="#F8FAFC" stroke="#CBD5E1"/>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="990" y="471.273">Answer + sources</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="990" y="513.818">Answer with [1] citations</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="990" y="557.818">Source excerpts&#10;</tspan><tspan x="990" y="579.818">+ warnings</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="990" y="617.818">Inspect the evidence</tspan></text>
-<path d="M214 533H237M230 538L237 533L230 528" stroke="#64748B" stroke-width="2"/>
-<path d="M650 533H673M666 538L673 533L666 528" stroke="#64748B" stroke-width="2"/>
-<path d="M940 533H963M956 538L963 533L956 528" stroke="#64748B" stroke-width="2"/>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="48" y="680.818">Feedback runs only below 0.55 dense similarity. Citation checks validate source indices, not factual support.</tspan></text>
-<rect x="48.5" y="718.5" width="1183" height="173" rx="15.5" fill="#F8FAFC" stroke="#E2E8F0"/>
-<text fill="#475569" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="bold" letter-spacing="0em"><tspan x="68" y="749.955">RECORDED RETRIEVAL</tspan></text>
-<text fill="#475569" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600" letter-spacing="0em"><tspan x="400" y="749.955">BGE-small &#xb7; nDCG@10 &#x2191;</tspan></text>
-<text fill="#64748B" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600" letter-spacing="0em"><tspan x="68" y="781.955">Method</tspan></text>
-<text fill="#64748B" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600" letter-spacing="0em"><tspan x="350" y="781.955">SciFact</tspan></text>
-<text fill="#64748B" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="600" letter-spacing="0em"><tspan x="500" y="781.955">NFCorpus</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="68" y="807.818">Dense</tspan></text>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="350" y="807.818">0.708</tspan></text>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="500" y="807.818">0.341</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="68" y="833.818">Hybrid RRF</tspan></text>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="350" y="833.818">0.704</tspan></text>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="500" y="833.818">0.352</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="68" y="859.818">Corrective PRF</tspan></text>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="350" y="859.818">0.703</tspan></text>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="0em"><tspan x="500" y="859.818">0.346</tspan></text>
-<text fill="#0F172A" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600" letter-spacing="0em"><tspan x="718" y="785.045">Fusion can help or hurt.</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="16" letter-spacing="0em"><tspan x="718" y="817.818">Retrieval quality only.&#10;</tspan><tspan x="718" y="839.818">Answer accuracy was not measured here.</tspan></text>
-<text fill="#334155" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="15" letter-spacing="0em"><tspan x="718" y="868.955">Full BEIR test: 300 SciFact / 323 NFCorpus queries</tspan></text>
-<text fill="#475569" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="15" letter-spacing="0em"><tspan x="48" y="922.955">One benchmark document = one passage &#xb7; exact NumPy CPU search &#xb7; no reranker &#xb7; see evaluation protocol</tspan></text>
+<svg role="img" aria-labelledby="pipeline-title pipeline-description" width="1280" height="1000" viewBox="0 0 1280 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+<title id="pipeline-title">NexusRAG pipeline: documents to answers with sources</title>
+<desc id="pipeline-description">Upload PDF, DOCX, Markdown or text documents. Parse overlapping passages and index BGE-small vectors in LanceDB alongside an in-memory BM25 index. Each question combines dense and keyword rankings. If the best dense cosine score is below 0.55, run one feedback search and merge both passes. Select up to eight passages and use up to five numbered sources to generate once with local Ollama. Check citation indices, optionally score NLI grounding, and return the answer, sources, confidence and warnings. NLI is off by default. Valid citation numbers do not establish factual support.</desc>
+<rect width="1280" height="1000" fill="#14191C"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="600" letter-spacing="0em"><tspan x="48" y="66.1364">NEXUSRAG PIPELINE</tspan></text>
+<path d="M48 90H1232" stroke="#A8B5BD" stroke-width="2"/>
+<rect x="24" y="112" width="1232" height="816" rx="8" fill="#1B2327" stroke="#303B41" stroke-width="1.5"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="48" y="153.273">ON UPLOAD</tspan></text>
+<rect x="48" y="178" width="248" height="144" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="72" y="219.727">Documents</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="72" y="258.136">PDF &#xb7; DOCX&#10;</tspan><tspan x="72" y="287.136">Markdown &#xb7; text</tspan></text>
+<rect x="344" y="178" width="280" height="144" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="368" y="219.727">Parse + split</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="258.136">Extract text into&#10;</tspan><tspan x="368" y="287.136">overlapping passages</tspan></text>
+<rect x="680" y="178" width="552" height="144" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="704" y="219.727">Index passages</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="704" y="258.136">BGE-small vectors &#x2192; LanceDB</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="704" y="292.136">BM25 keyword index &#xb7; in memory</tspan></text>
+<path d="M298 250H336" stroke="#55C4E0" stroke-width="2"/>
+<path d="M336 250L325 245V255L336 250Z" fill="#55C4E0"/>
+<path d="M626 250H672" stroke="#55C4E0" stroke-width="2"/>
+<path d="M672 250L661 245V255L672 250Z" fill="#55C4E0"/>
+<path d="M928 324V366H484V454" stroke="#55C4E0" stroke-width="2"/>
+<path d="M484 454L489 443H479L484 454Z" fill="#55C4E0"/>
+<text fill="#55C4E0" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="18" letter-spacing="0em"><tspan x="704" y="352.25">reuse indexes</tspan></text>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="48" y="433.273">FOR EACH QUESTION</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="680" y="433.273">Select &#x2264;8 passages &#xb7; use &#x2264;5 sources</tspan></text>
+<rect x="48" y="462" width="248" height="192" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="72" y="505.727">Question</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="72" y="550.136">Ask about your&#10;</tspan><tspan x="72" y="579.136">uploaded papers.</tspan></text>
+<rect x="344" y="462" width="280" height="192" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="368" y="505.727">Retrieve passages</tspan></text>
+<text fill="#55C4E0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="550.136">Dense + BM25</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="584.136">Adaptive rank fusion</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="368" y="621.273">&#x2264;50 candidates each</tspan></text>
+<rect x="680" y="462" width="248" height="192" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" letter-spacing="0em"><tspan x="704" y="503.5">Generate answer</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="704" y="550.136">Ollama</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="20" letter-spacing="0em"><tspan x="704" y="583.5">llama3.2:3b</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="19" letter-spacing="0em"><tspan x="704" y="620.409">Numbered sources [1]</tspan></text>
+<rect x="984" y="462" width="248" height="192" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" letter-spacing="0em"><tspan x="1008" y="503.5">Answer + sources</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="19" letter-spacing="0em"><tspan x="1008" y="548.409">Check citation indices</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="19" letter-spacing="0em"><tspan x="1008" y="584.409">Optional NLI &#xb7; off</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" letter-spacing="0em"><tspan x="1008" y="619.045">Confidence &#xb7; warnings</tspan></text>
+<path d="M298 558H336" stroke="#55C4E0" stroke-width="2"/>
+<path d="M336 558L325 553V563L336 558Z" fill="#55C4E0"/>
+<path d="M626 558H672" stroke="#55C4E0" stroke-width="2"/>
+<path d="M672 558L661 553V563L672 558Z" fill="#55C4E0"/>
+<path d="M930 558H976" stroke="#55C4E0" stroke-width="2"/>
+<path d="M976 558L965 553V563L976 558Z" fill="#55C4E0"/>
+<path d="M484 656V744" stroke="#F08B79" stroke-width="2" stroke-dasharray="7 6"/>
+<path d="M484 744L489 733H479L484 744Z" fill="#F08B79"/>
+<text fill="#F08B79" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="19" letter-spacing="0em"><tspan x="201.971" y="700.625">Best dense cosine &#60;0.55&#10;</tspan><tspan x="327.289" y="727.625">at most once</tspan></text>
+<rect x="344" y="752" width="584" height="132" rx="8" fill="#1B2327" stroke="#F08B79" stroke-width="2"/>
+<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="368" y="789.727">Search once more</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="828.136">Add terms from the retrieved passages.</tspan></text>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="862.136">Merge the new rankings with the first pass.</tspan></text>
+<path d="M930 818H952V694H652V558" stroke="#F08B79" stroke-width="2" stroke-dasharray="7 6"/>
+<path d="M652 558L647 569H657L652 558Z" fill="#F08B79"/>
+<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" letter-spacing="0em"><tspan x="48" y="969.045">Defaults shown. Valid citation numbers do not establish factual support.</tspan></text>
 </svg>
