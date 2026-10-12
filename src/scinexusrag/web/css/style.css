@@ -127,6 +127,7 @@ body {
 .api-key-settings input { min-width: 0; padding: var(--space-sm); }
 .api-key-settings small { color: var(--text-secondary); }
 .api-key-settings button,
+.pipeline-link,
 .documents-toggle {
     padding: var(--space-sm);
     background: var(--bg-primary);
@@ -135,6 +136,9 @@ body {
     color: var(--text-primary);
     cursor: pointer;
 }
+
+.pipeline-link { font-size: 0.8rem; text-decoration: none; }
+.pipeline-link:hover { border-color: var(--primary); color: var(--primary); }
 
 .progress-fill.indeterminate { animation: uploadPending 1.2s ease-in-out infinite alternate; }
 @keyframes uploadPending {

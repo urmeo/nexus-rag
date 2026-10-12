@@ -2,6 +2,8 @@
 
 NexusRAG builds passage indexes from uploaded documents. A question retrieves passages, Ollama generates an answer, and checks run before the standard API response is returned. The diagrams below describe the application with its default settings.
 
+Open **Pipeline** in the app header, or visit `/pipeline`, for the responsive diagram and results table. This page explains the defaults; it does not report live stage progress.
+
 ![Document indexing, passage retrieval, answer generation and checks, with recorded retrieval comparisons below.](../assets/figures/pipeline.svg)
 
 The overview separates indexing on upload from the work done for each question. Its results strip uses full BEIR test splits: 300 SciFact queries and 323 NFCorpus queries. Each benchmark document is one passage, searched with exact NumPy CPU retrieval; the application chunks documents and uses LanceDB. [Evaluation conditions and uncertainty](evaluation.md).

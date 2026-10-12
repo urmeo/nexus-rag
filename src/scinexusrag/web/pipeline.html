@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusRAG - Pipeline</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/pipeline.css">
+</head>
+<body class="pipeline-page">
+    <nav class="pipeline-navigation" aria-label="Pipeline navigation">
+        <a href="/">Back to papers</a>
+        <span>Default settings</span>
+    </nav>
+
+    <main class="pipeline-canvas">
+        <p class="pipeline-eyebrow">NEXUSRAG / PIPELINE</p>
+        <h1>Find passages. Answer with sources.</h1>
+        <p class="pipeline-purpose">Search uploaded research papers and generate answers with local Ollama.</p>
+
+        <section class="upload-lane" aria-labelledby="upload-heading">
+            <h2 id="upload-heading" class="pipeline-label">On upload</h2>
+            <div class="upload-stages">
+                <div class="upload-stage">
+                    <h3>Research papers</h3>
+                    <p>PDF / DOCX / MD / TXT</p>
+                </div>
+                <img class="upload-arrow" src="/images/pipeline-upload-arrow.svg" alt="" aria-hidden="true">
+                <div class="upload-stage">
+                    <h3>Parse + split</h3>
+                    <p>Overlapping text passages</p>
+                </div>
+                <img class="upload-arrow" src="/images/pipeline-upload-arrow.svg" alt="" aria-hidden="true">
+                <div class="upload-stage">
+                    <h3>Build two indexes</h3>
+                    <p>BGE-small vectors + BM25 keywords</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="question-lane" aria-labelledby="question-heading">
+            <div class="pipeline-bridge" aria-hidden="true">
+                <img src="/images/pipeline-index-arrow.svg" alt="">
+                <span>document indexes</span>
+            </div>
+            <h2 id="question-heading" class="pipeline-label">For each question</h2>
+            <div class="question-stages">
+                <div class="question-stage">
+                    <h3>Question</h3>
+                    <p>What methods<br>were used?</p>
+                </div>
+                <img class="question-arrow" src="/images/pipeline-question-arrow.svg" alt="" aria-hidden="true">
+                <div class="question-stage retrieval-stage">
+                    <h3>Retrieve passages</h3>
+                    <div class="search-labels">
+                        <span>Dense meaning</span>
+                        <span>BM25 keywords</span>
+                    </div>
+                    <p class="fusion-label">Adaptive rank fusion</p>
+                    <p class="feedback-label">One feedback search if needed</p>
+                    <p class="retrieval-limits">≤50 candidates each → ≤8 passages</p>
+                </div>
+                <img class="question-arrow" src="/images/pipeline-question-arrow.svg" alt="" aria-hidden="true">
+                <div class="question-stage generation-stage">
+                    <h3>Generate + check</h3>
+                    <p class="generation-model">Ollama · ≤5 sources</p>
+                    <p class="citation-check">Clean citation indices</p>
+                    <p class="nli-setting">NLI optional<br>Off by default</p>
+                </div>
+                <img class="question-arrow" src="/images/pipeline-question-arrow.svg" alt="" aria-hidden="true">
+                <div class="question-stage answer-stage">
+                    <h3>Answer + sources</h3>
+                    <p>Answer with [1] citations</p>
+                    <p class="answer-excerpts">Source excerpts<br>+ warnings</p>
+                    <p class="inspect-evidence">Inspect the evidence</p>
+                </div>
+            </div>
+        </section>
+
+        <p class="pipeline-checks">Feedback runs only below 0.55 dense similarity. Citation checks validate source indices, not factual support.</p>
+
+        <section class="pipeline-evidence" aria-labelledby="evidence-heading">
+            <div class="evidence-results">
+                <div class="evidence-heading">
+                    <h2 id="evidence-heading" class="pipeline-label">Recorded retrieval</h2>
+                    <p>BGE-small · nDCG@10 ↑</p>
+                </div>
+                <table>
+                    <caption class="visually-hidden">Recorded retrieval scores. Higher nDCG@10 is better.</caption>
+                    <thead>
+                        <tr><th scope="col">Method</th><th scope="col">SciFact</th><th scope="col">NFCorpus</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><th scope="row">Dense</th><td>0.708</td><td>0.341</td></tr>
+                        <tr><th scope="row">Hybrid RRF</th><td>0.704</td><td>0.352</td></tr>
+                        <tr><th scope="row">Corrective PRF</th><td>0.703</td><td>0.346</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="evidence-interpretation">
+                <h3>Fusion can help or hurt.</h3>
+                <p>Retrieval quality only.<br>Answer accuracy was not measured here.</p>
+                <p class="benchmark-queries">Full BEIR test: 300 SciFact / 323 NFCorpus queries</p>
+            </div>
+        </section>
+
+        <p class="benchmark-conditions">One benchmark document = one passage · exact NumPy CPU search · no reranker · <a href="https://github.com/urmeo/nexus-rag/blob/main/docs/evaluation.md">see evaluation protocol</a></p>
+    </main>
+
+    <footer class="pipeline-footer">
+        <a href="https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=2-2">Figma source</a>
+        <a href="https://github.com/urmeo/nexus-rag/blob/main/docs/pipeline.md">Pipeline details</a>
+    </footer>
+</body>
+</html>

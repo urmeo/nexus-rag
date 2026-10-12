@@ -70,7 +70,7 @@ scinexusrag-report = "scinexusrag.eval.report:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-scinexusrag = ["py.typed", "web/index.html", "web/css/*.css", "web/js/*.js"]
+scinexusrag = ["py.typed", "web/*.html", "web/css/*.css", "web/js/*.js", "web/images/*.svg"]
 "scinexusrag.eval" = ["data/*.json", "data/*/*.jsonl"]
 
 [tool.setuptools.dynamic]

@@ -70,10 +70,19 @@ def create_app() -> FastAPI:
         if js_dir.exists():
             app.mount("/js", StaticFiles(directory=js_dir), name="js")
 
+        images_dir = FRONTEND_DIR / "images"
+        if images_dir.exists():
+            app.mount("/images", StaticFiles(directory=images_dir), name="images")
+
         @app.get("/")
         async def serve_frontend() -> FileResponse:
             """Serve the frontend HTML."""
             return FileResponse(FRONTEND_DIR / "index.html")
+
+        @app.get("/pipeline", include_in_schema=False)
+        async def serve_pipeline() -> FileResponse:
+            """Show the default document and question pipeline."""
+            return FileResponse(FRONTEND_DIR / "pipeline.html")
 
     return app
 
