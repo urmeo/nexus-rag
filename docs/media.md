@@ -1,8 +1,8 @@
 # Interface recordings
 
-The README includes current screenshots, a current upload walkthrough and an older Q&A recording. The pipeline diagrams and evaluation charts are separate from these demonstrations.
+The README includes screenshots, an upload walkthrough and an older Q&A recording. The pipeline diagrams and evaluation charts are separate from these demonstrations.
 
-## Current interface
+## Upload walkthrough
 
 Captured on 12 October 2026 from the application at commit [609c0c8](https://github.com/urmeo/nexus-rag/commit/609c0c8472baffc65982af3c4f2021b7fa5c2f75), running locally in Chrome. The recording uses the real application and API without mocked responses or modified interface content.
 

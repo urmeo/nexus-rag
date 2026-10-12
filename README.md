@@ -21,9 +21,9 @@ Uploads build the indexes; questions reuse them. The results strip covers retrie
 
 ## Interface
 
-![Current NexusRAG interface with the sample document indexed into six passages.](assets/figures/interface-desktop.png)
+![Recorded NexusRAG interface with the sample document indexed into six passages.](assets/figures/interface-desktop.png)
 
-**Current walkthrough · 21 seconds.** Upload the [fictional sample paper](examples/sample_paper.md), index six passages and open the mobile document drawer. Recorded with BGE-small embeddings. Ollama was unavailable, so answer generation is not shown.
+**Upload walkthrough · 21 seconds.** Upload the [fictional sample paper](examples/sample_paper.md), index six passages and open the mobile document drawer. Recorded with BGE-small embeddings. Ollama was unavailable, so answer generation is not shown.
 
 https://github.com/user-attachments/assets/aea90800-ffe2-4820-bb18-d0527570c0bb
 
@@ -32,7 +32,7 @@ https://github.com/user-attachments/assets/aea90800-ffe2-4820-bb18-d0527570c0bb
 <details>
 <summary>Mobile document drawer</summary>
 
-![Current mobile document drawer showing the indexed sample and its six passages.](assets/figures/interface-mobile.png)
+![Recorded mobile document drawer showing the indexed sample and its six passages.](assets/figures/interface-mobile.png)
 
 </details>
 
@@ -56,7 +56,7 @@ Use Python **3.11+**. Install and start [Ollama](https://ollama.com/), then run:
 ```bash
 git clone https://github.com/urmeo/nexus-rag.git
 cd nexus-rag
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
 ollama pull llama3.2:3b
@@ -120,34 +120,19 @@ The points are measured settings; connecting lines guide the eye. Thresholds of 
 
 F1 thresholds were selected on **120 training claims**. This task measures evidence detection, not generated-answer accuracy.
 
-### Protocol and provenance
+<details>
+<summary>Evaluation protocol and source results</summary>
 
 Retrieval uses exact CPU search over NumPy vectors, seed **0**, depth **50**, RRF **k=60** and linear nDCG gains. Each benchmark document is one passage; the application chunks documents and uses LanceDB.
 
 Retrieval intervals use **10,000 query bootstrap samples**. Paired tests use **10,000 randomizations**, with Holm correction within each dataset. Evidence ROC-AUC intervals use **2,000 claim bootstraps**. [Raw results](outputs/results) retain individual scores, revisions, source hashes and runtime versions. [Evaluation details and reproduction commands](docs/evaluation.md).
 
-## Architecture
-
-| Stage | Implementation |
-| --- | --- |
-| Ingest | Parse PDF, DOCX, Markdown or text; split at a 1,200-character target, with a 1,500-character maximum and up to 300 characters of paragraph overlap |
-| Retrieve | Exact LanceDB cosine search and in-memory BM25; adaptive rank fusion; at most one feedback search below 0.55 dense similarity |
-| Generate | Ollama `llama3.2:3b`; remove invalid citation indices; optionally score sentence grounding with NLI |
-| Serve | FastAPI and a packaged web interface; one worker; optional API-key authentication, upload guards and rate limits |
-
-## Tech stack
-
-| Layer | Tools |
-| --- | --- |
-| Language and API | Python 3.11+, FastAPI, Uvicorn |
-| Models and retrieval | PyTorch, sentence-transformers, BGE-small, NumPy, LanceDB, PyArrow, rank-bm25 |
-| Generation and grounding | Ollama, httpx, DeBERTa NLI |
-| Interface | HTML, CSS, JavaScript |
-| Evaluation and plots | BEIR and SciFact datasets, NumPy, SciPy, Matplotlib |
+</details>
 
 ## Limitations
 
 - Abstract-level retrieval and evidence benchmarks do not establish full-paper answer accuracy. Check answers against the retrieved passages.
+- PDF extraction requires embedded text; there is no OCR. DOCX extraction reads paragraphs, not tables, headers or footers.
 - Citation validation checks source indices. Optional NLI scores each answer sentence against all supplied sources; it does not verify that a particular inline citation supports the sentence.
 - Confidence is a heuristic unless NLI grounding is enabled. Neither score guarantees correctness.
 - Exact vector search scales linearly. BM25 rebuilds in memory and requires one application worker.
@@ -155,4 +140,4 @@ Retrieval intervals use **10,000 query bootstrap samples**. Paired tests use **1
 
 [Folder guide](docs/layout.md) · [Notebook](notebooks/01_quickstart.ipynb) · [Examples](examples) · [Regenerate charts](docs/evaluation.md#regenerate-the-charts) · [References](docs/evaluation.md#references) · [MIT license](LICENSE)
 
-Sole contributor: [urmeo](https://github.com/urmeo).
+Sole contributor: [urme](https://github.com/urmeo).

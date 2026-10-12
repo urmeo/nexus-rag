@@ -19,7 +19,7 @@ The overview separates indexing on upload from the work done for each question. 
 
 The default passage target is **1,200 characters**, with a **1,500-character maximum** and up to **300 characters of paragraph overlap**. Where text can be located, context windows retain up to **150 nearby characters** on each side. Embeddings use the main passage text.
 
-PDF parsing reads text; it has no OCR step. Encrypted PDFs are rejected. The document store keeps parsed JSON rather than the original uploaded file.
+PDF parsing reads text; it has no OCR step. Encrypted PDFs are rejected. DOCX parsing reads paragraphs, not tables, headers or footers. The document store keeps parsed JSON rather than the original uploaded file.
 
 Duplicate documents and empty extracted content produce failed ingestion results. Writes update the document store, vector store and BM25 under a process lock, then check that index counts match. Partial failures attempt rollback. BM25 is rebuilt from stored passages when initialized, so run one application worker.
 
@@ -51,7 +51,7 @@ The gate uses dense similarity, which is separate from the final answer confiden
 
 The synthesizer removes duplicate passage IDs and keeps at most **five sources**. Sources retain document names, available sections and pages, and nearby context. It numbers them for `[n]` citations, clips formatted source context at **6,000 characters** when needed, and adds a truncation marker. The question, instructions and answer-format hint sit outside that source-context limit.
 
-Ollama uses `llama3.2:3b` by default. The response budget is `min(LLM_MAX_TOKENS, 256 + 100 × source_count)`; `LLM_MAX_TOKENS` defaults to **768**. A generation failure returns an error message with the retrieved sources.
+Ollama uses `llama3.2:3b` by default. The response budget is `min(LLM_MAX_TOKENS, 256 + 100 × source_count)`; `LLM_MAX_TOKENS` defaults to **768**. A generation failure returns an error message, the retrieved sources, zero confidence and a warning. Citation and grounding checks run only after a successful generation.
 
 Citation validation removes `[n]` references outside the supplied source range. It adds warnings for invalid or missing citations. It does not check whether a source supports the claim.
 

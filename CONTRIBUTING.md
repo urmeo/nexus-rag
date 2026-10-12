@@ -1,13 +1,13 @@
 # Contributing
 
-urmeo is the sole contributor.
+[urme](https://github.com/urmeo) is the sole contributor.
 
 ## Development setup
 
 Use Python 3.11 or later. Node.js 22 is used for the JavaScript tests. Run commands from the repository root:
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev,eval]"
 ```
