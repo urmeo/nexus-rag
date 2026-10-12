@@ -44,7 +44,7 @@ python -m uvicorn scinexusrag.api:app --host 127.0.0.1 --port 8000
 
 ## Configuration
 
-Copy [.env.example](.env.example) to `.env` and edit the settings you need. The application reads environment variables and `.env`; [configs/default.yaml](configs/default.yaml) is a reference and is not loaded. Never commit secrets.
+Set environment variables or create `.env` in the repository root with the settings you need. [configs/default.yaml](configs/default.yaml) is a reference and is not loaded by the application. Never commit secrets.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -61,7 +61,7 @@ Copy [.env.example](.env.example) to `.env` and edit the settings you need. The 
 
 When a server key is configured, enter it through **API key** in the interface. Interactive API documentation is disabled when a key is set. Without a key, `/docs` is available unless `API_DOCS_ENABLED=false`.
 
-The defaults allow 50 MiB per upload, 200 MiB of declared uncompressed DOCX content, and 60 queries or 10 uploads per minute per IP. Optional MIME detection needs the system `libmagic` library; signature and UTF-8 checks also run. See [.env.example](.env.example) for the request-limit settings.
+The defaults allow 50 MiB per upload, 200 MiB of declared uncompressed DOCX content, and 60 queries or 10 uploads per minute per IP. Change these with `API_MAX_UPLOAD_MB`, `API_MAX_UNCOMPRESSED_MB`, `API_QUERY_RATE_PER_MINUTE` and `API_UPLOAD_RATE_PER_MINUTE`. Optional MIME detection needs the system `libmagic` library; signature and UTF-8 checks also run.
 
 For network access, configure `NEXUSRAG_API_KEY`, TLS and `API_CORS_ORIGINS`. Trust forwarded headers only from your proxy. Run one worker because BM25 indexes and rate counters are per process.
 
