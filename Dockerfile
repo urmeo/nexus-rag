@@ -10,7 +10,7 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 WORKDIR /app
 
-COPY pyproject.toml README.md LICENSE ./
+COPY setup.py setup.cfg README.md LICENSE ./
 COPY src/ src/
 RUN pip install --no-cache-dir .
 
