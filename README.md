@@ -41,14 +41,6 @@ ollama pull llama3.2:3b
 scinexusrag
 ```
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Upload PDF, DOCX, Markdown or UTF-8 text and ask a question.
-
-Open **Pipeline** in the app header to see the document and question stages, default limits and recorded retrieval results.
-
-Models need downloads on first use. Documents and indexes default to `data/`. Run **one application worker** because BM25 indexes and rate-limit counters are per process.
-
-Copy [.env.example](.env.example) to `.env` to change settings. Generation sends retrieved text to `OLLAMA_BASE_URL`, which defaults to local Ollama. Use `ollama serve` if the server is not already running. [Setup, Docker and checks](CONTRIBUTING.md).
-
 ## Results
 
 ### Retrieval
