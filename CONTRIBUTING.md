@@ -67,14 +67,13 @@ For network access, configure `NEXUSRAG_API_KEY`, TLS and `API_CORS_ORIGINS`. Tr
 
 ## Docker
 
+Build the application image:
+
 ```bash
-mkdir -p data
-docker compose up --build
+docker build -t nexus-rag .
 ```
 
-Compose binds the application to loopback and downloads the Ollama model before starting it. The bind-mounted `data/` directory must be writable by container UID 1000. Set `LLM_MODEL` for both services through the Compose environment or `.env`. Ollama model tags can change; record the model digest for comparisons.
-
-The app service passes `OLLAMA_BASE_URL`, `LLM_MODEL` and `NEXUSRAG_API_KEY`. Add other application settings to its `environment` section in [docker-compose.yml](docker-compose.yml); the host `.env` is not mounted inside the container.
+The image starts one application worker on port 8000. Set `OLLAMA_BASE_URL` to an Ollama server reachable from the container and download `LLM_MODEL` on that server. For local use, publish port 8000 on `127.0.0.1`. Mount persistent storage at `/app/data`; it must be writable by container UID 1000. Pass settings as container environment variables. Ollama model tags can change; record the model digest for comparisons.
 
 ## Evaluation and results
 
