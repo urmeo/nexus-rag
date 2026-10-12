@@ -1,6 +1,6 @@
 # Interface recordings
 
-The README includes screenshots, an upload walkthrough and an older Q&A recording. The pipeline diagrams and evaluation charts are separate from these demonstrations.
+The README shows a desktop screenshot and an upload walkthrough. This page records the sources and capture conditions for the saved interface media.
 
 ## Upload walkthrough
 
@@ -26,4 +26,4 @@ These responses are historical examples. Their correctness was not evaluated. Di
 
 ## Playback
 
-Both recordings are embedded as GitHub-hosted videos in the [README](../README.md#interface). Committed MP4 links provide a download option. The recordings do not replace the [evaluation protocol and recorded measurements](evaluation.md).
+The upload walkthrough is embedded as a GitHub-hosted video in the [README](../README.md#interface). Both MP4 files are linked above. The recordings do not replace the [evaluation protocol and recorded measurements](evaluation.md).
