@@ -26,8 +26,7 @@ class TestFixedSizeChunker:
         chunker = FixedSizeChunker(chunk_size=chunk_size, chunk_overlap=20)
         chunks = chunker.chunk(parsed_document)
 
-        for chunk in chunks[:-1]:
-            assert len(chunk.content) <= chunk_size + 100
+        assert all(len(chunk.content) <= chunk_size for chunk in chunks)
 
     def test_chunk_overlap(self):
         content = " ".join(f"w{i}" for i in range(60))

@@ -12,6 +12,7 @@ function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
     const clipboard = [];
     const storage = new Map();
     const timers = new Map();
+    const documentListeners = new Map();
     let timerId = 0;
     const decode = value => value.replace(/&quot;/g, '"').replace(/&#39;/g, "'")
         .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
@@ -88,6 +89,7 @@ function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
             if (inline) await vm.runInContext(inline, context);
         }
         click() { return this.dispatch('click'); }
+        focus() { context.document.activeElement = this; }
         scrollIntoView() { this.scrolled = true; }
     }
 
@@ -100,7 +102,9 @@ function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
             querySelectorAll: selector => body.querySelectorAll(selector),
             createElement: tag => new Element(tag),
             createDocumentFragment: () => new Element('#fragment'),
-            addEventListener() {}
+            addEventListener(name, handler) {
+                documentListeners.set(name, [...(documentListeners.get(name) || []), handler]);
+            }
         },
         window: {},
         navigator: {
@@ -124,7 +128,10 @@ function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
     });
     vm.runInContext(script, context, { filename: 'frontend/js/app.js' });
     const api = vm.runInContext('({ init, loadDocuments, uploadFiles, sendMessage, state })', context);
-    return { api, get, clipboard, storage, timers,
+    return { api, get, clipboard, storage, timers, document: context.document,
+        dispatchDocument: async (name, event) => {
+            for (const handler of documentListeners.get(name) || []) await handler(event);
+        },
         runTimers: delay => {
             for (const [id, timer] of [...timers]) {
                 if (timer.delay === delay) { timers.delete(id); timer.callback(); }
@@ -350,4 +357,169 @@ test('untrusted answers, filenames and source passages stay text rather than exe
     assert.equal(app.get('sourcesList').querySelectorAll('script').length, 0);
     assert.equal(app.get('sourcesList').querySelectorAll('img').length, 0);
     assert.match(app.get('sourcesList').textContent, /<script>alert\(3\)<\/script>/);
+});
+
+test('keyboard users can open, expand and close sources and return to the answer', async () => {
+    const app = createApp(async url => {
+        if (url.endsWith('/health')) return response(health);
+        if (url.startsWith('/api/documents')) return response({ documents: documents(1), total_documents: 1 });
+        return response({ answer: 'Finding [1]', sources: [{ filename: 'paper.txt', content: 'The complete source passage.' }] });
+    });
+    await app.api.init();
+    app.get('chatInput').value = 'Question';
+    await app.api.sendMessage();
+    const button = app.get('messages').querySelector('.sources-link');
+    button.focus();
+    await button.click();
+    await app.get('sourcesPanel').dispatch('transitionend', { propertyName: 'transform' });
+    assert.equal(app.document.activeElement, app.get('closeSources'));
+
+    const card = app.get('source-0');
+    assert.equal(card.getAttribute('role'), 'button');
+    assert.equal(card.getAttribute('tabindex'), '0');
+    card.focus();
+    await card.dispatch('keydown', { key: 'Enter' });
+    assert.equal(card.getAttribute('aria-expanded'), 'true');
+    assert(card.classList.contains('expanded'));
+    assert.equal(card.getAttribute('aria-controls'), app.get('source-content-0').id);
+    let prevented = false;
+    await card.dispatch('keydown', { key: ' ', preventDefault() { prevented = true; } });
+    assert(prevented);
+    assert.equal(card.getAttribute('aria-expanded'), 'false');
+    await app.dispatchDocument('keydown', { key: 'Escape' });
+    assert(!app.get('sourcesPanel').classList.contains('open'));
+    assert.equal(app.document.activeElement, button);
+    assert.equal(app.get('messages').querySelector('.citation').getAttribute('aria-label'), 'Open source 1: paper.txt');
+});
+
+test('opening sources preserves focus when the user moves to another control', async () => {
+    const app = createApp(async () => response({
+        answer: 'Finding [1]', sources: [{ filename: 'paper.txt', content: 'Evidence.' }]
+    }));
+    await app.api.init();
+    app.api.state.documents = documents(1);
+    app.get('chatInput').value = 'Question';
+    await app.api.sendMessage();
+    const button = app.get('messages').querySelector('.sources-link');
+    button.focus();
+    await button.click();
+    await app.get('sourcesPanel').dispatch('transitionend', {
+        propertyName: 'transform', target: app.get('source-0')
+    });
+    assert.equal(app.document.activeElement, button);
+    app.get('chatInput').focus();
+    await app.get('sourcesPanel').dispatch('transitionend', { propertyName: 'transform' });
+    assert.equal(app.document.activeElement, app.get('chatInput'));
+});
+
+test('Escape closes the mobile document drawer and returns focus to its control', async () => {
+    const app = createApp(async url => response(url.endsWith('/health') ? health : { documents: [] }));
+    await app.api.init();
+    await app.get('documentsToggle').click();
+    assert(app.get('sidebar').classList.contains('open'));
+    await app.dispatchDocument('keydown', { key: 'Escape' });
+    assert(!app.get('sidebar').classList.contains('open'));
+    assert.equal(app.get('documentsToggle').getAttribute('aria-expanded'), 'false');
+    assert.equal(app.document.activeElement, app.get('documentsToggle'));
+});
+
+test('changing to an invalid API key clears the previous key’s corpus and model state', async () => {
+    const app = createApp(async (url, options) => {
+        if (options.headers['X-API-Key'] === 'invalid') return response({ detail: 'Unauthorized' }, 401);
+        if (url.endsWith('/query')) return response({ answer: 'Earlier answer [1]', sources: [{ filename: 'old.txt', content: 'Old source' }] });
+        return response(url.endsWith('/health') ? health : { documents: documents(1), total_documents: 1 });
+    });
+    await app.api.init();
+    assert.equal(app.get('docCount').textContent, '1');
+    assert.equal(app.get('llmStatus').textContent, 'local');
+    app.get('chatInput').value = 'Question';
+    await app.api.sendMessage();
+    await app.get('messages').querySelector('.sources-link').click();
+    assert(app.get('sourcesPanel').classList.contains('open'));
+    app.get('apiKeyInput').value = 'invalid';
+    await app.get('apiKeyForm').dispatch('submit');
+    assert.equal(app.get('documentList').querySelectorAll('.document-item').length, 0);
+    assert.equal(app.get('docCount').textContent, '0');
+    assert.equal(app.get('chunkStatus').textContent, '0');
+    assert.equal(app.get('llmStatus').textContent, '--');
+    assert.equal(app.get('embeddingStatus').textContent, '--');
+    assert(app.get('sendBtn').disabled);
+    assert.match(app.get('modelStatus').textContent, /API key required/);
+    assert.equal(app.get('messages').querySelectorAll('.message').length, 0);
+    assert.equal(app.get('welcome').style.display, 'flex');
+    assert.equal(app.get('sourcesList').children.length, 0);
+    assert(!app.get('sourcesPanel').classList.contains('open'));
+});
+
+test('an old API key’s pending answer cannot restore old sources or unlock a newer request', async () => {
+    const old = deferred();
+    const current = deferred();
+    let queries = 0;
+    const app = createApp(async url => {
+        if (url.endsWith('/query')) return ++queries === 1 ? old.promise : current.promise;
+        return response(url.endsWith('/health') ? health : { documents: documents(1), total_documents: 1 });
+    });
+    await app.api.init();
+    app.get('chatInput').value = 'Old question';
+    const oldRequest = app.api.sendMessage();
+    app.get('apiKeyInput').value = 'new-key';
+    await app.get('apiKeyForm').dispatch('submit');
+    app.get('chatInput').value = 'New question';
+    const newRequest = app.api.sendMessage();
+    old.resolve(response({ answer: 'Old answer', sources: [{ filename: 'old.txt', content: 'Old source' }] }));
+    await oldRequest;
+    assert.doesNotMatch(app.get('messages').textContent, /Old answer|Old question/);
+    assert.equal(app.get('sourcesList').children.length, 0);
+    assert(app.api.state.isProcessing);
+    assert.equal(app.get('messages').querySelectorAll('.typing').length, 1);
+    current.resolve(response({ answer: 'New answer', sources: [] }));
+    await newRequest;
+    assert.match(app.get('messages').textContent, /New answer/);
+    assert(!app.api.state.isProcessing);
+});
+
+test('upload validation errors show the server’s explanation', async () => {
+    const app = createApp(async () => response({ detail: [{ msg: 'File is empty.' }, { msg: 'Choose a supported document.' }] }, 422));
+    await app.api.uploadFiles([{ name: 'empty.txt' }]);
+    assert.match(app.get('toastContainer').textContent, /File is empty.; Choose a supported document./);
+    assert.doesNotMatch(app.get('toastContainer').textContent, /\[object Object\]/);
+});
+
+test('query validation errors leave the input ready for another question', async () => {
+    const app = createApp(async url => {
+        if (url.endsWith('/health')) return response(health);
+        if (url.startsWith('/api/documents')) return response({ documents: documents(1), total_documents: 1 });
+        return response({ detail: [{ msg: 'Question is too long.' }] }, 422);
+    });
+    await app.api.init();
+    app.get('chatInput').value = 'Question';
+    await app.api.sendMessage();
+    assert.match(app.get('messages').textContent, /Question is too long./);
+    assert.equal(app.get('messages').querySelectorAll('.typing').length, 0);
+    assert(!app.api.state.isProcessing);
+    app.get('chatInput').value = 'Shorter question';
+    await app.get('chatInput').dispatch('input');
+    assert(!app.get('sendBtn').disabled);
+    await app.get('sendBtn').click();
+    await settle();
+    assert.equal(app.get('messages').querySelectorAll('.message.error').length, 2);
+});
+
+test('answers preserve numbered steps, separate lists from paragraphs and keep citations usable', async () => {
+    const app = createApp(async () => response({
+        answer: 'Steps:\n\n3. Read the paper [1].\n4. Compare **results**.\n\n- Check *limitations*.\n- Keep the evidence.\n\nConclusion.\nSecond line.',
+        sources: [{ filename: 'paper.txt', content: 'Evidence' }]
+    }));
+    app.api.state.documents = documents(1);
+    app.get('chatInput').value = 'Question';
+    await app.api.sendMessage();
+    const content = app.get('messages').querySelector('.assistant').querySelector('.message-content');
+    assert.deepEqual(content.children.map(child => child.tagName), ['p', 'ol', 'ul', 'p']);
+    const steps = content.querySelector('ol').querySelectorAll('li');
+    assert.deepEqual(steps.map(step => step.getAttribute('value')), ['3', '4']);
+    assert.equal(content.querySelectorAll('strong').length, 1);
+    assert.equal(content.querySelectorAll('em').length, 1);
+    assert.equal(content.querySelectorAll('br').length, 1);
+    await content.querySelector('.citation').click();
+    assert.match(app.get('sourcesList').textContent, /Evidence/);
 });

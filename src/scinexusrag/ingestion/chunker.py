@@ -317,7 +317,7 @@ class HierarchicalChunker:
 
 
 class FixedSizeChunker:
-    """Group words or sentences into chunks with configurable overlap."""
+    """Group whole words within a character or word budget, with optional overlap."""
 
     def __init__(
         self,
@@ -329,6 +329,8 @@ class FixedSizeChunker:
             raise ValueError("chunk_size must be positive")
         if chunk_overlap < 0 or chunk_overlap >= chunk_size:
             raise ValueError("chunk_overlap must be nonnegative and smaller than chunk_size")
+        if length_function not in {"chars", "words"}:
+            raise ValueError("length_function must be 'chars' or 'words'")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.length_function = length_function
@@ -338,11 +340,7 @@ class FixedSizeChunker:
         if not text:
             return []
 
-        doc_name = (
-            document.metadata.get("original_filename")
-            or document.metadata.get("filename")
-            or "Unknown Document"
-        )
+        doc_name = resolve_display_name(document.metadata, fallback="Unknown Document")
 
         chunks: list[Chunk] = []
         for index, content in enumerate(self._split_text(text)):
@@ -369,27 +367,34 @@ class FixedSizeChunker:
         if self.length_function == "words":
             words = text.split()
             step = self.chunk_size - self.chunk_overlap
-            return [
-                " ".join(words[start : start + self.chunk_size])
-                for start in range(0, len(words), step)
-            ]
+            windows = []
+            for start in range(0, len(words), step):
+                windows.append(" ".join(words[start : start + self.chunk_size]))
+                if start + self.chunk_size >= len(words):
+                    break
+            return windows
 
         texts: list[str] = []
-        current = ""
-        for sentence in re.split(r"(?<=[.!?])\s+", text):
-            if not sentence.strip():
-                continue
-            if current and len(current) + len(sentence) + 1 > self.chunk_size:
-                texts.append(current)
-                if self.chunk_overlap > 0 and len(current) > self.chunk_overlap:
-                    current = current[-self.chunk_overlap :] + " " + sentence
-                else:
-                    current = sentence
-            else:
-                current = (current + " " + sentence).strip() if current else sentence
+        current: list[str] = []
+        for word in text.split():
+            if len(word) > self.chunk_size:
+                raise ValueError("word length exceeds available chunk size")
+            if current and len(" ".join([*current, word])) > self.chunk_size:
+                texts.append(" ".join(current))
+                overlap: list[str] = []
+                for previous_word in reversed(current):
+                    candidate = " ".join([previous_word, *overlap])
+                    if (
+                        len(candidate) > self.chunk_overlap
+                        or len(candidate) + 1 + len(word) > self.chunk_size
+                    ):
+                        break
+                    overlap.insert(0, previous_word)
+                current = overlap
+            current.append(word)
 
-        if current.strip():
-            texts.append(current)
+        if current:
+            texts.append(" ".join(current))
         return texts
 
 

@@ -327,22 +327,20 @@ class NexusRAG:
             chunk_ids = {c.id for c in doc_chunks}
 
             self.vector_store.delete_by_document(document_id)
-            self.document_store.delete(document_id)
-
             if chunk_ids:
                 self.bm25.remove(chunk_ids)
-
             self._assert_indexes_synced("delete")
+
+            self.document_store.delete(document_id)
             return True
 
     def clear_all(self) -> None:
         """Remove all documents and reset the system."""
         with self._write_lock:
             self.vector_store.clear()
-            self.document_store.clear()
-
             if self._bm25 is not None:
                 self._bm25.clear()
+            self.document_store.clear()
 
     def get_stats(self) -> SystemStats:
         """Get system statistics."""

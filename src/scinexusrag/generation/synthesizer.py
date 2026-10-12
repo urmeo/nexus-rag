@@ -36,6 +36,7 @@ class SynthesisResult:
     confidence: float = 0.0
     raw_response: str = ""
     tokens_used: int = 0
+    error: str | None = None
 
 
 SYSTEM_PROMPT = """You are a precise research assistant. Answer questions using ONLY the provided sources.
@@ -131,7 +132,7 @@ class Synthesizer:
             return SynthesisResult(
                 answer="Unable to generate response. Please try again.",
                 sources=sources,
-                confidence=0.0,
+                error="Answer generation failed.",
             )
 
         return SynthesisResult(answer=answer.strip(), sources=sources, raw_response=answer)
@@ -152,16 +153,12 @@ class Synthesizer:
         sources = self._build_sources(results, doc_names)[: self.max_sources]
         user_prompt = self._build_prompt(query, sources, query_type)
 
-        try:
-            yield from self.llm.stream(
-                user_prompt,
-                system=SYSTEM_PROMPT,
-                temperature=self.temperature,
-                max_tokens=self._token_budget(sources),
-            )
-        except Exception as e:
-            logger.error("Streaming failed: %s", e)
-            yield "Unable to generate response."
+        yield from self.llm.stream(
+            user_prompt,
+            system=SYSTEM_PROMPT,
+            temperature=self.temperature,
+            max_tokens=self._token_budget(sources),
+        )
 
     def _build_sources(
         self, results: list[RetrievalResult], doc_names: dict[str, str]

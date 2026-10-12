@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -145,6 +146,28 @@ class TestOrchestratorWiring:
         assert resp.confidence == 0.5
         assert any("not grounded" in w for w in resp.warnings)
 
+    @pytest.mark.parametrize("grounding_enabled", [False, True])
+    def test_failed_generation_keeps_sources_without_scoring_error_text(
+        self, grounding_enabled: bool
+    ) -> None:
+        retriever = StubRetriever([_result(1, "Retrieved evidence", score=1.0)])
+        llm = Mock(spec=StubLLM)
+        llm.generate.side_effect = LLMError("model unavailable")
+        grounding = Mock(spec=StubGrounding)
+        grounding.verify.return_value = GroundingReport(faithfulness=0.8, sentences=[])
+        orch = Orchestrator(  # type: ignore[arg-type]
+            retriever, llm, grounding_verifier=grounding if grounding_enabled else None
+        )
+
+        response = orch.query("What did the study find?")
+
+        assert response.answer == "Unable to generate response. Please try again."
+        assert response.confidence == 0.0
+        assert response.faithfulness is None
+        assert response.sources[0].content == "Retrieved evidence"
+        assert response.warnings == ["Answer generation failed."]
+        grounding.verify.assert_not_called()
+
     def test_streaming_appends_verification_event(self) -> None:
         retriever = StubRetriever([_result(1, "fact")])
         llm = StubLLM("ignored")
@@ -163,6 +186,32 @@ class TestOrchestratorWiring:
         assert final.startswith("\ndata: ")
         assert "verification" in final
         assert "citations_valid" in final
+
+    @pytest.mark.parametrize("partial", [False, True])
+    def test_failed_stream_reports_failure_without_grounding_partial_text(
+        self, partial: bool
+    ) -> None:
+        def failed_stream(*args: Any, **kwargs: Any) -> Any:
+            if partial:
+                yield "Partial answer [1]."
+            raise LLMError("model unavailable")
+
+        llm = Mock(spec=LLMClient)
+        llm.stream.side_effect = failed_stream
+        grounding = Mock(spec=StubGrounding)
+        grounding.verify.return_value = GroundingReport(faithfulness=0.8, sentences=[])
+        orch = Orchestrator(  # type: ignore[arg-type]
+            StubRetriever([_result(1, "evidence")]), llm, grounding_verifier=grounding
+        )
+
+        chunks = list(orch.query_streaming("What did the study find?"))
+        event = json.loads(chunks[-1].removeprefix("\ndata: "))
+
+        assert chunks[-2] == "Unable to generate response."
+        assert event["warnings"] == ["Answer generation failed."]
+        assert event["faithfulness"] is None
+        assert event["citations_valid"] == []
+        grounding.verify.assert_not_called()
 
 
 class _Resp:
@@ -245,6 +294,16 @@ class TestLLMRetry:
 
 
 class TestLLMResponseValidation:
+    @pytest.mark.parametrize("answer", ["", " \n\t"])
+    def test_generate_rejects_empty_answers(self, answer: str) -> None:
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(200, json={"response": answer})
+        )
+        with LLMClient() as client:
+            client._client = httpx.Client(base_url=client.base_url, transport=transport)
+            with pytest.raises(LLMError, match="empty response"):
+                client.generate("question")
+
     @pytest.mark.parametrize("payload", [[], None, {"response": None}, {"response": 42}])
     def test_generate_rejects_invalid_response_fields(self, payload: Any) -> None:
         transport = httpx.MockTransport(
@@ -262,6 +321,7 @@ class TestLLMResponseValidation:
             ('{"response": null}', "must be a string"),
             ('{"response": 42}', "must be a string"),
             ('{"error": "model was unloaded"}', "model was unloaded"),
+            ('{"done": "false"}', "must be a boolean"),
             ("invalid JSON", "stream failed"),
         ],
     )
@@ -270,6 +330,31 @@ class TestLLMResponseValidation:
         with LLMClient() as client:
             client._client = httpx.Client(base_url=client.base_url, transport=transport)
             with pytest.raises(LLMError, match=error):
+                list(client.stream("question"))
+
+    @pytest.mark.parametrize("body", ["", '{"response": "Partial answer"}\n'])
+    def test_stream_requires_completion_record(self, body: str) -> None:
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, text=body))
+        with LLMClient() as client:
+            client._client = httpx.Client(base_url=client.base_url, transport=transport)
+            with pytest.raises(LLMError, match="before completion"):
+                list(client.stream("question"))
+
+    def test_stream_accepts_completed_answer(self) -> None:
+        body = '{"response": "Complete answer"}\n{"done": true}\n'
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, text=body))
+        with LLMClient() as client:
+            client._client = httpx.Client(base_url=client.base_url, transport=transport)
+            assert list(client.stream("question")) == ["Complete answer"]
+
+    @pytest.mark.parametrize("answer", ["", " \n\t"])
+    def test_stream_rejects_empty_completed_answers(self, answer: str) -> None:
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(200, json={"response": answer, "done": True})
+        )
+        with LLMClient() as client:
+            client._client = httpx.Client(base_url=client.base_url, transport=transport)
+            with pytest.raises(LLMError, match="empty response"):
                 list(client.stream("question"))
 
     def test_stream_surfaces_an_error_after_partial_output(self) -> None:

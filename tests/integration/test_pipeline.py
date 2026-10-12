@@ -267,6 +267,27 @@ class TestBasicPipelineWorkflow:
         deleted = scinexusrag_instance.delete_document("nonexistent_id")
         assert deleted is False
 
+    @pytest.mark.parametrize("failure", ["unlink", "index_save"])
+    def test_delete_metadata_failure_keeps_retrieval_indexes_synced(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch, failure: str
+    ):
+        rag = scinexusrag_instance
+        result = rag.ingest(sample_text_file)
+        assert result.success
+        store = rag.document_store
+        error = OSError("document metadata unavailable")
+        if failure == "unlink":
+            monkeypatch.setattr(Path, "unlink", MagicMock(side_effect=error))
+        else:
+            monkeypatch.setattr(store, "_save_index", MagicMock(side_effect=error))
+
+        with pytest.raises(OSError, match="document metadata unavailable"):
+            rag.delete_document(result.document_id)
+
+        assert rag.vector_store.count() == rag.bm25.count() == 0
+        assert store.exists(result.document_id) is (failure == "unlink")
+        assert rag.query("What methods were used?").sources == []
+
 
 class TestMultiFileIngestion:
     def test_ingest_directory(self, scinexusrag_instance: NexusRAG, docs_directory: Path):
@@ -460,6 +481,23 @@ class TestDuplicateDetection:
 
 
 class TestClearOperations:
+    def test_clear_metadata_failure_keeps_retrieval_indexes_synced(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
+    ):
+        rag = scinexusrag_instance
+        assert rag.ingest(sample_text_file).success
+        monkeypatch.setattr(
+            rag.document_store,
+            "clear",
+            MagicMock(side_effect=OSError("document metadata unavailable")),
+        )
+
+        with pytest.raises(OSError, match="document metadata unavailable"):
+            rag.clear_all()
+
+        assert rag.vector_store.count() == rag.bm25.count() == 0
+        assert rag.query("What methods were used?").sources == []
+
     def test_clear_then_reingest_updates_existing_retriever(
         self, scinexusrag_instance: NexusRAG, sample_text_file: Path
     ):

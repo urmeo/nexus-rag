@@ -20,8 +20,10 @@ const state = {
 };
 
 let documentRequest = 0;
+let queryRequest = 0;
 let uploadQueue = Promise.resolve();
 let uploadHideTimer = null;
+let sourceTrigger = null;
 
 const el = {
     modelStatus: document.getElementById('modelStatus'),
@@ -94,6 +96,22 @@ function setupEventListeners() {
     el.sendBtn.addEventListener('click', sendMessage);
 
     el.closeSources.addEventListener('click', closeSources);
+    el.sourcesPanel.addEventListener('transitionend', event => {
+        if (event.target === el.sourcesPanel && event.propertyName === 'transform' &&
+            el.sourcesPanel.classList.contains('open') && document.activeElement === sourceTrigger) {
+            el.closeSources.focus();
+        }
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        if (el.sourcesPanel.classList.contains('open')) {
+            closeSources();
+        } else if (el.sidebar.classList.contains('open')) {
+            el.sidebar.classList.remove('open');
+            el.documentsToggle.setAttribute('aria-expanded', 'false');
+            el.documentsToggle.focus();
+        }
+    });
 
     document.querySelectorAll('.suggestion').forEach(button => {
         button.addEventListener('click', () => {
@@ -106,7 +124,25 @@ function setupEventListeners() {
 
 async function saveApiKey(event) {
     event.preventDefault();
-    state.apiKey = el.apiKeyInput.value.trim();
+    const key = el.apiKeyInput.value.trim();
+    if (key !== state.apiKey) {
+        queryRequest++;
+        state.isProcessing = false;
+        state.documents = [];
+        state.llmModel = '';
+        state.embeddingModel = '';
+        renderDocuments();
+        el.docCount.textContent = '0';
+        updateStatusBar({});
+        updateInputState();
+        closeSources();
+        updateSourcesPanel([]);
+        el.messages.querySelectorAll('.message').forEach(message => message.remove());
+        el.welcome.style.display = 'flex';
+        el.chatInput.value = '';
+        el.chatInput.style.height = 'auto';
+    }
+    state.apiKey = key;
 
     documentRequest++;
     try {
@@ -341,7 +377,7 @@ async function uploadFile(file) {
             await loadDocuments();
             await checkHealth();
         } else {
-            showToast(data.detail || data.error || 'Upload failed', 'error');
+            showToast(apiError(data, 'Upload failed.'), 'error');
         }
     } catch {
         showToast('Could not upload the document. Check the server connection.', 'error');
@@ -408,6 +444,7 @@ async function sendMessage() {
     if (!question || state.documents.length === 0 || state.isProcessing) return;
 
     state.isProcessing = true;
+    const request = ++queryRequest;
 
     el.chatInput.value = '';
     el.chatInput.style.height = 'auto';
@@ -432,6 +469,7 @@ async function sendMessage() {
         });
 
         const data = await res.json();
+        if (request !== queryRequest) return;
 
         typingEl.remove();
 
@@ -442,19 +480,26 @@ async function sendMessage() {
 
             updateSourcesPanel(data.sources || []);
         } else {
-            const detail = data.detail;
-            const message = Array.isArray(detail)
-                ? detail.map(error => error?.msg || String(error)).join('; ')
-                : (detail || 'Could not answer the question.');
-            addErrorMessage(message);
+            addErrorMessage(apiError(data, 'Could not answer the question.'));
         }
     } catch {
+        if (request !== queryRequest) return;
         typingEl.remove();
         addErrorMessage('Could not connect to the server. Check your connection.');
     } finally {
-        state.isProcessing = false;
-        updateInputState();
+        if (request === queryRequest) {
+            state.isProcessing = false;
+            updateInputState();
+        }
     }
+}
+
+function apiError(data, fallback) {
+    const detail = data?.detail || data?.error;
+    if (Array.isArray(detail)) {
+        return detail.map(error => error?.msg || String(error)).join('; ') || fallback;
+    }
+    return typeof detail === 'string' ? detail : fallback;
 }
 
 function addUserMessage(content) {
@@ -544,32 +589,44 @@ function addErrorMessage(content) {
 function formatResponse(text, sources) {
     if (!text) return '';
 
-    let html = escapeHtml(text);
+    const blocks = [];
+    let lines = [];
+    let blockType = 'p';
+    function flush() {
+        if (!lines.length) return;
+        blocks.push(`<${blockType}>${lines.join(blockType === 'p' ? '<br>' : '')}</${blockType}>`);
+        lines = [];
+    }
 
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-
-    html = html.replace(/^[\-•]\s+(.+)$/gm, '<li>$1</li>');
-
-    html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
-
-    html = html.replace(/(<li>.*?<\/li>\s*)+/gs, match => `<ul>${match}</ul>`);
-
-    html = html.replace(/\[(\d+)\]/g, (match, num) => {
-        const idx = parseInt(num) - 1;
-        if (idx >= 0 && idx < sources.length) {
-            const src = sources[idx];
-            const tooltip = src.filename || `Source ${num}`;
-            return `<button type="button" class="citation" data-source-index="${idx}" title="${escapeHtml(tooltip)}">${num}</button>`;
+    for (const line of text.split('\n')) {
+        if (!line.trim()) {
+            flush();
+            continue;
         }
-        return match;
-    });
+        const item = line.match(/^\s*(?:([-•])|(\d+)\.)\s+(.+)$/);
+        const type = item ? (item[2] ? 'ol' : 'ul') : 'p';
+        if (type !== blockType) flush();
+        blockType = type;
+        const content = formatInline(item ? item[3] : line, sources);
+        lines.push(item ? `<li${item[2] ? ` value="${item[2]}"` : ''}>${content}</li>` : content);
+    }
+    flush();
+    return blocks.join('');
+}
 
-    html = html.split('\n\n').map(p => p.trim() ? `<p>${p}</p>` : '').join('');
-    html = html.replace(/\n/g, '<br>');
-
-    return html;
+function formatInline(text, sources) {
+    return escapeHtml(text)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+        .replace(/\[(\d+)\]/g, (match, num) => {
+            const idx = parseInt(num) - 1;
+            if (idx >= 0 && idx < sources.length) {
+                const src = sources[idx];
+                const tooltip = src.filename || `Source ${num}`;
+                return `<button type="button" class="citation" data-source-index="${idx}" title="${escapeHtml(tooltip)}" aria-label="Open source ${num}: ${escapeHtml(tooltip)}">${num}</button>`;
+            }
+            return match;
+        });
 }
 
 function showTypingIndicator() {
@@ -606,7 +663,8 @@ function updateSourcesPanel(sources) {
         const preview = content.substring(0, 200).replace(/\n/g, ' ');
 
         return `
-            <div class="source-card" id="source-${idx}">
+            <div class="source-card" id="source-${idx}" role="button" tabindex="0"
+                 aria-expanded="false" aria-controls="source-content-${idx}">
                 <div class="source-header">
                     <span class="source-number">${idx + 1}</span>
                     <span class="source-filename">${escapeHtml(src.filename || 'Unknown document')}</span>
@@ -615,7 +673,7 @@ function updateSourcesPanel(sources) {
                 ${src.section_title ? `<div class="source-section">${escapeHtml(src.section_title)}</div>` : ''}
                 ${src.page ? `<div class="source-page">Page ${escapeHtml(src.page)}</div>` : ''}
                 <div class="source-preview">${escapeHtml(preview)}${content.length > 200 ? '...' : ''}</div>
-                <div class="source-full">
+                <div class="source-full" id="source-content-${idx}">
                     <div class="source-full-content">${escapeHtml(content)}</div>
                     ${src.truncated ? '<div class="source-truncated-note">Only the first 500 characters of this passage are shown.</div>' : ''}
                 </div>
@@ -623,16 +681,31 @@ function updateSourcesPanel(sources) {
         `;
     }).join('');
     el.sourcesList.querySelectorAll('.source-card').forEach(card => {
-        card.addEventListener('click', () => card.classList.toggle('expanded'));
+        const toggle = () => {
+            const expanded = card.classList.toggle('expanded');
+            card.setAttribute('aria-expanded', String(expanded));
+        };
+        card.addEventListener('click', toggle);
+        card.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggle();
+            }
+        });
     });
 }
 
 function openSources() {
+    const wasOpen = el.sourcesPanel.classList.contains('open');
+    if (!wasOpen) sourceTrigger = document.activeElement;
     el.sourcesPanel.classList.add('open');
+    if (wasOpen) el.closeSources.focus();
 }
 
 function closeSources() {
+    const wasOpen = el.sourcesPanel.classList.contains('open');
     el.sourcesPanel.classList.remove('open');
+    if (wasOpen) sourceTrigger?.focus();
 }
 
 function highlightSource(idx) {

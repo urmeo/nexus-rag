@@ -1,5 +1,8 @@
 """DocumentStore crash recovery: index and doc files reconcile on load."""
 
+from pathlib import Path
+from unittest.mock import Mock
+
 import pytest
 
 from scinexusrag.ingestion import ParsedDocument
@@ -65,3 +68,28 @@ def test_trailing_newline_id_is_rejected_before_writing(temp_dir) -> None:
         store.add(_doc(doc_id="paper\n"))
 
     assert list(temp_dir.iterdir()) == []
+
+
+def test_interrupted_index_update_cannot_restore_a_deleted_document(temp_dir, monkeypatch) -> None:
+    store = DocumentStore(path=temp_dir)
+    store.add(_doc())
+    monkeypatch.setattr(store, "_save_index", Mock(side_effect=OSError("interrupted index write")))
+
+    with pytest.raises(OSError, match="interrupted index write"):
+        store.delete("abc123def456")
+
+    reloaded = DocumentStore(path=temp_dir)
+    assert not reloaded.exists("abc123def456")
+    assert reloaded.count() == 0
+
+
+def test_failed_file_deletion_keeps_the_index_entry(temp_dir, monkeypatch) -> None:
+    store = DocumentStore(path=temp_dir)
+    store.add(_doc())
+    monkeypatch.setattr(Path, "unlink", Mock(side_effect=OSError("file is unavailable")))
+
+    with pytest.raises(OSError, match="file is unavailable"):
+        store.delete("abc123def456")
+
+    assert store.exists("abc123def456")
+    assert DocumentStore(path=temp_dir).exists("abc123def456")

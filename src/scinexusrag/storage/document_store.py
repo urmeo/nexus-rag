@@ -173,9 +173,9 @@ class DocumentStore:
         if not doc_path.exists():
             return False
 
+        doc_path.unlink()
         self.index.pop(doc_id, None)
         self._save_index()
-        doc_path.unlink()
         return True
 
     def count(self) -> int:

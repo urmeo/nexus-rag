@@ -73,15 +73,23 @@ class Orchestrator:
             question, results, doc_names=doc_names, query_type=analyzed.query_type
         )
 
-        verification, faithfulness, warnings = self._verify_answer(
-            synthesis.answer, synthesis.sources
-        )
-
-        confidence = self._confidence(synthesis.sources, verification.citations_valid, faithfulness)
+        if synthesis.error:
+            answer = synthesis.answer
+            confidence = 0.0
+            faithfulness = None
+            warnings = [synthesis.error]
+        else:
+            verification, faithfulness, warnings = self._verify_answer(
+                synthesis.answer, synthesis.sources
+            )
+            answer = verification.verified_answer
+            confidence = self._confidence(
+                synthesis.sources, verification.citations_valid, faithfulness
+            )
         trace.append(ReasoningStep("synthesis", f"confidence={confidence:.2f}"))
 
         return RAGResponse(
-            answer=verification.verified_answer,
+            answer=answer,
             sources=synthesis.sources,
             confidence=confidence,
             processing_time_ms=(time.perf_counter() - start) * 1000,
@@ -98,24 +106,32 @@ class Orchestrator:
         doc_names = self._document_names(results)
 
         chunks: list[str] = []
-        for token in self.synthesizer.synthesize_streaming(
-            question, results, doc_names=doc_names, query_type=analyzed.query_type
-        ):
-            chunks.append(token)
-            yield token
-
-        answer = "".join(chunks)
-        sources = self.synthesizer._build_sources(results, doc_names)[
-            : self.synthesizer.max_sources
-        ]
-        verification, faithfulness, warnings = self._verify_answer(answer, sources)
+        try:
+            for token in self.synthesizer.synthesize_streaming(
+                question, results, doc_names=doc_names, query_type=analyzed.query_type
+            ):
+                chunks.append(token)
+                yield token
+        except Exception:
+            logger.exception("Streaming generation failed")
+            yield "Unable to generate response."
+            citations_valid = []
+            faithfulness = None
+            warnings = ["Answer generation failed."]
+        else:
+            answer = "".join(chunks)
+            sources = self.synthesizer._build_sources(results, doc_names)[
+                : self.synthesizer.max_sources
+            ]
+            verification, faithfulness, warnings = self._verify_answer(answer, sources)
+            citations_valid = verification.citations_valid
 
         for warning in warnings:
             logger.warning("streaming verification: %s", warning)
 
         event = {
             "event": "verification",
-            "citations_valid": verification.citations_valid,
+            "citations_valid": citations_valid,
             "faithfulness": faithfulness,
             "warnings": warnings,
         }

@@ -99,6 +99,8 @@ class LLMClient:
         answer = data.get("response") if isinstance(data, dict) else None
         if not isinstance(answer, str):
             raise LLMError(f"LLM response must contain a string 'response' field ({self._where()})")
+        if not answer.strip():
+            raise LLMError(f"LLM returned an empty response ({self._where()})")
         return answer
 
     def stream(
@@ -121,6 +123,7 @@ class LLMClient:
         if system:
             payload["system"] = system
 
+        has_text = False
         try:
             with self.client.stream("POST", "/api/generate", json=payload) as response:
                 response.raise_for_status()
@@ -131,15 +134,24 @@ class LLMClient:
                             raise LLMError(f"LLM stream expected a JSON object ({self._where()})")
                         if data.get("error"):
                             raise LLMError(f"LLM stream failed ({self._where()}): {data['error']}")
+                        done = data.get("done", False)
+                        if not isinstance(done, bool):
+                            raise LLMError(
+                                f"LLM stream 'done' field must be a boolean ({self._where()})"
+                            )
                         if "response" in data:
                             token = data["response"]
                             if not isinstance(token, str):
                                 raise LLMError(
                                     f"LLM stream 'response' field must be a string ({self._where()})"
                                 )
+                            has_text = has_text or bool(token.strip())
                             yield token
-                        if data.get("done", False):
-                            break
+                        if done:
+                            if not has_text:
+                                raise LLMError(f"LLM returned an empty response ({self._where()})")
+                            return
+                raise LLMError(f"LLM stream ended before completion ({self._where()})")
         except (httpx.RequestError, httpx.HTTPStatusError, json.JSONDecodeError) as exc:
             raise LLMError(f"LLM stream failed ({self._where()}): {exc}") from exc
 
