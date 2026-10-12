@@ -1,51 +1,10 @@
-# NexusRAG
-
-Search uploaded research papers with dense embeddings and BM25. Ask a local Ollama model for answers with cited passages, then inspect the sources. Built with Python, PyTorch, sentence-transformers, NumPy, LanceDB and FastAPI.
-
 ![Upload documents, parse overlapping passages and build dense and BM25 indexes. Each question retrieves passages, optionally searches once more, then generates an answer with checked citation indices and source excerpts.](assets/figures/pipeline.svg)
-
-Uploads build the indexes. Each question searches them, with at most one feedback pass before answer generation. [Editable Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) · [Pipeline details](docs/pipeline.md).
-
-<details>
-<summary>Retrieval and answer checks</summary>
 
 ![Dense and BM25 rankings are fused; a conditional feedback search is merged with the first pass before selecting passages.](assets/figures/retrieval-flow.svg)
 
-[Edit retrieval in Figma](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2).
-
 ![Build numbered sources, generate an answer, check citation indices and compute confidence. Generation failures retain sources with zero confidence and skip checks. Optional NLI is off by default.](assets/figures/answer-checks.svg)
 
-[Edit answer checks in Figma](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20).
-
-[Pipeline rules, defaults and source code](docs/pipeline.md).
-
-</details>
-
-## Interface
-
 ![Recorded NexusRAG interface with a fictional document indexed into six passages.](assets/figures/interface-desktop.png)
-
-https://github.com/user-attachments/assets/aea90800-ffe2-4820-bb18-d0527570c0bb
-
-## Run locally
-
-Use Python **3.11+**. Install and start [Ollama](https://ollama.com/), then run:
-
-```bash
-git clone https://github.com/urmeo/nexus-rag.git
-cd nexus-rag
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e .
-ollama pull llama3.2:3b
-scinexusrag
-```
-
-## Results
-
-### Retrieval
-
-Full BEIR test splits: **300 SciFact queries** over **5,183 abstracts** and **323 NFCorpus queries** over **3,633 documents**. Higher nDCG@10 is better. Hybrid, adaptive and corrective rows use BGE-small embeddings.
 
 | System | SciFact nDCG@10 | NFCorpus nDCG@10 |
 | --- | ---: | ---: |
@@ -58,27 +17,13 @@ Full BEIR test splits: **300 SciFact queries** over **5,183 abstracts** and **32
 
 ![Recorded retrieval scores on SciFact and NFCorpus, with 95% query-bootstrap intervals.](assets/figures/retrieval-comparison.svg)
 
-Combining methods did not consistently improve the scores. Corrective retrieval triggered no retries on SciFact at the headline threshold of **0.55**. Reranking was disabled in these evaluations; the library and evaluation tools provide a cross-encoder reranker.
-
-### Retrieval time and corrective threshold
-
-First **120 SciFact test queries**, one CPU pass without warmup. Indexing and answer generation are excluded; initial reranker loading is included.
-
 | System | nDCG@10 | Milliseconds per query |
 | --- | ---: | ---: |
 | Adaptive hybrid | 0.734 | 16.9 |
 | Corrective PRF | 0.734 | 17.3 |
 | Cross-encoder reranking | 0.702 | 1318.9 |
 
-This experiment selected a corrective threshold of **0.40** on **250 training queries**, separate from the headline threshold of **0.55**. Neither threshold triggered retries on the SciFact test set. Timings have no repeated-run intervals.
-
 ![Recorded SciFact threshold sweep: retrieval quality and the percentage of queries that triggered a feedback search.](assets/figures/corrective-sweep.svg)
-
-The points are measured settings; connecting lines guide the eye. Thresholds of **0.65** and **0.70** triggered retries and reduced test nDCG in this sweep.
-
-### Evidence-sentence detection
-
-**188 SciFact development claims**, **2,031 candidate sentences**, **18.0% positive**. Candidates come from annotated abstracts. Both supporting and contradicting rationale sentences count as evidence.
 
 | Scorer | ROC-AUC | Average precision | F1 |
 | --- | ---: | ---: | ---: |
@@ -87,9 +32,3 @@ The points are measured settings; connecting lines guide the eye. Thresholds of 
 | Cross-encoder | 0.755 | 0.476 | 0.469 |
 
 ![ROC and precision–recall curves computed from the recorded evidence-sentence scores, with random baselines.](assets/figures/evidence-curves.svg)
-
-F1 thresholds were selected on **120 training claims**. This task measures evidence detection, not generated-answer accuracy.
-
-[Folder guide](docs/layout.md) · [Notebook](notebooks/01_quickstart.ipynb) · [Regenerate charts](docs/evaluation.md#regenerate-the-charts) · [References](docs/evaluation.md#references) · [MIT license](LICENSE)
-
-Sole contributor: [urme](https://github.com/urmeo).

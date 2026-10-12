@@ -8,4 +8,4 @@
 | [Interface recordings](media.md) | Screenshot sources, recording conditions and playback |
 | [Development](../CONTRIBUTING.md) | Setup, configuration, Docker, checks and commit messages |
 
-[Start with the README](../README.md).
+[View the diagrams and results](../README.md).
