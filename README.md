@@ -25,8 +25,6 @@ Uploads build the indexes. Each question searches them, with at most one feedbac
 
 ![Recorded NexusRAG interface with a fictional document indexed into six passages.](assets/figures/interface-desktop.png)
 
-**Upload walkthrough · 21 seconds.** The recording uploads a fictional document, indexes six passages and opens the mobile document drawer. Recorded with BGE-small embeddings. Ollama was unavailable, so answer generation is not shown.
-
 https://github.com/user-attachments/assets/aea90800-ffe2-4820-bb18-d0527570c0bb
 
 [Download the walkthrough (MP4)](assets/media/interface-walkthrough.mp4).
