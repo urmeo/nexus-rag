@@ -1,8 +1,8 @@
-![Upload documents, parse overlapping passages and build dense and BM25 indexes. Each question retrieves passages, optionally searches once more, then generates an answer with checked citation indices and source excerpts.](assets/figures/pipeline.svg)
+![NexusRAG pipeline: index uploaded documents, retrieve passages, generate an answer and return sources.](assets/figures/pipeline.svg)
 
-![Dense and BM25 rankings are fused; a conditional feedback search is merged with the first pass before selecting passages.](assets/figures/retrieval-flow.svg)
+![Retrieval: combine meaning and keyword rankings, optionally search once more, then select passages.](assets/figures/retrieval-flow.svg)
 
-![Build numbered sources, generate an answer, check citation indices and compute confidence. Generation failures retain sources with zero confidence and skip checks. Optional NLI is off by default.](assets/figures/answer-checks.svg)
+![Answer checks: build numbered sources, generate with Ollama and validate citation numbers. Sentence grounding is optional and off by default.](assets/figures/answer-checks.svg)
 
 ![Recorded NexusRAG interface with a fictional document indexed into six passages.](assets/figures/interface-desktop.png)
 

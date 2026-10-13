@@ -1,96 +1,94 @@
 # Pipeline
 
-NexusRAG builds passage indexes from uploaded documents. A question retrieves passages, Ollama generates an answer, and checks run before the standard API response is returned. The diagrams below describe the application with its default settings.
+NexusRAG turns uploaded documents into searchable passages. For each question, it retrieves passages, asks Ollama for an answer and returns source excerpts, confidence and warnings.
 
-Open **Pipeline** in the app header, or visit `/pipeline`, for the responsive diagram and results table. This page explains the defaults; it does not report live stage progress.
+![Index documents on upload. For each question, retrieve passages, generate an answer and check it before returning sources.](../assets/figures/pipeline.svg)
 
-![Document indexing feeds passage retrieval. A conditional feedback search merges with the first pass before Ollama generates an answer. Citation checks, optional NLI, confidence and warnings accompany the returned sources.](../assets/figures/pipeline.svg)
+Open **Pipeline** in the app header, or visit `/pipeline`, for the responsive guide. It explains the default behavior; it does not show live progress.
 
-The overview separates indexing on upload from the work done for each question. Solid cyan arrows show the main flow. The dashed coral path adds one search when dense similarity is low, then merges both rankings before generation. It does not repeat the gate or regenerate the answer. [Recorded results and evaluation conditions](evaluation.md).
+## On upload
 
-## Index documents
+| Step | What happens |
+| --- | --- |
+| Read documents | Extract text and available sections or pages from PDF, DOCX, Markdown or UTF-8 text. |
+| Split into passages | Pack sections and paragraphs into overlapping passages. Keep document names and nearby context. |
+| Index passages | Encode passage text with BGE-small, store vectors in LanceDB and update the in-memory BM25 keyword index. Save parsed document JSON. |
 
-| Step | Work | Stored or returned data |
-| --- | --- | --- |
-| Parse | Read PDF, DOCX, Markdown or UTF-8 text | Text, sections and available page metadata |
-| Split | Pack sections and paragraphs into overlapping passages | Passage IDs, document names, sections, pages and nearby context |
-| Embed | Encode each passage with BGE-small | Passage vectors |
-| Store and index | Save parsed document JSON and passage vectors; update BM25 | Persistent LanceDB passages and an in-memory keyword index |
+| Passage setting | Default |
+| --- | ---: |
+| Target length | 1,200 characters |
+| Maximum length | 1,500 characters |
+| Paragraph overlap | Up to 300 characters |
+| Nearby context, where text can be located | Up to 150 characters on each side |
 
-The default passage target is **1,200 characters**, with a **1,500-character maximum** and up to **300 characters of paragraph overlap**. Where text can be located, context windows retain up to **150 nearby characters** on each side. Embeddings use the main passage text.
+The document store saves parsed JSON, not the original upload. Duplicate documents and empty extracted text fail ingestion. Writes run under a process lock, check index counts and attempt rollback on partial failure. BM25 rebuilds from stored passages at initialization; run one application worker.
 
-PDF parsing reads text; it has no OCR step. Encrypted PDFs are rejected. DOCX parsing reads paragraphs, not tables, headers or footers. The document store keeps parsed JSON rather than the original uploaded file.
+## For each question
 
-Duplicate documents and empty extracted content produce failed ingestion results. Writes update the document store, vector store and BM25 under a process lock, then check that index counts match. Partial failures attempt rollback. BM25 is rebuilt from stored passages when initialized, so run one application worker.
+![Meaning and keyword rankings feed fusion. A low dense-similarity score can trigger one expanded search; both rankings merge before selecting passages.](../assets/figures/retrieval-flow.svg)
 
-## Retrieve passages
-
-![Separate dense and BM25 rankings, adaptive fusion, a conditional feedback search, fusion of both passes and selection of up to eight passages. Empty indexes and matches return without Ollama.](../assets/figures/retrieval-flow.svg)
-
-The API trims and validates the question. If the index is empty, it returns an upload-needed message. Otherwise, pattern matching chooses an answer-format hint, and a fixed map rewrites six known vague questions.
-
-Dense search embeds the question and searches LanceDB by cosine similarity. Exact vector search scales linearly with stored passages. BM25 ranks stored passage text by keyword matches. Each branch returns up to **50 candidates**. Weighted reciprocal rank fusion combines the rankings with **k=60**; the highest fused score is normalized to 1.
-
-Fusion weights follow these rules:
+1. **Prepare the question.** The API trims and validates it. Fixed rules choose an answer-format hint and rewrite six known vague questions.
+2. **Search two ways.** Dense search embeds the question and searches LanceDB by cosine similarity. BM25 ranks passage text by keyword matches. Each returns up to 50 candidates.
+3. **Combine the rankings.** Weighted reciprocal rank fusion uses `k=60`. Fixed query rules choose the weights below. The top fused score is normalized to 1.
+4. **Search once more if needed.** When feedback is enabled (the default), results exist and the best dense similarity is below **0.55**, add up to ten frequent non-query terms from the first five passages. Repeat retrieval once, then merge the original and feedback rankings with equal-weight RRF. The merged results bypass the gate.
+5. **Select passages.** Keep up to eight passages for source construction. An empty index or no matches returns a message without calling Ollama.
 
 | Query shape | Dense weight | BM25 weight |
 | --- | ---: | ---: |
 | At most four words, or fewer than 12 words with a technical token | 0.3 | 0.7 |
-| At least 12 words with no technical token | 0.7 | 0.3 |
+| At least 12 words without a technical token | 0.7 | 0.3 |
 | Other queries | 0.5 | 0.5 |
 
-A technical token contains a digit or underscore, is all uppercase, or exceeds 14 characters after trimming punctuation. These are fixed rules, not a learned routing model.
+A technical token contains a digit or underscore, is uppercase, or exceeds 14 characters after punctuation trimming. These are fixed rules. Dense similarity controls the feedback gate; it is separate from fused ranking scores and answer confidence. Exact vector search scales linearly with stored passages.
 
-One feedback pass runs when correction is enabled, first-pass results exist, and the **best dense cosine score is below 0.55**. It takes up to **ten frequent non-query terms** from the **first five passages**, appends them to the question and repeats both searches. Equal-weight RRF then merges the first and feedback rankings. The result is capped at **eight passages** by default.
+## Generate and check
 
-The gate uses dense similarity, which is separate from the final answer confidence. Empty retrieval results return a no-results message without calling Ollama.
+![Number source passages, generate with Ollama, check citation numbers and calculate confidence. Optional NLI scores sentence support; generation failures skip checks.](../assets/figures/answer-checks.svg)
 
-## Generate and check the answer
-
-![Build up to five sources, generate with Ollama, check citation indices, then use the default heuristic or optional NLI before returning the response. Generation failures retain sources with zero confidence and bypass answer checks.](../assets/figures/answer-checks.svg)
-
-The synthesizer removes duplicate passage IDs and keeps at most **five sources**. Sources retain document names, available sections and pages, and nearby context. It numbers them for `[n]` citations, clips formatted source context at **6,000 characters** when needed, and adds a truncation marker. The question, instructions and answer-format hint sit outside that source-context limit.
-
-Ollama uses `llama3.2:3b` by default. The response budget is `min(LLM_MAX_TOKENS, 256 + 100 × source_count)`; `LLM_MAX_TOKENS` defaults to **768**. A generation failure returns an error message, the retrieved sources, zero confidence and a warning. Citation and grounding checks run only after a successful generation.
-
-Citation validation removes `[n]` references outside the supplied source range. It adds warnings for invalid or missing citations. It does not check whether a source supports the claim.
-
-NLI grounding is **off by default**. Enable it with `SELF_CORRECTION_GROUNDING_ENABLED=true`. When enabled, it compares every answer sentence with every supplied source, using available full context. A sentence counts as grounded when its **best entailment score is at least 0.5**. NLI reports a score and warnings; it does not rewrite the answer or trigger another generation call. It also does not verify a sentence's particular inline citation.
-
-| Grounding setting | Final confidence |
+| Step | What happens |
 | --- | --- |
-| Disabled | Half the mean normalized source score plus half the fraction of sources cited by valid indices |
-| Enabled | Fraction of answer sentences that meet the grounding threshold |
+| Build sources | Remove duplicate passage IDs and keep up to five numbered passages. These may come from the same document. |
+| Generate | Send the question, source text and answer-format hint to Ollama. The default model is `llama3.2:3b`. |
+| Check citations | Keep numeric `[n]` citations within the supplied source range, remove out-of-range indices and warn about invalid or absent citations. |
+| Score and return | Use the default heuristic or optional sentence grounding to calculate confidence, then return the answer and sources. Checks do not trigger answer regeneration. |
 
-Read the returned passages when checking an answer. Neither confidence calculation establishes factual correctness.
+Formatted source text is clipped at **6,000 characters** when needed, followed by a truncation marker. The question and instructions sit outside that limit. The response budget is `min(LLM_MAX_TOKENS, 256 + 100 × source_count)`; the configured ceiling defaults to **768 tokens**.
 
-## Response and implementation
+Citation checks validate source numbers, not factual support. Optional NLI grounding is **off by default**; enable it with `SELF_CORRECTION_GROUNDING_ENABLED=true`.
 
-The standard interface uses `POST /api/query`. Its response contains the answer, up to five source excerpts, confidence, processing time and warnings. Each excerpt shows the first **500 characters**, followed by `...` when truncated. Internal correction status and the reasoning trace are not included in this API response.
+| Grounding | Confidence calculation |
+| --- | --- |
+| Off | Half the mean normalized source score plus half the fraction of distinct sources cited by valid indices. |
+| On | Fraction of answer sentences whose best entailment score across all supplied sources is at least 0.5. Unsupported sentences add warnings. |
 
-Python streaming helpers emit text before the later verification event. The diagrams describe the standard API response, which completes the checks before returning.
+NLI uses available full source context, which can exceed the clipped prompt. It checks each sentence against all sources, not its particular inline citation. It does not rewrite the answer. Neither confidence calculation establishes factual correctness; inspect the returned passages.
+
+A caught generation failure or blank output retains sources and returns an error answer, zero confidence and a warning. Citation and grounding checks are skipped. Other retrieval, storage or NLI errors can produce an HTTP error.
+
+## Response and limits
+
+The interface uses `POST /api/query`. It returns the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first **500 characters**, plus `...` when truncated. Internal correction status and reasoning traces are not exposed by this route. Python streaming helpers emit text before their later verification event.
+
+- PDF extraction needs embedded text. There is no OCR, and encrypted PDFs are rejected.
+- DOCX extraction reads paragraphs, not tables, headers or footers.
+- Cross-encoder reranking and SPLADE are available in library or evaluation tools; they are not stages in this default application path.
+- Retrieval and evidence benchmarks do not establish generated-answer accuracy. See the [evaluation conditions](evaluation.md) and [setup and operating limits](../CONTRIBUTING.md).
+
+## Implementation and diagrams
 
 | Code | Responsibility |
 | --- | --- |
-| [pipeline.py](../src/scinexusrag/pipeline.py) | Initialize components, ingest documents, keep indexes synchronized and handle an empty index |
-| [hybrid.py](../src/scinexusrag/retrieval/hybrid.py) | Dense/BM25 rank fusion and query-shape weights |
-| [corrective.py](../src/scinexusrag/retrieval/corrective.py) | Dense-score gate, feedback terms, one search retry and fusion of both passes |
-| [synthesizer.py](../src/scinexusrag/generation/synthesizer.py) | Numbered sources, prompt limits and Ollama generation |
-| [orchestrator.py](../src/scinexusrag/generation/orchestrator.py) | Citation checks, optional grounding and final confidence |
-| [config.py](../src/scinexusrag/config.py) | Application defaults and environment settings |
+| [pipeline.py](../src/scinexusrag/pipeline.py) | Ingestion, synchronized indexes and empty-index handling |
+| [hybrid.py](../src/scinexusrag/retrieval/hybrid.py) | Rank fusion and query-shape weights |
+| [corrective.py](../src/scinexusrag/retrieval/corrective.py) | Feedback gate, expanded search and merge |
+| [synthesizer.py](../src/scinexusrag/generation/synthesizer.py) | Numbered sources, prompt limits and generation |
+| [orchestrator.py](../src/scinexusrag/generation/orchestrator.py) | Citation checks, optional grounding and confidence |
+| [config.py](../src/scinexusrag/config.py) | Defaults and environment settings |
 
-Cross-encoder reranking and SPLADE are available in library or evaluation tools; they are not stages in this application path. The separate evidence benchmark counts both supporting and contradicting rationale sentences. [Evaluation conditions](evaluation.md).
-
-## Edit the diagrams
-
-All three diagrams contain editable text and vector shapes in Figma.
-
-| Diagram | Figma frame | Repository image |
+| Diagram | Earlier Figma layout | Editable SVG |
 | --- | --- | --- |
-| Overview | [Pipeline signal flow](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) | [pipeline.svg](../assets/figures/pipeline.svg) |
-| Retrieval | [Retrieval flow](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2) | [retrieval-flow.svg](../assets/figures/retrieval-flow.svg) |
+| Overview | [Pipeline](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) | [pipeline.svg](../assets/figures/pipeline.svg) |
+| Retrieval | [Retrieval](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2) | [retrieval-flow.svg](../assets/figures/retrieval-flow.svg) |
 | Answer checks | [Answer checks](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20) | [answer-checks.svg](../assets/figures/answer-checks.svg) |
 
-Export the matching frame as SVG with text retained. The committed SVGs add accessible titles and descriptions, plus font fallbacks for Inter and IBM Plex Mono; their geometry matches the Figma exports.
-
-The original `Pipeline overview` frame remains in the file as the source for the app's responsive `/pipeline` guide and its recorded results table.
+The README diagrams and responsive app guide describe the same flow. Edit the SVG files directly; they include accessible titles, descriptions and font fallbacks. The linked Figma frames retain the earlier layouts.

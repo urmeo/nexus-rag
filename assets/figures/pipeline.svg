@@ -1,62 +1,56 @@
-<svg role="img" aria-labelledby="pipeline-title pipeline-description" width="1280" height="1000" viewBox="0 0 1280 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
-<title id="pipeline-title">NexusRAG pipeline: documents to answers with sources</title>
-<desc id="pipeline-description">Upload PDF, DOCX, Markdown or text documents. Parse overlapping passages and index BGE-small vectors in LanceDB alongside an in-memory BM25 index. Each question combines dense and keyword rankings. If the best dense cosine score is below 0.55, run one feedback search and merge both passes. Select up to eight passages and use up to five numbered sources to generate once with local Ollama. Check citation indices, optionally score NLI grounding, and return the answer, sources, confidence and warnings. NLI is off by default. Valid citation numbers do not establish factual support.</desc>
-<rect width="1280" height="1000" fill="#14191C"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="600" letter-spacing="0em"><tspan x="48" y="66.1364">NEXUSRAG PIPELINE</tspan></text>
-<path d="M48 90H1232" stroke="#A8B5BD" stroke-width="2"/>
-<rect x="24" y="112" width="1232" height="816" rx="8" fill="#1B2327" stroke="#303B41" stroke-width="1.5"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="48" y="153.273">ON UPLOAD</tspan></text>
-<rect x="48" y="178" width="248" height="144" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="72" y="219.727">Documents</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="72" y="258.136">PDF &#xb7; DOCX&#10;</tspan><tspan x="72" y="287.136">Markdown &#xb7; text</tspan></text>
-<rect x="344" y="178" width="280" height="144" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="368" y="219.727">Parse + split</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="258.136">Extract text into&#10;</tspan><tspan x="368" y="287.136">overlapping passages</tspan></text>
-<rect x="680" y="178" width="552" height="144" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="704" y="219.727">Index passages</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="704" y="258.136">BGE-small vectors &#x2192; LanceDB</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="704" y="292.136">BM25 keyword index &#xb7; in memory</tspan></text>
-<path d="M298 250H336" stroke="#55C4E0" stroke-width="2"/>
-<path d="M336 250L325 245V255L336 250Z" fill="#55C4E0"/>
-<path d="M626 250H672" stroke="#55C4E0" stroke-width="2"/>
-<path d="M672 250L661 245V255L672 250Z" fill="#55C4E0"/>
-<path d="M928 324V366H484V454" stroke="#55C4E0" stroke-width="2"/>
-<path d="M484 454L489 443H479L484 454Z" fill="#55C4E0"/>
-<text fill="#55C4E0" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="18" letter-spacing="0em"><tspan x="704" y="352.25">reuse indexes</tspan></text>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="0em"><tspan x="48" y="433.273">FOR EACH QUESTION</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="680" y="433.273">Select &#x2264;8 passages &#xb7; use &#x2264;5 sources</tspan></text>
-<rect x="48" y="462" width="248" height="192" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="72" y="505.727">Question</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="72" y="550.136">Ask about your&#10;</tspan><tspan x="72" y="579.136">uploaded papers.</tspan></text>
-<rect x="344" y="462" width="280" height="192" rx="8" fill="#1B2327" stroke="#55C4E0" stroke-width="2"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="368" y="505.727">Retrieve passages</tspan></text>
-<text fill="#55C4E0" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="550.136">Dense + BM25</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="584.136">Adaptive rank fusion</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="20" letter-spacing="0em"><tspan x="368" y="621.273">&#x2264;50 candidates each</tspan></text>
-<rect x="680" y="462" width="248" height="192" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" letter-spacing="0em"><tspan x="704" y="503.5">Generate answer</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="704" y="550.136">Ollama</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="20" letter-spacing="0em"><tspan x="704" y="583.5">llama3.2:3b</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="19" letter-spacing="0em"><tspan x="704" y="620.409">Numbered sources [1]</tspan></text>
-<rect x="984" y="462" width="248" height="192" rx="8" fill="#1B2327" stroke="#CAD4D9" stroke-width="2"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" letter-spacing="0em"><tspan x="1008" y="503.5">Answer + sources</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="19" letter-spacing="0em"><tspan x="1008" y="548.409">Check citation indices</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="19" letter-spacing="0em"><tspan x="1008" y="584.409">Optional NLI &#xb7; off</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" letter-spacing="0em"><tspan x="1008" y="619.045">Confidence &#xb7; warnings</tspan></text>
-<path d="M298 558H336" stroke="#55C4E0" stroke-width="2"/>
-<path d="M336 558L325 553V563L336 558Z" fill="#55C4E0"/>
-<path d="M626 558H672" stroke="#55C4E0" stroke-width="2"/>
-<path d="M672 558L661 553V563L672 558Z" fill="#55C4E0"/>
-<path d="M930 558H976" stroke="#55C4E0" stroke-width="2"/>
-<path d="M976 558L965 553V563L976 558Z" fill="#55C4E0"/>
-<path d="M484 656V744" stroke="#F08B79" stroke-width="2" stroke-dasharray="7 6"/>
-<path d="M484 744L489 733H479L484 744Z" fill="#F08B79"/>
-<text fill="#F08B79" style="white-space: pre" xml:space="preserve" font-family="IBM Plex Mono, Courier New, monospace" font-size="19" letter-spacing="0em"><tspan x="201.971" y="700.625">Best dense cosine &#60;0.55&#10;</tspan><tspan x="327.289" y="727.625">at most once</tspan></text>
-<rect x="344" y="752" width="584" height="132" rx="8" fill="#1B2327" stroke="#F08B79" stroke-width="2"/>
-<text fill="#E7EDED" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0em"><tspan x="368" y="789.727">Search once more</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="828.136">Add terms from the retrieved passages.</tspan></text>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="21" letter-spacing="0em"><tspan x="368" y="862.136">Merge the new rankings with the first pass.</tspan></text>
-<path d="M930 818H952V694H652V558" stroke="#F08B79" stroke-width="2" stroke-dasharray="7 6"/>
-<path d="M652 558L647 569H657L652 558Z" fill="#F08B79"/>
-<text fill="#A8B5BD" style="white-space: pre" xml:space="preserve" font-family="Inter, Arial, sans-serif" font-size="18" letter-spacing="0em"><tspan x="48" y="969.045">Defaults shown. Valid citation numbers do not establish factual support.</tspan></text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" viewBox="0 0 1280 900" role="img" aria-labelledby="pipeline-title pipeline-description">
+  <title id="pipeline-title">NexusRAG pipeline</title>
+  <desc id="pipeline-description">Uploads are parsed into overlapping passages and indexed with BGE-small vectors in LanceDB and BM25 in memory. Each question retrieves passages with dense and BM25 search, then Ollama generates an answer from numbered sources and citation indices are checked. When feedback is enabled and dense similarity is low, a single extra search merges original and feedback rankings before generation. Valid source numbers do not establish factual support.</desc>
+  <defs>
+    <style>text { font-family: Inter, Arial, sans-serif; } .mono { font-family: "IBM Plex Mono", "Courier New", monospace; }</style>
+  </defs>
+  <rect width="1280" height="900" fill="#121A20"/>
+  <text data-name="Figure title" x="56" y="66" font-size="36" font-weight="600" fill="#F0F5F7">NexusRAG pipeline</text>
+  <path data-name="Title rule" d="M56 94 L1224 94" fill="none" stroke="#546B78" stroke-width="2.5" stroke-linejoin="round"/>
+  <text data-name="Upload lane" x="56" y="134" font-size="23" font-weight="600" fill="#62D5ED">ON UPLOAD</text>
+  <rect id="pipeline-shape-3" data-name="Documents" x="56" y="158" width="312" height="160" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="Documents title" x="80" y="196" font-size="28" font-weight="600" fill="#F0F5F7">Documents</text>
+  <text data-name="Documents detail 1" x="80" y="238" font-size="25" font-weight="400" fill="#B7C9D2">PDF · DOCX</text>
+  <text data-name="Documents detail 2" x="80" y="272" font-size="25" font-weight="400" fill="#B7C9D2">Markdown · UTF-8 text</text>
+  <rect id="pipeline-shape-7" data-name="Parse and split" x="432" y="158" width="360" height="160" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="Parse and split title" x="456" y="196" font-size="28" font-weight="600" fill="#F0F5F7">Parse + split</text>
+  <text data-name="Parse and split detail 1" x="456" y="238" font-size="25" font-weight="400" fill="#B7C9D2">Extract text</text>
+  <text data-name="Parse and split detail 2" x="456" y="272" font-size="25" font-weight="400" fill="#B7C9D2">Overlapping passages</text>
+  <rect id="pipeline-shape-11" data-name="Passage indexes" x="856" y="158" width="368" height="160" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+  <text data-name="Passage indexes title" x="880" y="196" font-size="28" font-weight="600" fill="#F0F5F7">Index passages</text>
+  <text data-name="Passage indexes detail 1" x="880" y="238" font-size="25" font-weight="400" fill="#B7C9D2">BGE-small → LanceDB</text>
+  <text data-name="Passage indexes detail 2" x="880" y="272" font-size="25" font-weight="400" fill="#B7C9D2">BM25 keyword index</text>
+  <path data-name="Documents to parsing" d="M370 238 L420 238" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="420,238 408,232 408,244" fill="#62D5ED"/>
+  <path data-name="Parsing to indexes" d="M794 238 L844 238" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="844,238 832,232 832,244" fill="#62D5ED"/>
+  <path data-name="Reuse indexes" d="M1040 320 L1040 354 L612 354 L612 428" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="612,428 606,416 618,416" fill="#62D5ED"/>
+  <text data-name="Reuse label" x="832" y="342" font-size="23" font-weight="400" fill="#62D5ED" class="mono">reuse indexes</text>
+  <text data-name="Question lane" x="56" y="408" font-size="23" font-weight="600" fill="#62D5ED">FOR EACH QUESTION</text>
+  <rect id="pipeline-shape-20" data-name="Question" x="56" y="440" width="312" height="164" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="Question title" x="80" y="478" font-size="28" font-weight="600" fill="#F0F5F7">Question</text>
+  <text data-name="Question detail 1" x="80" y="520" font-size="25" font-weight="400" fill="#B7C9D2">Ask about your papers.</text>
+  <rect id="pipeline-shape-23" data-name="Retrieve passages" x="432" y="440" width="360" height="164" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+  <text data-name="Retrieve passages title" x="456" y="478" font-size="28" font-weight="600" fill="#F0F5F7">Retrieve passages</text>
+  <text data-name="Retrieve passages detail 1" x="456" y="520" font-size="25" font-weight="400" fill="#B7C9D2">Meaning + keyword search</text>
+  <text data-name="Retrieve passages detail 2" x="456" y="554" font-size="25" font-weight="400" fill="#B7C9D2">Combine their rankings</text>
+  <rect id="pipeline-shape-27" data-name="Answer and sources" x="856" y="440" width="368" height="164" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="Answer and sources title" x="880" y="478" font-size="28" font-weight="600" fill="#F0F5F7">Answer + sources</text>
+  <text data-name="Answer and sources detail 1" x="880" y="520" font-size="25" font-weight="400" fill="#B7C9D2">Generate with Ollama.</text>
+  <text data-name="Answer and sources detail 2" x="880" y="554" font-size="25" font-weight="400" fill="#B7C9D2">Check citation indices.</text>
+  <path data-name="Question to retrieval" d="M370 522 L420 522" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="420,522 408,516 408,528" fill="#62D5ED"/>
+  <path data-name="Retrieval to answer" d="M794 522 L844 522" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="844,522 832,516 832,528" fill="#62D5ED"/>
+  <text data-name="Feedback gate" x="280" y="650" font-size="25" font-weight="400" fill="#F59A87">if dense similarity is low</text>
+  <rect id="pipeline-shape-34" data-name="Conditional feedback" x="432" y="682" width="360" height="152" rx="10" fill="#1B2831" stroke="#F59A87" stroke-width="2"/>
+  <text data-name="Conditional feedback title" x="456" y="720" font-size="28" font-weight="600" fill="#F0F5F7">Conditional feedback</text>
+  <text data-name="Conditional feedback detail 1" x="456" y="762" font-size="25" font-weight="400" fill="#B7C9D2">Search once more</text>
+  <text data-name="Conditional feedback detail 2" x="456" y="796" font-size="25" font-weight="400" fill="#B7C9D2">Merge both rankings</text>
+  <path data-name="Feedback branch" d="M612 606 L612 670" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <polygon points="612,670 606,658 618,658" fill="#F59A87"/>
+  <path data-name="Merged feedback to generation" d="M794 738 L824 738 L824 522" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <polygon points="824,522 818,534 830,534" fill="#F59A87"/>
+  <text data-name="Scope note" x="56" y="878" font-size="23" font-weight="400" fill="#B7C9D2">Valid source numbers do not establish factual support.</text>
 </svg>

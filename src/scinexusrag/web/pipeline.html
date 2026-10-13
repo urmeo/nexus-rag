@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexusRAG - Pipeline</title>
+    <title>NexusRAG - Pipeline guide</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,106 +13,119 @@
 <body class="pipeline-page">
     <nav class="pipeline-navigation" aria-label="Pipeline navigation">
         <a href="/">Back to papers</a>
-        <span>Default settings</span>
+        <span>How it works</span>
     </nav>
 
     <main class="pipeline-canvas">
-        <p class="pipeline-eyebrow">NEXUSRAG / PIPELINE</p>
-        <h1>Find passages. Answer with sources.</h1>
-        <p class="pipeline-purpose">Search uploaded research papers and generate answers with local Ollama.</p>
+        <header class="pipeline-intro">
+            <p class="pipeline-eyebrow">NexusRAG / Pipeline guide</p>
+            <h1>From documents to cited answers</h1>
+            <p>Documents become searchable passages. Each question retrieves passages and asks local Ollama for an answer with numbered sources.</p>
+            <p class="pipeline-note">This guide explains the default settings. It does not show a live run.</p>
+        </header>
 
-        <section class="upload-lane" aria-labelledby="upload-heading">
-            <h2 id="upload-heading" class="pipeline-label">On upload</h2>
-            <div class="upload-stages">
-                <div class="upload-stage">
-                    <h3>Research papers</h3>
-                    <p>PDF / DOCX / MD / TXT</p>
-                </div>
-                <img class="upload-arrow" src="/images/pipeline-upload-arrow.svg" alt="" aria-hidden="true">
-                <div class="upload-stage">
-                    <h3>Parse + split</h3>
-                    <p>Overlapping text passages</p>
-                </div>
-                <img class="upload-arrow" src="/images/pipeline-upload-arrow.svg" alt="" aria-hidden="true">
-                <div class="upload-stage">
-                    <h3>Build two indexes</h3>
-                    <p>BGE-small vectors + BM25 keywords</p>
-                </div>
+        <section class="pipeline-flow" aria-labelledby="indexing-heading">
+            <div class="flow-heading">
+                <h2 id="indexing-heading">Index documents</h2>
+                <p>Once per upload</p>
             </div>
+            <ol class="pipeline-steps" role="list">
+                <li class="pipeline-step">
+                    <span class="step-number" aria-hidden="true">1</span>
+                    <h3>Read the document</h3>
+                    <p>Extract text from PDF, DOCX, Markdown, or UTF-8 text files.</p>
+                </li>
+                <li class="pipeline-step">
+                    <span class="step-number" aria-hidden="true">2</span>
+                    <h3>Split into passages</h3>
+                    <p>Keep overlapping text passages with document names and available section and page details.</p>
+                </li>
+                <li class="pipeline-step">
+                    <span class="step-number" aria-hidden="true">3</span>
+                    <h3>Build passage indexes</h3>
+                    <p>Save BGE-small vectors for meaning search and build a BM25 keyword index.</p>
+                </li>
+            </ol>
         </section>
 
-        <section class="question-lane" aria-labelledby="question-heading">
-            <div class="pipeline-bridge" aria-hidden="true">
-                <img src="/images/pipeline-index-arrow.svg" alt="">
-                <span>document indexes</span>
+        <section class="pipeline-flow question-flow" aria-labelledby="question-heading">
+            <div class="flow-heading">
+                <h2 id="question-heading">Answer a question</h2>
+                <p>Search the saved passages each time</p>
             </div>
-            <h2 id="question-heading" class="pipeline-label">For each question</h2>
-            <div class="question-stages">
-                <div class="question-stage">
-                    <h3>Question</h3>
-                    <p>What methods<br>were used?</p>
-                </div>
-                <img class="question-arrow" src="/images/pipeline-question-arrow.svg" alt="" aria-hidden="true">
-                <div class="question-stage retrieval-stage">
+            <ol class="pipeline-steps" role="list">
+                <li class="pipeline-step">
+                    <span class="step-number" aria-hidden="true">1</span>
                     <h3>Retrieve passages</h3>
-                    <div class="search-labels">
-                        <span>Dense meaning</span>
-                        <span>BM25 keywords</span>
+                    <p>Combine meaning search and BM25 keyword rankings to select relevant passages.</p>
+                    <p class="optional-step"><strong>Optional: one feedback search.</strong> When dense similarity is low, add terms from the first results and merge both searches before generation.</p>
+                </li>
+                <li class="pipeline-step">
+                    <span class="step-number" aria-hidden="true">2</span>
+                    <h3>Generate and check</h3>
+                    <p>Ollama writes an answer from up to five source passages. Citation checks remove out-of-range references.</p>
+                    <p class="optional-step"><strong>Optional NLI check.</strong> Score sentence support against the sources. Off by default.</p>
+                </li>
+                <li class="pipeline-step">
+                    <span class="step-number" aria-hidden="true">3</span>
+                    <h3>Read the answer and sources</h3>
+                    <p>See numbered citations, source excerpts, confidence, and warnings. Read the passages to check the claims.</p>
+                </li>
+            </ol>
+        </section>
+
+        <div class="pipeline-details">
+            <details>
+                <summary>Default settings and checks</summary>
+                <dl class="pipeline-defaults">
+                    <div>
+                        <dt>Documents</dt>
+                        <dd>PDF parsing reads text without OCR. DOCX parsing reads paragraphs. Parsed documents and passage vectors are saved; BM25 stays in memory, so run one application worker.</dd>
                     </div>
-                    <p class="fusion-label">Adaptive rank fusion</p>
-                    <p class="feedback-label">One feedback search if needed</p>
-                    <p class="retrieval-limits">≤50 candidates each → ≤8 passages</p>
-                </div>
-                <img class="question-arrow" src="/images/pipeline-question-arrow.svg" alt="" aria-hidden="true">
-                <div class="question-stage generation-stage">
-                    <h3>Generate + check</h3>
-                    <p class="generation-model">Ollama · ≤5 sources</p>
-                    <p class="citation-check">Clean citation indices</p>
-                    <p class="nli-setting">NLI optional<br>Off by default</p>
-                </div>
-                <img class="question-arrow" src="/images/pipeline-question-arrow.svg" alt="" aria-hidden="true">
-                <div class="question-stage answer-stage">
-                    <h3>Answer + sources</h3>
-                    <p>Answer with [1] citations</p>
-                    <p class="answer-excerpts">Source excerpts<br>+ warnings</p>
-                    <p class="inspect-evidence">Inspect the evidence</p>
-                </div>
-            </div>
-        </section>
+                    <div>
+                        <dt>Retrieval</dt>
+                        <dd>Each search returns up to 50 candidates. Rank fusion uses fixed query-shape weights and selects up to eight passages. Feedback is enabled by default: it runs once when results exist and the best dense cosine score is below 0.55. Up to ten frequent non-query terms from the first five passages expand the question. Both searches run again, and both passes are merged before generation.</dd>
+                    </div>
+                    <div>
+                        <dt>Generation</dt>
+                        <dd>The default Ollama model is <code>llama3.2:3b</code>. After duplicate passage IDs are removed, keep up to five source passages. Formatted source context is clipped at 6,000 characters when needed, then a truncation marker is added. The question and instructions sit outside that limit. Empty indexes or no matches return a message without calling Ollama. Generation failures retain sources with zero confidence and a warning; answer checks are skipped.</dd>
+                    </div>
+                    <div>
+                        <dt>Citations and confidence</dt>
+                        <dd>Citation checks warn about missing or invalid citations. They validate source numbers, not factual support. Default confidence combines normalized retrieval scores and the fraction of sources cited. It does not establish correctness.</dd>
+                    </div>
+                    <div>
+                        <dt>Optional NLI</dt>
+                        <dd>Natural language inference compares each answer sentence with every supplied source. A best entailment score of at least 0.5 counts as grounded; confidence becomes the fraction of grounded sentences. NLI reports scores and warnings without rewriting the answer or running generation again. It does not verify each inline citation. Enable it with <code>SELF_CORRECTION_GROUNDING_ENABLED=true</code>.</dd>
+                    </div>
+                </dl>
+            </details>
 
-        <p class="pipeline-checks">Feedback runs only below 0.55 dense similarity. Citation checks validate source indices, not factual support.</p>
-
-        <section class="pipeline-evidence" aria-labelledby="evidence-heading">
-            <div class="evidence-results">
-                <div class="evidence-heading">
-                    <h2 id="evidence-heading" class="pipeline-label">Recorded retrieval</h2>
-                    <p>BGE-small · nDCG@10 ↑</p>
+            <details>
+                <summary>Recorded retrieval results</summary>
+                <div class="pipeline-results">
+                    <table>
+                        <caption>Recorded nDCG@10 with BGE-small. Higher scores are better.</caption>
+                        <thead>
+                            <tr><th scope="col">Method</th><th scope="col">SciFact</th><th scope="col">NFCorpus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><th scope="row">Dense</th><td>0.708</td><td>0.341</td></tr>
+                            <tr><th scope="row">Hybrid RRF</th><td>0.704</td><td>0.352</td></tr>
+                            <tr><th scope="row">Corrective PRF</th><td>0.703</td><td>0.346</td></tr>
+                        </tbody>
+                    </table>
+                    <p>Fusion can help or hurt. These scores measure retrieval quality; answer accuracy was not measured here.</p>
+                    <p class="pipeline-note">Full BEIR test: 300 SciFact and 323 NFCorpus queries. Each benchmark document is one passage. Exact NumPy CPU search, without a reranker, is used here; the app searches LanceDB.</p>
+                    <a href="https://github.com/urmeo/nexus-rag/blob/main/docs/evaluation.md">Evaluation conditions</a>
                 </div>
-                <table>
-                    <caption class="visually-hidden">Recorded retrieval scores. Higher nDCG@10 is better.</caption>
-                    <thead>
-                        <tr><th scope="col">Method</th><th scope="col">SciFact</th><th scope="col">NFCorpus</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr><th scope="row">Dense</th><td>0.708</td><td>0.341</td></tr>
-                        <tr><th scope="row">Hybrid RRF</th><td>0.704</td><td>0.352</td></tr>
-                        <tr><th scope="row">Corrective PRF</th><td>0.703</td><td>0.346</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="evidence-interpretation">
-                <h3>Fusion can help or hurt.</h3>
-                <p>Retrieval quality only.<br>Answer accuracy was not measured here.</p>
-                <p class="benchmark-queries">Full BEIR test: 300 SciFact / 323 NFCorpus queries</p>
-            </div>
-        </section>
-
-        <p class="benchmark-conditions">One benchmark document = one passage · exact NumPy CPU search · no reranker · <a href="https://github.com/urmeo/nexus-rag/blob/main/docs/evaluation.md">see evaluation protocol</a></p>
+            </details>
+        </div>
     </main>
 
     <footer class="pipeline-footer">
-        <a href="https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=2-2">Figma source</a>
         <a href="https://github.com/urmeo/nexus-rag/blob/main/docs/pipeline.md">Pipeline details</a>
+        <a href="https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2">Earlier Figma layout</a>
     </footer>
 </body>
 </html>
