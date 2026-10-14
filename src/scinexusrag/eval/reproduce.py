@@ -26,7 +26,6 @@ def _write_json(obj: dict[str, Any], name: str) -> Path:
 
 
 def export_retrieval_csv(result: dict[str, Any], name: str) -> Path:
-    """Write one CSV row per query and retrieval system."""
     per_query_scores = result["per_query_ndcg"]
     query_ids = result["query_ids"]
     num_queries = len(query_ids)

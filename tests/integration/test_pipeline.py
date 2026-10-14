@@ -73,8 +73,8 @@ def mock_llm():
 
     def mock_generate(prompt, **kwargs):
         if "What is" in prompt or "?" in prompt:
-            return "Based on the retrieved context, this is a test answer about the query."
-        return "This is a test response."
+            return "The fixture records temperature at thirty-second intervals."
+        return "Sensor A is the reference."
 
     llm.generate = mock_generate
     llm.is_available = MagicMock(return_value=True)
@@ -96,38 +96,36 @@ def sample_text_file(temp_data_dir: Path) -> Path:
     file_path = temp_data_dir / "test_document.txt"
     content = """INTRODUCTION
 
-This is a sample research document for testing the NexusRAG pipeline.
-It contains multiple sections with meaningful content that can be chunked and embedded.
+This research document is a software test fixture about temperature sensors.
+The reference sensor is labeled A, and the comparison sensor is labeled B.
 
-The document demonstrates the full workflow: ingestion, chunking, embedding, and retrieval.
+Each reading has a timestamp, a sensor label and a temperature in degrees Celsius.
 
 METHODS
 
-We employed several techniques in our analysis.
-The methodology was rigorous and followed best practices.
+The methodology reads both sensors at thirty-second intervals.
+Readings with the same timestamp belong to the same measurement pair.
 
-Data collection spanned six months with careful quality control.
+Store each measurement pair on one row, with separate columns for sensors A and B.
 
 RESULTS
 
-The results were significant and reproducible.
-We observed a 45% improvement in the primary metric.
+The fixture contains paired readings with matching timestamps.
+Its values are synthetic test data, not measured research results.
 
-Secondary metrics also showed positive trends.
+Missing readings are represented by an empty sensor column.
 
 DISCUSSION
 
-These findings align with previous research in the field.
-The implications are substantial for future work.
+Compare sensor readings only when both values are present.
+Keep missing values separate from numeric temperature differences.
 
-Further research should explore these directions.
+The reference sensor provides the label used in retrieval queries.
 
 CONCLUSION
 
-In conclusion, this document serves as a test case for the pipeline.
-The integration tests validate all major functionality.
+Both sensors use the same units and sampling interval.
 
-Future improvements are planned and documented elsewhere.
 """
     file_path.write_text(content, encoding="utf-8")
     return file_path
@@ -140,43 +138,39 @@ def sample_markdown_file(temp_data_dir: Path) -> Path:
 
 ## Abstract
 
-This paper presents findings on testing methodologies for RAG systems.
+This is a Markdown fixture for document ingestion and retrieval tests.
 
 ## Introduction
 
 ### Background
 
-RAG (Retrieval-Augmented Generation) systems are increasingly important.
-Testing is crucial for reliability and performance.
+The fixture uses nested headings to test section extraction.
+Each section contains text that can be indexed as a passage.
 
 ### Objectives
 
-The objectives of this work are threefold:
-1. Write thorough test suites
-2. Validate ingestion pipelines
-3. Ensure retrieval quality
+1. Parse headings and paragraphs.
+2. Index the resulting passages.
+3. Retrieve a passage by its text.
 
 ## Methodology
 
 ### Data Preparation
 
-Documents were prepared in multiple formats.
-Each format was tested for compatibility.
+Save the fixture as UTF-8 Markdown.
+Keep headings on separate lines from their paragraphs.
 
 ### Testing Framework
 
-We used pytest for unit and integration testing.
-Mocking was employed for expensive ML components.
+The tests use real parsing and storage with fixed model responses.
 
 ## Results
 
-All tests passed successfully.
-Integration tests achieved 95% coverage.
+Test assertions check stored passages, query sources and deletion.
 
 ## Conclusion
 
-This work demonstrates the importance of thorough testing.
-The methodologies presented here are applicable to similar systems.
+This fixture contains no benchmark measurements.
 """
     file_path.write_text(content, encoding="utf-8")
     return file_path
@@ -206,7 +200,7 @@ def docs_directory(temp_data_dir: Path) -> Path:
         "## Methods\n"
         "Testing with multiple formats.\n\n"
         "## Results\n"
-        "All documents ingested successfully.\n"
+        "The fixture has one Methods section.\n"
     )
 
     return docs_dir
@@ -755,11 +749,11 @@ class TestIngestBytes:
         content = b"""
         # Test Document
 
-        This is a test document provided as bytes.
-        It should be properly parsed and chunked.
+        Sensor A records temperature in degrees Celsius.
+        Each reading includes a timestamp.
 
-        Multiple paragraphs ensure sufficient content.
-        Testing the bytes ingestion pipeline thoroughly.
+        Sensor B uses the same sampling interval.
+        Readings with matching timestamps form a measurement pair.
         """
 
         result = scinexusrag_instance.ingest_bytes(content, "bytes_doc.txt", ".txt")
@@ -1006,7 +1000,7 @@ class TestUnloadModels:
 
 
 class _ImmediateVisibilityStore:
-    "Vector store whose get_all_chunks reflects add() immediately — the worst case the"
+    """Expose newly added chunks before lazy BM25 initialization."""
 
     def __init__(self, real):
         self._real = real
@@ -1053,7 +1047,7 @@ class TestEndToEnd:
     ):
 
         rag = scinexusrag_instance
-        rag._llm.generate = lambda prompt, **kw: "The methodology was rigorous [1]."
+        rag._llm.generate = lambda prompt, **kw: "The sensors are read every thirty seconds [1]."
         rag._embedder.embed_query = lambda q: np.random.rand(384).astype(np.float32)
 
         assert rag.ingest(sample_text_file).success

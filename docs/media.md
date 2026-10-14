@@ -1,7 +1,5 @@
 # Interface recordings
 
-The README shows a desktop screenshot. This page records the sources and capture conditions for the saved interface media.
-
 ## Upload walkthrough
 
 Captured on 12 October 2026 from the application at commit [609c0c8](https://github.com/urmeo/nexus-rag/commit/609c0c8472baffc65982af3c4f2021b7fa5c2f75), running locally in Chrome. The recording uses the real application and API without mocked responses or modified interface content.
@@ -23,7 +21,3 @@ The [92-second Q&A recording](../assets/media/historical-qa.mp4) comes from `scr
 The source GIF is 720 × 335 and 95.3 seconds long. Conversion retains the first 92 seconds, omitting the final recording-toolbar frames, and pads the height to 336 pixels for H.264 encoding. The MP4 has no audio. The source GIF's SHA-256 is `37d41a4cc27ee854d76754c17509055ea50a82bda4a5d7dd3509ec7b4ed463a3`.
 
 These responses are historical examples. Their correctness was not evaluated. Displayed confidence values and timings are not benchmark results. An [earlier static screenshot](../assets/figures/nexusrag-ui.png) is also retained; it shows an empty document list with the service disconnected.
-
-## Playback
-
-Both MP4 files are linked above. The recordings do not replace the [evaluation protocol and recorded measurements](evaluation.md).

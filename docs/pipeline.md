@@ -39,7 +39,7 @@ The document store saves parsed JSON, not the original upload. Duplicate documen
 | At least 12 words without a technical token | 0.7 | 0.3 |
 | Other queries | 0.5 | 0.5 |
 
-A technical token contains a digit or underscore, is uppercase, or exceeds 14 characters after punctuation trimming. These are fixed rules. Dense similarity controls the feedback gate; it is separate from fused ranking scores and answer confidence. Exact vector search scales linearly with stored passages.
+A technical token contains a digit or underscore, is uppercase, or exceeds 14 characters after punctuation trimming. Dense similarity controls the feedback gate; it is separate from fused ranking scores and answer confidence. Exact vector search scales linearly with stored passages.
 
 ## Generate and check
 
@@ -91,4 +91,4 @@ The interface uses `POST /api/query`. It returns the answer, up to five source e
 | Retrieval | [Retrieval](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2) | [retrieval-flow.svg](../assets/figures/retrieval-flow.svg) |
 | Answer checks | [Answer checks](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20) | [answer-checks.svg](../assets/figures/answer-checks.svg) |
 
-The linked Figma frames match the SVG diagrams. The responsive app guide describes the same flow. Keep the Figma frames and SVG files in sync when editing; the SVGs include accessible titles, descriptions and font fallbacks.
+The linked Figma frames match the SVG diagrams. Keep them in sync when editing. The SVGs include accessible titles, descriptions and font fallbacks.

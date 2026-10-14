@@ -29,33 +29,31 @@ def _reset_scinexusrag_singleton() -> Generator[None, None, None]:
 
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
-    """Provide a temporary directory for test artifacts."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
 
 
 @pytest.fixture
 def sample_text_file(temp_dir: Path) -> Path:
-    """Create a sample text file."""
     file_path = temp_dir / "sample.txt"
     content = """INTRODUCTION
 
-This is the introduction section of the document.
-It contains multiple paragraphs of text.
+This parser fixture contains temperature readings from two sensors.
+Both sensors report values in degrees Celsius.
 
 METHODOLOGY
 
-The methodology section describes the approach used.
-We employed various techniques for analysis.
+Read both sensors at the same interval.
+Store one row per timestamp.
 
 RESULTS
 
-The results show significant findings.
-Statistical analysis confirms the hypothesis.
+The fixture contains timestamped readings.
+These values are test data, not study results.
 
 CONCLUSION
 
-In conclusion, the study demonstrates important outcomes.
+Both sensor columns use the same units.
 """
     file_path.write_text(content, encoding="utf-8")
     return file_path
@@ -63,36 +61,35 @@ In conclusion, the study demonstrates important outcomes.
 
 @pytest.fixture
 def sample_markdown_file(temp_dir: Path) -> Path:
-    """Create a sample markdown file."""
     file_path = temp_dir / "sample.md"
     content = """# Research Paper Title
 
 ## Abstract
 
-This paper presents novel findings in the field.
+This test fixture contains two sensor readings per timestamp.
 
 ## Introduction
 
-Background information and context for the research.
-Multiple sentences provide detailed explanation.
+Both sensors record temperature in degrees Celsius.
+The reference sensor is labeled A; the second sensor is labeled B.
 
 ## Methods
 
 ### Data Collection
 
-Data was collected from various sources.
+Read both sensors at thirty-second intervals.
 
 ### Analysis
 
-Statistical methods were applied to the dataset.
+Compare readings with matching timestamps.
 
 ## Results
 
-The analysis revealed significant patterns.
+The fixture contains one row per timestamp.
 
 ## Conclusion
 
-The findings support the initial hypothesis.
+Both sensor columns use the same units.
 """
     file_path.write_text(content, encoding="utf-8")
     return file_path
@@ -100,7 +97,6 @@ The findings support the initial hypothesis.
 
 @pytest.fixture
 def empty_file(temp_dir: Path) -> Path:
-    """Create an empty text file."""
     file_path = temp_dir / "empty.txt"
     file_path.write_text("", encoding="utf-8")
     return file_path
@@ -108,7 +104,6 @@ def empty_file(temp_dir: Path) -> Path:
 
 @pytest.fixture
 def parsed_document(sample_text_file):
-    """Provide a parsed document for testing."""
     from scinexusrag.ingestion import DocumentParser
 
     parser = DocumentParser()

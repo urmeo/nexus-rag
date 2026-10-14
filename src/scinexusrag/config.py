@@ -21,8 +21,6 @@ HF_REVISIONS = {
 
 
 class LLMSettings(BaseSettings):
-    """LLM configuration."""
-
     model_config = SettingsConfigDict(env_prefix="LLM_", populate_by_name=True)
 
     base_url: str = Field(
@@ -37,8 +35,6 @@ class LLMSettings(BaseSettings):
 
 
 class EmbeddingSettings(BaseSettings):
-    """Embedding model configuration."""
-
     model_config = SettingsConfigDict(env_prefix="EMBEDDING_")
 
     model: str = Field(default="BAAI/bge-small-en-v1.5")
@@ -54,8 +50,6 @@ class EmbeddingSettings(BaseSettings):
 
 
 class IngestionSettings(BaseSettings):
-    """Document ingestion configuration."""
-
     model_config = SettingsConfigDict(env_prefix="INGESTION_")
 
     chunk_size: int = Field(default=1200, gt=0)
@@ -72,8 +66,6 @@ class IngestionSettings(BaseSettings):
 
 
 class RetrievalSettings(BaseSettings):
-    """Retrieval configuration."""
-
     model_config = SettingsConfigDict(env_prefix="RETRIEVAL_")
 
     top_k: int = Field(default=8, gt=0)
@@ -97,8 +89,6 @@ class SelfCorrectionSettings(BaseSettings):
 
 
 class StorageSettings(BaseSettings):
-    """Storage configuration."""
-
     model_config = SettingsConfigDict(env_prefix="", populate_by_name=True)
 
     lancedb_path: Path = Field(
@@ -109,8 +99,6 @@ class StorageSettings(BaseSettings):
 
 
 class APISettings(BaseSettings):
-    """API server configuration."""
-
     model_config = SettingsConfigDict(env_prefix="API_")
 
     host: str = "127.0.0.1"
@@ -129,8 +117,6 @@ class APISettings(BaseSettings):
 
 
 class Settings(BaseSettings):
-    """Main application settings aggregating all configuration sections."""
-
     model_config = SettingsConfigDict(
         extra="ignore",
         populate_by_name=True,

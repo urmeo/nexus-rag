@@ -98,7 +98,7 @@ class TestDocumentParser:
 
         abstract_sections = [s for s in doc.sections if "abstract" in s.title.lower()]
         assert len(abstract_sections) == 1
-        assert "novel findings" in abstract_sections[0].content.lower()
+        assert "two sensor readings per timestamp" in abstract_sections[0].content.lower()
 
     def test_metadata_extraction(self, parser, sample_text_file):
         doc = parser.parse(sample_text_file)

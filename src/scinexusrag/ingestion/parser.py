@@ -40,7 +40,7 @@ class ParsedDocument:
 
 
 class DocumentParser:
-    """Unified parser for multiple document formats."""
+    """Parse PDF, DOCX, Markdown, and UTF-8 text."""
 
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md"}
 
@@ -166,7 +166,7 @@ class DocumentParser:
 
     @staticmethod
     def _read_text(path: Path) -> str:
-        "Read UTF-8 text with clear decoding errors."
+        "Read UTF-8 text; reject invalid encoding."
         try:
             return path.read_text(encoding="utf-8")
         except UnicodeDecodeError as exc:

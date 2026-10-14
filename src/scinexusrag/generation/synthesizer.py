@@ -29,8 +29,6 @@ class Source:
 
 @dataclass
 class SynthesisResult:
-    """Result of answer synthesis."""
-
     answer: str
     sources: list[Source]
     confidence: float = 0.0
@@ -163,7 +161,7 @@ class Synthesizer:
     def _build_sources(
         self, results: list[RetrievalResult], doc_names: dict[str, str]
     ) -> list[Source]:
-        """Convert retrieval results to sources with proper names."""
+        """Build numbered sources with document names."""
         sources: list[Source] = []
         seen_chunks = set()
 
@@ -200,7 +198,7 @@ class Synthesizer:
         return sources
 
     def _format_sources_for_llm(self, sources: list[Source]) -> str:
-        """Format sources in a clear, numbered structure for the LLM."""
+        """Number source passages for the prompt."""
         formatted_parts = []
 
         for source in sources:

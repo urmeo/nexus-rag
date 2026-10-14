@@ -7,5 +7,3 @@
 | [Evaluation](evaluation.md) | Charts, metric tables, data, conditions and reproduction commands |
 | [Interface recordings](media.md) | Screenshot sources, recording conditions and playback |
 | [Development](../CONTRIBUTING.md) | Setup, configuration, Docker, checks and commit messages |
-
-[View the diagrams and results](../README.md).

@@ -15,7 +15,7 @@ class RetrievalResult:
 
 
 class DenseSearcher(Protocol):
-    """What the hybrid retriever needs from a dense backend."""
+    """Dense retrieval interface for hybrid search."""
 
     embedder: Embedder
 

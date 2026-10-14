@@ -26,7 +26,6 @@ def build_systems(
     splade_model: str | None = None,
     splade_revision: str | None = None,
 ) -> dict[str, RetrieveFn]:
-    """Compare sparse and dense retrieval, fusion, and optional refinements."""
     dense = ExactDenseRetriever(embedder, chunks)
     bm25 = BM25Retriever()
     bm25.add(chunks)

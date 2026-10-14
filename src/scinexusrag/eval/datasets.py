@@ -30,8 +30,6 @@ DATASET_REVISIONS = {
 
 @dataclass
 class IRDataset:
-    """Corpus, queries and relevance judgements."""
-
     name: str
     corpus: dict[str, dict[str, str]]
     queries: dict[str, str]
@@ -48,7 +46,6 @@ class IRDataset:
 
 
 def load_vendored(name: str) -> IRDataset:
-    """Load the committed offline sample."""
     base = VENDORED_DIR / f"{name}_sample"
     corpus: dict[str, dict[str, str]] = {}
     with open(base / "corpus.jsonl") as f:

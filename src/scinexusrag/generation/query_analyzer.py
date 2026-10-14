@@ -1,4 +1,4 @@
-"""Lightweight query classification and cleanup."""
+"""Query classification and rewriting."""
 
 import re
 from dataclasses import dataclass

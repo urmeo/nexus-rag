@@ -67,8 +67,6 @@ For network access, configure `NEXUSRAG_API_KEY`, TLS and `API_CORS_ORIGINS`. Tr
 
 ## Docker
 
-Build the application image:
-
 ```bash
 docker build -t nexus-rag .
 ```

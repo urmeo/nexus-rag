@@ -86,7 +86,6 @@ METRIC_FNS: dict[str, MetricFn] = {
 
 
 def per_query(run: Run, qrels: Qrels) -> dict[str, dict[str, float]]:
-    """Score each query with relevance judgements using every ranking metric."""
     out: dict[str, dict[str, float]] = {}
     for qid, relevant in qrels.items():
         if not relevant:
@@ -99,7 +98,6 @@ def per_query(run: Run, qrels: Qrels) -> dict[str, dict[str, float]]:
 
 
 def aggregate(scores: Mapping[str, Mapping[str, float]]) -> dict[str, float]:
-    """Return the mean of each metric over queries."""
     if not scores:
         return dict.fromkeys(METRIC_FNS, 0.0)
     means: dict[str, float] = {}

@@ -25,8 +25,6 @@ INDEX_STEM = "_index"
 
 
 class DocumentStore:
-    """File-based document storage using JSON."""
-
     def __init__(self, path: str | Path = "./data/documents"):
         self.path = Path(path).resolve()
         self.path.mkdir(parents=True, exist_ok=True)
@@ -161,7 +159,6 @@ class DocumentStore:
         return True
 
     def exists(self, doc_id: str) -> bool:
-        """Check if a document exists."""
         return doc_id in self.index
 
     def list_with_metadata(self) -> dict[str, dict[str, Any]]:
@@ -179,7 +176,6 @@ class DocumentStore:
         return True
 
     def count(self) -> int:
-        """Total number of stored documents."""
         return len(self.index)
 
     def clear(self) -> int:
@@ -189,7 +185,6 @@ class DocumentStore:
         return count
 
     def get_stats(self) -> dict[str, Any]:
-        """Get storage statistics."""
         total_words = sum(m.get("word_count", 0) for m in self.index.values())
         total_sections = sum(m.get("section_count", 0) for m in self.index.values())
 

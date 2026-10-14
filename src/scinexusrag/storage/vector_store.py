@@ -89,7 +89,6 @@ class VectorStore:
                 return False
 
     def _create_table(self) -> lancedb.table.Table:
-        """Create table with schema."""
         schema = pa.schema(
             [
                 pa.field("id", pa.string()),
@@ -209,7 +208,6 @@ class VectorStore:
         return initial_count - self.count()
 
     def count(self) -> int:
-        """Total number of chunks in the store."""
         try:
             return int(self.table.count_rows())
         except (OSError, ValueError):
@@ -230,7 +228,6 @@ class VectorStore:
         self._table = None
 
     def get_all_chunks(self) -> list[Chunk]:
-        """Retrieve all chunks from the store."""
         try:
             if self.count() == 0:
                 return []
@@ -241,7 +238,6 @@ class VectorStore:
             return []
 
     def get_chunks_by_document(self, document_id: str) -> list[Chunk]:
-        """Retrieve all chunks for a specific document."""
         try:
             safe_doc_id = _sanitize_id(document_id)
             results = (

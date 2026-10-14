@@ -99,9 +99,7 @@ class BM25Retriever:
         return removed
 
     def count(self) -> int:
-        """Number of indexed chunks."""
         return len(self._index.chunks) if self._index else 0
 
     def clear(self) -> None:
-        """Clear the index."""
         self._index = None

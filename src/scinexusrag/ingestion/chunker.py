@@ -248,7 +248,7 @@ class HierarchicalChunker:
         return windows
 
     def _get_overlap_content(self, content: list[str]) -> list[str]:
-        """Get content for overlap based on character count."""
+        """Keep trailing paragraphs within the overlap budget."""
         if not content:
             return []
 
@@ -296,7 +296,6 @@ class HierarchicalChunker:
         section_title: str,
         page_number: int | None,
     ) -> Chunk:
-        """Create a chunk with full metadata."""
         chunk_id = self._generate_chunk_id(document.id, index, content)
 
         return Chunk(
@@ -412,7 +411,6 @@ def get_chunker(
     strategy: Literal["hierarchical", "semantic", "fixed"] = "hierarchical",
     **kwargs: Any,
 ) -> HierarchicalChunker | FixedSizeChunker:
-    """Factory function to create a chunker."""
     if strategy == "fixed":
         return FixedSizeChunker(**kwargs)
     return HierarchicalChunker(**kwargs)

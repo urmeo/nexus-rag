@@ -9,7 +9,7 @@ from scinexusrag.retrieval.hybrid import HybridRetriever, rrf_fuse
 
 
 class CorrectiveRetriever:
-    "Re-retrieves with feedback terms when the first pass looks weak."
+    "Run one feedback search below the dense-score threshold."
 
     def __init__(
         self,

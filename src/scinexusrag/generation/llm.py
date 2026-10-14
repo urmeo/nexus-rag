@@ -12,8 +12,6 @@ class LLMError(RuntimeError):
 
 
 class LLMClient:
-    """Client for Ollama LLM API."""
-
     def __init__(
         self,
         model: str = "llama3.2:3b",
@@ -173,13 +171,11 @@ class LLMClient:
             return False
 
     def close(self) -> None:
-        """Close HTTP client."""
         if self._client:
             self._client.close()
             self._client = None
 
     def __del__(self) -> None:
-        """Ensure HTTP client is closed on garbage collection."""
         self.close()
 
     def __enter__(self) -> "LLMClient":

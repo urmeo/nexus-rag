@@ -1,4 +1,4 @@
-"""Main NexusRAG pipeline integrating all components."""
+"""Document indexing, retrieval, and answer generation."""
 
 import contextlib
 import gc
@@ -35,8 +35,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class IngestResult:
-    """Result of document ingestion."""
-
     document_id: str
     filename: str
     chunk_count: int
@@ -47,8 +45,6 @@ class IngestResult:
 
 @dataclass
 class SystemStats:
-    """System statistics."""
-
     total_documents: int
     total_chunks: int
     total_words: int
@@ -343,7 +339,6 @@ class NexusRAG:
             self.document_store.clear()
 
     def get_stats(self) -> SystemStats:
-        """Get system statistics."""
         doc_stats = self.document_store.get_stats()
 
         return SystemStats(

@@ -481,7 +481,6 @@ def plot_corrective_sweep(
 
 
 def write_figures(figures_dir: Path, results_dir: Path = RESULTS) -> None:
-    """Render the README chart set from saved evaluation data."""
     sci = _load("scifact_test.json", results_dir)
     nf = _load("nfcorpus_test.json", results_dir)
     faith = _load("faithfulness_dev.json", results_dir)
