@@ -88,7 +88,7 @@
                     </div>
                     <div>
                         <dt>Generation</dt>
-                        <dd>The default Ollama model is <code>llama3.2:3b</code>. After duplicate passage IDs are removed, keep up to five source passages. Formatted source context is clipped at 6,000 characters when needed, then a truncation marker is added. The question and instructions sit outside that limit. Empty indexes or no matches return a message without calling Ollama. Generation failures retain sources with zero confidence and a warning; answer checks are skipped.</dd>
+                        <dd>The default Ollama model is <code>llama3.2:3b</code>. Remove duplicate passage IDs, then include up to five complete source passages within a 6,000-character formatted context limit. Stop before the first passage that does not fit. The question and instructions sit outside that limit. Empty indexes, no matches or no passages that fit return a message without calling Ollama. Generation failures retain supplied sources with zero confidence and a warning; answer checks are skipped.</dd>
                     </div>
                     <div>
                         <dt>Citations and confidence</dt>

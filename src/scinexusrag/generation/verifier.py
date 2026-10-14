@@ -1,9 +1,9 @@
 """Citation validation for generated answers."""
 
 from dataclasses import dataclass
-from typing import Any
 
 from scinexusrag.generation.citations import extract_citations, strip_citations
+from scinexusrag.generation.synthesizer import Source
 
 
 @dataclass
@@ -19,11 +19,11 @@ class VerificationResult:
 class AnswerVerifier:
     """Checks that every [n] citation points to a real source."""
 
-    def verify(self, answer: str, sources: list[Any]) -> VerificationResult:
+    def verify(self, answer: str, sources: list[Source]) -> VerificationResult:
         found = extract_citations(answer)
-        n = len(sources)
-        valid = [c for c in found if 1 <= c <= n]
-        invalid = [c for c in found if c < 1 or c > n]
+        indices = {source.index for source in sources}
+        valid = [c for c in found if c in indices]
+        invalid = [c for c in found if c not in indices]
         verified = strip_citations(answer, set(valid))
 
         warnings: list[str] = []

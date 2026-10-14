@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Chunk:
-    """A text chunk with metadata for retrieval and citation."""
+    """A text chunk with retrieval metadata; source offsets use an exclusive end."""
 
     id: str
     content: str
@@ -28,6 +28,8 @@ class Chunk:
     chunk_index: int = 0
     context_before: str = ""
     context_after: str = ""
+    start_offset: int | None = None
+    end_offset: int | None = None
 
     @property
     def full_context(self) -> str:
@@ -38,6 +40,29 @@ class Chunk:
         if self.context_after:
             parts.append(f"{self.context_after}[...]")
         return " ".join(parts)
+
+
+@dataclass(frozen=True)
+class _TextSpan:
+    text: str
+    start: int | None = None
+    end: int | None = None
+
+    def slice(self, start: int, end: int) -> "_TextSpan":
+        text = self.text[start:end]
+        left = len(text) - len(text.lstrip())
+        right = len(text.rstrip())
+        return _TextSpan(
+            text.strip(),
+            None if self.start is None else self.start + start + left,
+            None if self.start is None else self.start + start + right,
+        )
+
+
+def _join_spans(spans: list[_TextSpan], separator: str, prefix: str = "") -> _TextSpan:
+    return _TextSpan(
+        prefix + separator.join(span.text for span in spans), spans[0].start, spans[-1].end
+    )
 
 
 class HierarchicalChunker:
@@ -102,14 +127,35 @@ class HierarchicalChunker:
             if not section_text:
                 continue
 
+            start, end = section.start_offset, section.end_offset
+            if start is None and end is None:
+                found = document.content.find(section_text)
+                unique = found >= 0 and document.content.find(section_text, found + 1) < 0
+                start = found if unique else None
+                end = start + len(section_text) if start is not None else None
+                source = _TextSpan(section_text, start, end)
+            elif (
+                start is not None
+                and end is not None
+                and 0 <= start <= end <= len(document.content)
+                and document.content[start:end] == section.content
+            ):
+                source = _TextSpan(section.content, start, end).slice(0, len(section.content))
+            else:
+                source = _TextSpan(section_text)
             section_title = section.title or ""
             header_prefix = f"[{section_title}]\n\n" if section_title else ""
-            for text in self._pack_paragraphs(
-                self._split_into_paragraphs(section_text), header_prefix
-            ):
+            for span in self._pack_spans(self._paragraph_spans(source), header_prefix):
                 chunks.append(
                     self._create_chunk(
-                        document, chunk_index, text, doc_name, section_title, section.page_number
+                        document,
+                        chunk_index,
+                        span.text,
+                        doc_name,
+                        section_title,
+                        section.page_number,
+                        span.start,
+                        span.end,
                     )
                 )
                 chunk_index += 1
@@ -118,45 +164,57 @@ class HierarchicalChunker:
 
     def _chunk_by_paragraphs(self, document: ParsedDocument, doc_name: str) -> list[Chunk]:
         """Fallback: chunk by paragraphs when no sections detected."""
-        texts = self._pack_paragraphs(self._split_into_paragraphs(document.content), "")
+        source = _TextSpan(document.content, 0, len(document.content))
+        spans = self._pack_spans(self._paragraph_spans(source), "")
         return [
-            self._create_chunk(document, index, text, doc_name, "", None)
-            for index, text in enumerate(texts)
+            self._create_chunk(document, index, span.text, doc_name, "", None, span.start, span.end)
+            for index, span in enumerate(spans)
         ]
 
     def _pack_paragraphs(self, paragraphs: list[str], header_prefix: str) -> list[str]:
+        return [
+            span.text
+            for span in self._pack_spans([_TextSpan(text) for text in paragraphs], header_prefix)
+        ]
+
+    def _pack_spans(self, paragraphs: list[_TextSpan], header_prefix: str) -> list[_TextSpan]:
         "Pack paragraphs into chunk texts near the target size."
         if len(header_prefix) >= self.max_chunk_size:
             raise ValueError("section header leaves no room within max_chunk_size")
-        texts: list[str] = []
-        current: list[str] = []
+        texts: list[_TextSpan] = []
+        current: list[_TextSpan] = []
         current_length = len(header_prefix)
         overlap_count = 0
 
         for para in paragraphs:
-            para = para.strip()
-            if not para:
+            para = para.slice(0, len(para.text))
+            if not para.text:
                 continue
-            para_len = len(para)
+            para_len = len(para.text)
 
             if para_len > self.max_chunk_size - len(header_prefix):
                 if current:
-                    texts.append(header_prefix + "\n\n".join(current))
+                    texts.append(_join_spans(current, "\n\n", header_prefix))
                     current, current_length = [], len(header_prefix)
                     overlap_count = 0
-                for sent_chunk in self._split_by_sentences(para, header_prefix):
-                    body = sent_chunk.removeprefix(header_prefix).strip()
+                for sent_chunk in self._sentence_spans(para, header_prefix):
+                    body = sent_chunk.text.removeprefix(header_prefix).strip()
                     if (
-                        len(sent_chunk.strip()) >= self.min_chunk_size
+                        len(sent_chunk.text.strip()) >= self.min_chunk_size
                         or not texts
-                        or len(texts[-1]) + 2 + len(body) > self.max_chunk_size
+                        or len(texts[-1].text) + 2 + len(body) > self.max_chunk_size
                     ):
                         texts.append(sent_chunk)
                     else:
-                        texts[-1] += "\n\n" + body
+                        previous = texts[-1]
+                        texts[-1] = _TextSpan(
+                            previous.text + "\n\n" + body, previous.start, sent_chunk.end
+                        )
                 continue
 
-            candidate_length = len(header_prefix) + len("\n\n".join([*current, para]))
+            candidate_length = len(header_prefix) + len(
+                "\n\n".join(span.text for span in [*current, para])
+            )
             exceeds_max = candidate_length > self.max_chunk_size
             exceeds_target = current_length + para_len + 2 > self.target_chunk_size
             if (
@@ -164,128 +222,130 @@ class HierarchicalChunker:
                 and (exceeds_target or exceeds_max)
                 and (current_length >= self.min_chunk_size or exceeds_max)
             ):
-                texts.append(header_prefix + "\n\n".join(current))
-                overlap = self._get_overlap_content(current)
-                if len(header_prefix) + len("\n\n".join([*overlap, para])) > self.max_chunk_size:
+                texts.append(_join_spans(current, "\n\n", header_prefix))
+                overlap = self._overlap_spans(current)
+                if (
+                    len(header_prefix) + len("\n\n".join(span.text for span in [*overlap, para]))
+                    > self.max_chunk_size
+                ):
                     overlap = []
                 current = overlap + [para]
                 overlap_count = len(overlap)
-                current_length = len(header_prefix) + sum(len(c) + 2 for c in current)
+                current_length = len(header_prefix) + sum(len(span.text) + 2 for span in current)
             else:
                 current.append(para)
                 current_length += para_len + 2
 
         if not current:
             return texts
-        body = "\n\n".join(current)
-        tail = header_prefix + body
-        new_body = "\n\n".join(current[overlap_count:])
+        tail = _join_spans(current, "\n\n", header_prefix)
+        new_body = "\n\n".join(span.text for span in current[overlap_count:])
         if (
-            len(tail) >= self.min_chunk_size
+            len(tail.text) >= self.min_chunk_size
             or not texts
-            or len(texts[-1]) + 2 + len(new_body) > self.max_chunk_size
+            or len(texts[-1].text) + 2 + len(new_body) > self.max_chunk_size
         ):
             texts.append(tail)
         else:
-            texts[-1] += "\n\n" + new_body
+            previous = texts[-1]
+            texts[-1] = _TextSpan(
+                previous.text + "\n\n" + new_body, previous.start, current[-1].end
+            )
         return texts
 
-    def _split_into_paragraphs(self, text: str) -> list[str]:
-        """Split on blank lines and discard empty paragraphs."""
-        paragraphs = re.split(r"\n\s*\n", text)
-        return [p.strip() for p in paragraphs if p.strip()]
+    @staticmethod
+    def _split_spans(source: _TextSpan, separator: re.Pattern[str]) -> list[_TextSpan]:
+        spans: list[_TextSpan] = []
+        start = 0
+        for match in separator.finditer(source.text):
+            span = source.slice(start, match.start())
+            if span.text:
+                spans.append(span)
+            start = match.end()
+        tail = source.slice(start, len(source.text))
+        if tail.text:
+            spans.append(tail)
+        return spans
 
-    def _split_by_sentences(self, text: str, prefix: str) -> list[str]:
+    def _paragraph_spans(self, source: _TextSpan) -> list[_TextSpan]:
+        return self._split_spans(source, re.compile(r"\n\s*\n"))
+
+    def _sentence_spans(self, source: _TextSpan, prefix: str) -> list[_TextSpan]:
         """Pack sentences into chunks, wrapping oversized sentences at whitespace."""
         budget = self.max_chunk_size - len(prefix)
         if budget <= 0:
             raise ValueError("section header leaves no room within max_chunk_size")
-        sentences: list[str] = []
-        for raw in SENTENCE_BOUNDARY.split(text):
-            raw = raw.strip()
-            if not raw:
-                continue
-            sentences.extend([raw] if len(raw) <= budget else self._wrap_on_whitespace(raw, budget))
+        sentences: list[_TextSpan] = []
+        for span in self._split_spans(source, SENTENCE_BOUNDARY):
+            sentences.extend(
+                [span] if len(span.text) <= budget else self._word_windows(span, budget)
+            )
 
-        chunks = []
-        current = prefix
+        chunks: list[_TextSpan] = []
+        current = _TextSpan(prefix)
 
         for sentence in sentences:
-            sentence = sentence.strip()
-            if not sentence:
-                continue
-
-            if len(current) + len(sentence) + 1 <= self.max_chunk_size:
-                if current.strip() == prefix.strip():
-                    current = prefix + sentence
+            if len(current.text) + len(sentence.text) + 1 <= self.max_chunk_size:
+                if current.text.strip() == prefix.strip():
+                    current = _TextSpan(prefix + sentence.text, sentence.start, sentence.end)
                 else:
-                    current = current + " " + sentence
+                    current = _TextSpan(
+                        current.text + " " + sentence.text, current.start, sentence.end
+                    )
             else:
-                if current.strip() and current.strip() != prefix.strip():
-                    chunks.append(current.strip())
-                current = prefix + sentence
+                if current.text.strip() and current.text.strip() != prefix.strip():
+                    chunks.append(_TextSpan(current.text.strip(), current.start, current.end))
+                current = _TextSpan(prefix + sentence.text, sentence.start, sentence.end)
 
-        if current.strip() and current.strip() != prefix.strip():
-            chunks.append(current.strip())
+        if current.text.strip() and current.text.strip() != prefix.strip():
+            chunks.append(_TextSpan(current.text.strip(), current.start, current.end))
 
         return chunks
 
     @staticmethod
-    def _wrap_on_whitespace(text: str, width: int) -> list[str]:
+    def _word_windows(source: _TextSpan, width: int) -> list[_TextSpan]:
         """Wrap at whitespace, rejecting words that cannot fit without splitting."""
-        windows: list[str] = []
-        current = ""
-        for word in text.split():
-            if len(word) > width:
+        windows: list[_TextSpan] = []
+        current: list[_TextSpan] = []
+        current_length = 0
+        for match in re.finditer(r"\S+", source.text):
+            word = source.slice(match.start(), match.end())
+            if len(word.text) > width:
                 raise ValueError("word length exceeds available chunk size")
-            if current and len(current) + 1 + len(word) > width:
-                windows.append(current)
-                current = word
-            else:
-                current = f"{current} {word}" if current else word
+            if current and current_length + 1 + len(word.text) > width:
+                windows.append(_join_spans(current, " "))
+                current = []
+                current_length = 0
+            current_length += len(word.text) + (1 if current else 0)
+            current.append(word)
         if current:
-            windows.append(current)
+            windows.append(_join_spans(current, " "))
         return windows
 
-    def _get_overlap_content(self, content: list[str]) -> list[str]:
+    def _overlap_spans(self, content: list[_TextSpan]) -> list[_TextSpan]:
         """Keep trailing paragraphs within the overlap budget."""
         if not content:
             return []
 
-        overlap_content: list[str] = []
+        overlap_content: list[_TextSpan] = []
         total_length = 0
 
         for item in reversed(content):
-            if total_length + len(item) <= self.overlap_size:
+            if total_length + len(item.text) <= self.overlap_size:
                 overlap_content.insert(0, item)
-                total_length += len(item) + 2
+                total_length += len(item.text) + 2
             else:
                 break
 
         return overlap_content
 
     def _add_context_windows(self, chunks: list[Chunk], full_text: str) -> None:
-        search_start = 0
-        previous_body = ""
         for chunk in chunks:
-            body = chunk.content
-            if chunk.section_title:
-                body = body.removeprefix(f"[{chunk.section_title}]\n\n")
-            if not body:
+            start, end = chunk.start_offset, chunk.end_offset
+            if start is None or end is None:
                 continue
-            lookup_start = search_start + 1 if previous_body.startswith(body) else search_start
-            start_idx = full_text.find(body, lookup_start)
-            if start_idx == -1:
-                continue
-            search_start = start_idx
-            previous_body = body
-            end_idx = start_idx + len(body)
-            if start_idx > 0:
-                chunk.context_before = full_text[
-                    max(0, start_idx - self.context_chars) : start_idx
-                ].strip()
-            if end_idx < len(full_text):
-                chunk.context_after = full_text[end_idx : end_idx + self.context_chars].strip()
+            chunk.context_before = full_text[max(0, start - self.context_chars) : start].strip()
+            chunk.context_after = full_text[end : end + self.context_chars].strip()
 
     def _create_chunk(
         self,
@@ -295,6 +355,8 @@ class HierarchicalChunker:
         doc_name: str,
         section_title: str,
         page_number: int | None,
+        start_offset: int | None = None,
+        end_offset: int | None = None,
     ) -> Chunk:
         chunk_id = self._generate_chunk_id(document.id, index, content)
 
@@ -306,6 +368,8 @@ class HierarchicalChunker:
             section_title=section_title,
             page_number=page_number,
             chunk_index=index,
+            start_offset=start_offset,
+            end_offset=end_offset,
             metadata={
                 **document.metadata,
                 "chunk_index": index,
@@ -313,6 +377,8 @@ class HierarchicalChunker:
                 "page_number": page_number,
                 "document_name": doc_name,
                 "original_filename": doc_name,
+                "start_offset": start_offset,
+                "end_offset": end_offset,
             },
         )
 

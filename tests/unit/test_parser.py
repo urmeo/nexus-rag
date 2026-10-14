@@ -5,6 +5,16 @@ import pytest
 from scinexusrag.ingestion import DocumentParseError, DocumentParser, ParsedDocument
 
 
+def _assert_section_spans(document):
+    previous_end = 0
+    for section in document.sections:
+        assert section.start_offset is not None
+        assert section.end_offset is not None
+        assert previous_end <= section.start_offset <= section.end_offset <= len(document.content)
+        assert document.content[section.start_offset : section.end_offset] == section.content
+        previous_end = section.end_offset
+
+
 class TestDocumentParser:
     @pytest.fixture
     def parser(self):
@@ -138,8 +148,130 @@ class TestDocumentParser:
         assert "   " not in doc.content
         assert "\n\n\n" not in doc.content
 
+    @pytest.mark.parametrize("extension", [".txt", ".md"])
+    def test_repeated_section_bodies_keep_their_own_normalized_source_spans(
+        self, parser, temp_dir, extension
+    ):
+        first_heading = "METHODS" if extension == ".txt" else "## Methods"
+        second_heading = "RESULTS" if extension == ".txt" else "## Results"
+        passage = "Shared reading.\nSecond line.\n\nAnother paragraph."
+        source = (
+            "  Preamble\twith   spacing.\n\n\n"
+            f"{first_heading}\n\n{passage}\n\n\n"
+            f"{second_heading}\n\n{passage}\n\n"
+        )
+        path = temp_dir / f"repeated{extension}"
+        path.write_text(source)
+
+        document = parser.parse(path)
+
+        _assert_section_spans(document)
+        assert [section.content for section in document.sections] == [
+            "Preamble with spacing.",
+            passage,
+            passage,
+        ]
+        assert document.sections[1].start_offset == document.content.index(first_heading) + len(
+            first_heading + "\n\n"
+        )
+        assert document.sections[2].start_offset == document.content.index(second_heading) + len(
+            second_heading + "\n\n"
+        )
+        assert document.sections[1].start_offset != document.sections[2].start_offset
+
+    @pytest.mark.parametrize("extension", [".txt", ".md"])
+    def test_headerless_text_has_one_exact_span(self, parser, temp_dir, extension):
+        path = temp_dir / f"plain{extension}"
+        path.write_text("\n\n First\t line.\n\n\n Second   paragraph. \n\n")
+
+        document = parser.parse(path)
+
+        _assert_section_spans(document)
+        assert len(document.sections) == 1
+        assert document.sections[0].title == ""
+        assert document.sections[0].content == "First line.\n\n Second paragraph."
+        assert document.sections[0].start_offset == 0
+        assert document.sections[0].end_offset == len(document.content)
+
+    def test_markdown_empty_headings_have_valid_empty_spans(self, parser, temp_dir):
+        path = temp_dir / "headings.md"
+        path.write_text("# Empty\n\n## Methods\n\nA measurement.\n\n### Empty tail\n")
+
+        document = parser.parse(path)
+
+        _assert_section_spans(document)
+        assert [section.level for section in document.sections] == [1, 2, 3]
+        assert [section.content for section in document.sections] == ["", "A measurement.", ""]
+        for section in (document.sections[0], document.sections[2]):
+            assert section.start_offset == section.end_offset
+
+    def test_docx_sections_preserve_paragraph_joins_and_repeated_source_positions(
+        self, parser, temp_dir
+    ):
+        from docx import Document as DocxDocument
+
+        source = DocxDocument()
+        source.add_paragraph("  First\t preamble.  ")
+        source.add_paragraph("Second preamble.")
+        source.add_heading("Methods", level=1)
+        source.add_paragraph("  Shared   passage.  ")
+        source.add_paragraph("Line one.\nLine two.")
+        source.add_heading("Results", level=2)
+        source.add_paragraph("Shared\tpassage.")
+        source.add_paragraph("Line one.\nLine two.")
+        path = temp_dir / "repeated.docx"
+        source.save(path)
+
+        document = parser.parse(path)
+
+        _assert_section_spans(document)
+        assert [section.content for section in document.sections] == [
+            "First preamble.\n\nSecond preamble.",
+            "Shared passage.\n\nLine one.\nLine two.",
+            "Shared passage.\n\nLine one.\nLine two.",
+        ]
+        assert [section.level for section in document.sections] == [0, 1, 2]
+        assert document.sections[1].start_offset == document.content.index("Methods\n\n") + len(
+            "Methods\n\n"
+        )
+        assert document.sections[2].start_offset == document.content.index("Results\n\n") + len(
+            "Results\n\n"
+        )
+
 
 class TestPdfEdgeCases:
+    def test_page_offsets_follow_cleaned_joins_and_retain_page_numbers(self, temp_dir, monkeypatch):
+        from types import SimpleNamespace
+
+        page_texts = [
+            "\n  METHODS\n\nShared   passage.\n\n\nFirst page tail.  \n",
+            " \n\t ",
+            "\nRESULTS\n\nShared\tpassage.\n\nLast page tail.\n",
+            "  Shared passage.\n\nA fourth-page note. \n",
+        ]
+        reader = SimpleNamespace(
+            is_encrypted=False,
+            pages=[SimpleNamespace(extract_text=lambda text=text: text) for text in page_texts],
+        )
+        monkeypatch.setattr("scinexusrag.ingestion.parser.PdfReader", lambda path: reader)
+        path = temp_dir / "repeated.pdf"
+        path.write_bytes(b"%PDF-1.4 fake")
+
+        document = DocumentParser().parse(path)
+
+        _assert_section_spans(document)
+        assert [section.page_number for section in document.sections] == [1, 3, 4]
+        assert [section.title for section in document.sections] == ["METHODS", "RESULTS", ""]
+        assert [section.content for section in document.sections] == [
+            "Shared passage.\n\nFirst page tail.",
+            "Shared passage.\n\nLast page tail.",
+            "Shared passage.\n\nA fourth-page note.",
+        ]
+        first_page = "METHODS\n\nShared passage.\n\nFirst page tail."
+        third_page = "RESULTS\n\nShared passage.\n\nLast page tail."
+        assert document.sections[1].start_offset == len(first_page + "\n\nRESULTS\n\n")
+        assert document.sections[2].start_offset == len(first_page + "\n\n" + third_page + "\n\n")
+
     def test_headerless_pages_reach_chunks(self, temp_dir, monkeypatch):
         from scinexusrag.ingestion import SemanticChunker
 

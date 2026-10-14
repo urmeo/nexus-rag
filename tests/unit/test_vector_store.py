@@ -101,6 +101,8 @@ def test_chunk_context_and_citation_metadata_survive_reload(temp_dir, access) ->
         chunk_index=7,
         context_before="The sample contained twelve participants.",
         context_after="All measurements were blinded.",
+        start_offset=120,
+        end_offset=144,
     )
     store.add([chunk], np.array([[1, 0, 0, 0]], dtype=np.float32))
 
@@ -117,6 +119,9 @@ def test_chunk_context_and_citation_metadata_survive_reload(temp_dir, access) ->
     assert restored.section_title == "Methods"
     assert restored.page_number == 3
     assert restored.chunk_index == 7
+    assert (restored.start_offset, restored.end_offset) == (chunk.start_offset, chunk.end_offset)
+    assert restored.metadata["start_offset"] == chunk.start_offset
+    assert restored.metadata["end_offset"] == chunk.end_offset
     assert restored.metadata["file_type"] == "pdf"
     assert reloaded.list_documents() == ["paper"]
 

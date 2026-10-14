@@ -621,8 +621,9 @@ function formatInline(text, sources) {
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*([^*]+)\*/g, '<em>$1</em>')
         .replace(/\[(\d+)\]/g, (match, num) => {
-            const idx = parseInt(num) - 1;
-            if (idx >= 0 && idx < sources.length) {
+            const idx = sources.findIndex((source, position) =>
+                (source.index ?? position + 1) === Number(num));
+            if (idx >= 0) {
                 const src = sources[idx];
                 const tooltip = src.filename || `Source ${num}`;
                 return `<button type="button" class="citation" data-source-index="${idx}" title="${escapeHtml(tooltip)}" aria-label="Open source ${num}: ${escapeHtml(tooltip)}">${num}</button>`;
@@ -668,7 +669,7 @@ function updateSourcesPanel(sources) {
             <div class="source-card" id="source-${idx}" role="button" tabindex="0"
                  aria-expanded="false" aria-controls="source-content-${idx}">
                 <div class="source-header">
-                    <span class="source-number">${idx + 1}</span>
+                    <span class="source-number">${escapeHtml(src.index ?? idx + 1)}</span>
                     <span class="source-filename">${escapeHtml(src.filename || 'Unknown document')}</span>
                     <span class="source-score ${scoreClass}" title="The retrieval score ranks passages for this question. It is not a probability of correctness.">Match ${score.toFixed(2)}</span>
                 </div>

@@ -11,7 +11,7 @@ Open **Pipeline** in the app header, or visit `/pipeline`, for the responsive gu
 | Step | What happens |
 | --- | --- |
 | Read documents | Extract text and available sections or pages from PDF, DOCX, Markdown or UTF-8 text. |
-| Split into passages | Pack sections and paragraphs into overlapping passages. Keep document names and nearby context. |
+| Split into passages | Pack sections and paragraphs into overlapping passages. Keep document names and character offsets in the normalized extracted text. Use those offsets to attach nearby context. |
 | Index passages | Encode passage text with BGE-small, store vectors in LanceDB and update the in-memory BM25 keyword index. Save parsed document JSON. |
 
 | Passage setting | Default |
@@ -22,6 +22,8 @@ Open **Pipeline** in the app header, or visit `/pipeline`, for the responsive gu
 | Nearby context, where text can be located | Up to 150 characters on each side |
 
 The document store saves parsed JSON, not the original upload. Duplicate documents and empty extracted text fail ingestion. Writes run under a process lock, check index counts and attempt rollback on partial failure. BM25 rebuilds from stored passages at initialization; run one application worker.
+
+Reindex previously uploaded documents to regenerate stored offsets and nearby context.
 
 ## For each question
 
@@ -47,12 +49,12 @@ A technical token contains a digit or underscore, is uppercase, or exceeds 14 ch
 
 | Step | What happens |
 | --- | --- |
-| Build sources | Remove duplicate passage IDs and keep up to five numbered passages. These may come from the same document. |
+| Build sources | Remove duplicate passage IDs and keep up to five complete numbered passages within the context limit. These may come from the same document. |
 | Generate | Send the question, source text and answer-format hint to Ollama. The default model is `llama3.2:3b`. |
-| Check citations | Keep numeric `[n]` citations within the supplied source range, remove out-of-range indices and warn about invalid or absent citations. |
+| Check citations | Keep numeric `[n]` citations that match supplied source indices, remove invalid indices and warn about invalid or absent citations. |
 | Score and return | Use the default heuristic or optional sentence grounding to calculate confidence, then return the answer and sources. Checks do not trigger answer regeneration. |
 
-Formatted source text is clipped at **6,000 characters** when needed, followed by a truncation marker. The question and instructions sit outside that limit. The response budget is `min(LLM_MAX_TOKENS, 256 + 100 × source_count)`; the configured ceiling defaults to **768 tokens**.
+Complete formatted source blocks, including headers and separators, must fit within **6,000 characters**. Selection stops at the first block that does not fit; that passage and lower-ranked passages are omitted. Passage text is never cut. The question and instructions sit outside that limit. If no passage fits, return a context-limit error without calling Ollama or running answer checks. The response budget is `min(LLM_MAX_TOKENS, 256 + 100 × source_count)`, using the retained source count; the configured ceiling defaults to **768 tokens**.
 
 Citation checks validate source numbers, not factual support. Optional NLI grounding is **off by default**; enable it with `SELF_CORRECTION_GROUNDING_ENABLED=true`.
 
@@ -61,7 +63,7 @@ Citation checks validate source numbers, not factual support. Optional NLI groun
 | Off | Half the mean normalized source score plus half the fraction of distinct sources cited by valid indices. |
 | On | Fraction of answer sentences whose best entailment score across all supplied sources is at least 0.5. Unsupported sentences add warnings. |
 
-NLI uses available full source context, which can exceed the clipped prompt. It checks each sentence against all sources, not its particular inline citation. It does not rewrite the answer. Neither confidence calculation establishes factual correctness; inspect the returned passages.
+NLI uses the same complete source passages included in the generation prompt, including available nearby context. It checks each sentence against all retained sources, not its particular inline citation. It does not rewrite the answer. Neither confidence calculation establishes factual correctness; inspect the returned passages.
 
 A caught generation failure or blank output retains sources and returns an error answer, zero confidence and a warning. Citation and grounding checks are skipped. Other retrieval, storage or NLI errors can produce an HTTP error.
 

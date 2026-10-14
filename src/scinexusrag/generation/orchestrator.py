@@ -104,12 +104,14 @@ class Orchestrator:
         question = self.analyzer.rewrite_vague_query(question)
         results = self.retriever.retrieve(question, top_k=self.top_k)
         doc_names = self._document_names(results)
+        prepared = self.synthesizer.prepare(
+            question, results, doc_names=doc_names, query_type=analyzed.query_type
+        )
 
         chunks: list[str] = []
+        citations_valid: list[int]
         try:
-            for token in self.synthesizer.synthesize_streaming(
-                question, results, doc_names=doc_names, query_type=analyzed.query_type
-            ):
+            for token in self.synthesizer.stream_prepared(prepared):
                 chunks.append(token)
                 yield token
         except Exception:
@@ -119,12 +121,14 @@ class Orchestrator:
             faithfulness = None
             warnings = ["Answer generation failed."]
         else:
-            answer = "".join(chunks)
-            sources = self.synthesizer._build_sources(results, doc_names)[
-                : self.synthesizer.max_sources
-            ]
-            verification, faithfulness, warnings = self._verify_answer(answer, sources)
-            citations_valid = verification.citations_valid
+            if prepared.error:
+                citations_valid = []
+                faithfulness = None
+                warnings = [prepared.error]
+            else:
+                answer = "".join(chunks)
+                verification, faithfulness, warnings = self._verify_answer(answer, prepared.sources)
+                citations_valid = verification.citations_valid
 
         for warning in warnings:
             logger.warning("streaming verification: %s", warning)

@@ -239,6 +239,29 @@ test('older answer controls copy its answer and restore its own citation sources
     assert(!app.get('source-0').classList.contains('expanded'));
 });
 
+test('citations and source cards preserve sparse API source indices', async () => {
+    const app = createApp(async () => response({
+        answer: 'First finding [2]. Second finding [4]. Unknown [1] and [5].',
+        sources: [
+            { index: 2, filename: 'first.txt', content: 'First passage.' },
+            { index: 4, filename: 'second.txt', content: 'Second passage.' }
+        ]
+    }));
+    app.api.state.documents = documents(1);
+    app.get('chatInput').value = 'Question';
+    await app.api.sendMessage();
+
+    const citations = app.get('messages').querySelectorAll('.citation');
+    assert.deepEqual(citations.map(citation => citation.textContent), ['2', '4']);
+    assert.match(app.get('messages').textContent, /Unknown \[1\] and \[5\]/);
+    await citations[1].click();
+    assert.deepEqual(app.get('sourcesList').querySelectorAll('.source-number')
+        .map(number => number.textContent), ['2', '4']);
+    assert(app.get('source-1').classList.contains('highlighted'));
+    assert(!app.get('source-0').classList.contains('highlighted'));
+    assert(app.get('sourcesPanel').classList.contains('open'));
+});
+
 test('a suggested question sends the question displayed on its button', async () => {
     const questions = [];
     const app = createApp(async (url, options) => {
@@ -399,10 +422,13 @@ test('blocked browser storage still permits a session API key', async () => {
     assert.match(app.get('toastContainer').textContent, /saved for this session/);
 });
 
-test('untrusted answers, filenames and source passages stay text rather than executable markup', async () => {
+test('untrusted answers and source fields stay text rather than executable markup', async () => {
     const app = createApp(async () => response({
         answer: '<img src=x onerror="alert(1)"> [1]',
-        sources: [{ filename: '"><img src=x onerror="alert(2)">', content: '<script>alert(3)</script>', page: '<img src=x onerror="alert(5)">' }],
+        sources: [
+            { filename: '"><img src=x onerror="alert(2)">', content: '<script>alert(3)</script>', page: '<img src=x onerror="alert(5)">' },
+            { index: '<img src=x onerror="alert(6)">', filename: 'other.txt', content: 'Safe text.' }
+        ],
         warnings: ['<svg onload="alert(4)">']
     }));
     app.api.state.documents = documents(1);
@@ -415,6 +441,8 @@ test('untrusted answers, filenames and source passages stay text rather than exe
     assert.equal(app.get('sourcesList').querySelectorAll('script').length, 0);
     assert.equal(app.get('sourcesList').querySelectorAll('img').length, 0);
     assert.match(app.get('sourcesList').textContent, /<script>alert\(3\)<\/script>/);
+    assert.equal(app.get('sourcesList').querySelectorAll('.source-number')[1].textContent,
+        '<img src=x onerror="alert(6)">');
 });
 
 test('keyboard users can open, expand and close sources and return to the answer', async () => {

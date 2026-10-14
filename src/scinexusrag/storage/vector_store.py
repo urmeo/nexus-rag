@@ -179,6 +179,8 @@ class VectorStore:
                         "chunk_index": chunk.chunk_index,
                         "context_before": chunk.context_before,
                         "context_after": chunk.context_after,
+                        "start_offset": chunk.start_offset,
+                        "end_offset": chunk.end_offset,
                     }
                 ),
                 "vector": embedding.tolist(),
@@ -205,6 +207,8 @@ class VectorStore:
             chunk_index=metadata.get("chunk_index", 0),
             context_before=metadata.get("context_before", ""),
             context_after=metadata.get("context_after", ""),
+            start_offset=metadata.get("start_offset"),
+            end_offset=metadata.get("end_offset"),
         )
 
     def search(

@@ -2,7 +2,13 @@
 
 import pytest
 
-from scinexusrag.ingestion import FixedSizeChunker, ParsedDocument, Section, SemanticChunker
+from scinexusrag.ingestion import (
+    DocumentParser,
+    FixedSizeChunker,
+    ParsedDocument,
+    Section,
+    SemanticChunker,
+)
 
 
 @pytest.mark.parametrize("sectioned", [False, True])
@@ -68,12 +74,24 @@ def test_context_matches_full_passage_when_prefixes_repeat():
 def test_identical_passages_get_context_from_their_document_order():
     passage = "The instrument was calibrated before collecting the measurements."
     content = f"First marker.\n\n{passage}\n\nMiddle marker.\n\n{passage}\n\nLast marker."
+    first_start = content.index(passage)
+    second_start = content.rindex(passage)
     document = ParsedDocument(
         id="repeated-passage",
         content=content,
         sections=[
-            Section(title="First", content=passage),
-            Section(title="Second", content=passage),
+            Section(
+                title="First",
+                content=passage,
+                start_offset=first_start,
+                end_offset=first_start + len(passage),
+            ),
+            Section(
+                title="Second",
+                content=passage,
+                start_offset=second_start,
+                end_offset=second_start + len(passage),
+            ),
         ],
     )
 
@@ -113,10 +131,19 @@ def test_shorter_repeated_prefix_gets_context_from_its_later_occurrence():
     passage = "The instrument was calibrated before collecting the measurements."
     first = passage + " The first group used the original instrument."
     content = f"First marker.\n\n{first}\n\nMiddle marker.\n\n{passage}\n\nLast marker."
+    second_start = content.rindex(passage)
     document = ParsedDocument(
         id="shorter-prefix",
         content=content,
-        sections=[Section(title="First", content=first), Section(title="Second", content=passage)],
+        sections=[
+            Section(title="First", content=first),
+            Section(
+                title="Second",
+                content=passage,
+                start_offset=second_start,
+                end_offset=second_start + len(passage),
+            ),
+        ],
     )
 
     chunks = SemanticChunker(context_chars=16).chunk(document)
@@ -147,6 +174,200 @@ def test_literal_bracketed_text_is_not_treated_as_an_added_section_header():
     assert chunk.full_context == content
     assert chunk.context_before == ""
     assert chunk.context_after == ""
+
+
+def _assert_context_span(chunk, content, start, end, context_chars):
+    assert chunk.start_offset == start
+    assert chunk.end_offset == end
+    assert chunk.metadata["start_offset"] == start
+    assert chunk.metadata["end_offset"] == end
+    assert chunk.context_before == content[max(0, start - context_chars) : start].strip()
+    assert chunk.context_after == content[end : end + context_chars].strip()
+
+
+def test_repeated_wrapped_words_keep_their_original_whitespace_positions():
+    body = "alpha\tbeta   alpha\nbeta alpha\tbeta"
+    content = "Before marker.\n\n" + body + "\n\nAfter marker."
+    start = len("Before marker.\n\n")
+    document = ParsedDocument(
+        id="wrapped-positions",
+        content=content,
+        sections=[
+            Section(
+                title="",
+                content=body,
+                start_offset=start,
+                end_offset=start + len(body),
+            )
+        ],
+    )
+    chunker = SemanticChunker(
+        min_chunk_size=1,
+        target_chunk_size=12,
+        max_chunk_size=12,
+        overlap_size=0,
+        context_chars=16,
+    )
+
+    chunks = chunker.chunk(document)
+
+    assert [chunk.content for chunk in chunks] == ["alpha beta"] * 3
+    for chunk, relative_start in zip(chunks, [0, 13, 24], strict=True):
+        _assert_context_span(
+            chunk, content, start + relative_start, start + relative_start + 10, 16
+        )
+
+
+def test_sentence_packing_keeps_source_offsets_when_separator_whitespace_changes():
+    first = "First sentence."
+    second = "Second sentence."
+    third = "Third sentence."
+    content = first + "\t  " + second + "\n " + third
+    chunker = SemanticChunker(
+        min_chunk_size=1,
+        target_chunk_size=35,
+        max_chunk_size=35,
+        overlap_size=0,
+        context_chars=18,
+    )
+
+    chunks = chunker.chunk(ParsedDocument(id="sentence-positions", content=content))
+
+    assert [chunk.content for chunk in chunks] == [first + " " + second, third]
+    second_end = len(first) + 3 + len(second)
+    _assert_context_span(chunks[0], content, 0, second_end, 18)
+    _assert_context_span(chunks[1], content, second_end + 2, len(content), 18)
+
+
+def test_paragraph_overlap_keeps_source_offsets_with_headers_and_irregular_blank_lines():
+    first = "alpha beta gamma."
+    second = "delta epsilon zeta."
+    third = "eta theta iota."
+    body = first + "\n \n" + second + "\n\t\n" + third
+    content = "Introduction.\n\n" + body + "\n\nConclusion."
+    start = len("Introduction.\n\n")
+    document = ParsedDocument(
+        id="overlap-positions",
+        content=content,
+        sections=[
+            Section(
+                title="Methods",
+                content=body,
+                start_offset=start,
+                end_offset=start + len(body),
+            )
+        ],
+    )
+    chunker = SemanticChunker(
+        min_chunk_size=1,
+        target_chunk_size=35,
+        max_chunk_size=70,
+        overlap_size=20,
+        context_chars=16,
+    )
+
+    chunks = chunker.chunk(document)
+
+    prefix = "[Methods]\n\n"
+    assert [chunk.content for chunk in chunks] == [
+        prefix + first,
+        prefix + first + "\n\n" + second,
+        prefix + second + "\n\n" + third,
+    ]
+    second_start = start + len(first) + 3
+    _assert_context_span(chunks[0], content, start, start + len(first), 16)
+    _assert_context_span(chunks[1], content, start, second_start + len(second), 16)
+    _assert_context_span(chunks[2], content, second_start, start + len(body), 16)
+
+
+def test_explicit_section_offsets_distinguish_identical_passages():
+    passage = "The instrument was calibrated."
+    content = passage + "\n\nMiddle marker.\n\n" + passage + "\n\nEnd marker."
+    start = len(passage + "\n\nMiddle marker.\n\n")
+    document = ParsedDocument(
+        id="explicit-section-position",
+        content=content,
+        sections=[
+            Section(
+                title="Methods",
+                content=passage,
+                start_offset=start,
+                end_offset=start + len(passage),
+            )
+        ],
+    )
+
+    chunk = SemanticChunker(context_chars=16).chunk(document)[0]
+
+    assert chunk.content == "[Methods]\n\n" + passage
+    _assert_context_span(chunk, content, start, start + len(passage), 16)
+
+
+@pytest.mark.parametrize(
+    "extension,headers", [(".txt", ["FIRST", "SECOND"]), (".md", ["# First", "# Second"])]
+)
+def test_parsed_repeated_sections_keep_context_after_whitespace_cleaning(extension, headers):
+    body = "The instrument\twas calibrated.\n\n  Measurements were recorded."
+    source = headers[0] + "\n" + body + "\n\n" + headers[1] + "\n" + body
+    document = DocumentParser().parse_bytes(source.encode(), "study" + extension, extension)
+    chunker = SemanticChunker(context_chars=20)
+
+    chunks = chunker.chunk(document)
+
+    assert len(chunks) == 2
+    for chunk, section in zip(chunks, document.sections, strict=True):
+        _assert_context_span(chunk, document.content, section.start_offset, section.end_offset, 20)
+    assert chunks[0].start_offset < chunks[1].start_offset
+
+
+def test_invalid_section_offsets_do_not_borrow_context_from_matching_text_elsewhere():
+    passage = "The instrument was calibrated."
+    content = "Before marker.\n\n" + passage + "\n\nAfter marker."
+    document = ParsedDocument(
+        id="invalid-section-position",
+        content=content,
+        sections=[
+            Section(title="Methods", content=passage, start_offset=0, end_offset=len(passage))
+        ],
+    )
+
+    chunk = SemanticChunker().chunk(document)[0]
+
+    assert chunk.start_offset is None
+    assert chunk.end_offset is None
+    assert chunk.context_before == ""
+    assert chunk.context_after == ""
+
+
+def test_legacy_section_with_repeated_body_has_no_guessed_context():
+    passage = "The instrument was calibrated."
+    content = "First marker.\n\n" + passage + "\n\nSecond marker.\n\n" + passage
+    document = ParsedDocument(
+        id="ambiguous-legacy-section",
+        content=content,
+        sections=[Section(title="Methods", content=passage)],
+    )
+
+    chunk = SemanticChunker().chunk(document)[0]
+
+    assert chunk.start_offset is None
+    assert chunk.end_offset is None
+    assert chunk.context_before == ""
+    assert chunk.context_after == ""
+
+
+def test_short_tail_merge_extends_source_end_without_repeating_overlap():
+    first = ("alpha " * 185).strip()
+    second = ("beta " * 10).strip()
+    third = ("gamma " * 10).strip()
+    content = " \t" + first + "\n \n" + second + "\n\t\n" + third + " \n"
+    chunker = SemanticChunker(min_chunk_size=200, context_chars=20)
+
+    chunks = chunker.chunk(ParsedDocument(id="merged-tail-position", content=content))
+
+    assert len(chunks) == 1
+    assert chunks[0].content == first + "\n\n" + second + "\n\n" + third
+    _assert_context_span(chunks[0], content, 2, len(content) - 2, 20)
 
 
 @pytest.mark.parametrize("length_function", ["chars", "words"])

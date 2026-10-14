@@ -254,7 +254,7 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
             logger.debug("Could not load source filenames", exc_info=True)
 
         sources = []
-        for idx, source in enumerate(response.sources):
+        for source in response.sources:
             filename = doc_names.get(source.document_id) or source.document_name or "Unknown"
             filename = filename.rsplit("/", 1)[-1]
 
@@ -265,7 +265,7 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
 
             sources.append(
                 {
-                    "index": idx + 1,
+                    "index": source.index,
                     "content": content,
                     "text": content,
                     "truncated": truncated,

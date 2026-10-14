@@ -17,12 +17,14 @@ class DocumentParseError(ValueError):
 
 @dataclass
 class Section:
-    """A logical section within a document."""
+    """A section body with optional source offsets; end_offset is exclusive."""
 
     title: str
     content: str
     level: int = 0
     page_number: int | None = None
+    start_offset: int | None = None
+    end_offset: int | None = None
 
 
 @dataclass
@@ -104,13 +106,21 @@ class DocumentParser:
 
         sections: list[Section] = []
         full_text_parts: list[str] = []
+        page_start = 0
 
         for page_num, page in enumerate(reader.pages, start=1):
-            text = page.extract_text() or ""
-            if text.strip():
+            text = self._clean_text(page.extract_text() or "")
+            if text:
+                if full_text_parts:
+                    page_start += 2
                 full_text_parts.append(text)
                 page_sections = self._extract_sections_from_text(text, page_num)
+                for section in page_sections:
+                    if section.start_offset is not None and section.end_offset is not None:
+                        section.start_offset += page_start
+                        section.end_offset += page_start
                 sections.extend(page_sections)
+                page_start += len(text)
 
         full_text = "\n\n".join(full_text_parts)
         if not full_text.strip() and self._has_images(reader):
@@ -120,49 +130,38 @@ class DocumentParser:
             )
 
         if not sections and full_text.strip():
-            sections = [Section(title="Content", content=full_text, level=0)]
+            sections = [
+                Section(
+                    title="Content", content=full_text, start_offset=0, end_offset=len(full_text)
+                )
+            ]
 
-        return self._clean_text(full_text), sections
+        return full_text, sections
 
     def _parse_docx(self, path: Path) -> tuple[str, list[Section]]:
         """Extract text and sections from DOCX."""
         doc = DocxDocument(str(path))
-        sections: list[Section] = []
-        current_section: Section | None = None
-        preamble: list[str] = []
         full_text_parts: list[str] = []
+        headings: list[tuple[int, int, str, int]] = []
+        position = 0
 
         for para in doc.paragraphs:
-            text = para.text.strip()
+            text = self._clean_text(para.text)
             if not text:
                 continue
 
+            if full_text_parts:
+                position += 2
+            start = position
             full_text_parts.append(text)
+            position += len(text)
 
             if para.style and para.style.name.startswith("Heading"):
-                if current_section is None and preamble:
-                    sections.append(Section(title="", content="\n".join(preamble), level=0))
-                    preamble = []
                 level = self._get_heading_level(para.style.name)
-                if current_section:
-                    sections.append(current_section)
-                current_section = Section(title=text, content="", level=level)
-            elif current_section:
-                current_section.content += text + "\n"
-            else:
-                preamble.append(text)
-
-        if current_section:
-            sections.append(current_section)
-        elif preamble:
-            sections.append(Section(title="", content="\n".join(preamble), level=0))
+                headings.append((start, position, text, level))
 
         full_text = "\n\n".join(full_text_parts)
-
-        if not sections and full_text.strip():
-            sections = [Section(title="Content", content=full_text, level=0)]
-
-        return self._clean_text(full_text), sections
+        return full_text, self._sections_from_headings(full_text, headings)
 
     @staticmethod
     def _read_text(path: Path) -> str:
@@ -175,92 +174,62 @@ class DocumentParser:
             ) from exc
 
     def _parse_text(self, path: Path) -> tuple[str, list[Section]]:
-        content = self._read_text(path)
+        content = self._clean_text(self._read_text(path))
         sections = self._extract_sections_from_text(content)
-        return self._clean_text(content), sections
+        return content, sections
 
     def _parse_markdown(self, path: Path) -> tuple[str, list[Section]]:
         """Parse Markdown file, extracting headers as sections."""
-        content = self._read_text(path)
-        sections: list[Section] = []
-        current_section: Section | None = None
-        preamble: list[str] = []
-
-        for line in content.split("\n"):
-            header_match = re.match(r"^(#{1,6})\s+(.+)$", line)
-            if header_match:
-                if current_section is None and "".join(preamble).strip():
-                    sections.append(Section(title="", content="\n".join(preamble).strip(), level=0))
-                    preamble = []
-                if current_section:
-                    sections.append(current_section)
-                level = len(header_match.group(1))
-                title = header_match.group(2).strip()
-                current_section = Section(title=title, content="", level=level)
-            elif current_section:
-                current_section.content += line + "\n"
-            else:
-                preamble.append(line)
-
-        if current_section:
-            sections.append(current_section)
-        elif "".join(preamble).strip():
-            sections.append(Section(title="", content="\n".join(preamble).strip(), level=0))
-
-        if not sections and content.strip():
-            sections = [Section(title="Content", content=content, level=0)]
-
-        return self._clean_text(content), sections
+        content = self._clean_text(self._read_text(path))
+        headings = [
+            (match.start(), match.end(), match.group(2).strip(), len(match.group(1)))
+            for match in re.finditer(r"^(#{1,6})[ \t]+(.+)$", content, re.MULTILINE)
+        ]
+        return content, self._sections_from_headings(content, headings)
 
     def _extract_sections_from_text(
         self, text: str, page_number: int | None = None
     ) -> list[Section]:
         """Heuristic section detection from plain text."""
-        sections: list[Section] = []
-        lines = text.split("\n")
-        current_section: Section | None = None
-        preamble: list[str] = []
-
-        for line in lines:
-            stripped = line.strip()
-            if not stripped:
-                if current_section is None:
-                    preamble.append(line)
-                continue
+        headings: list[tuple[int, int, str, int]] = []
+        for line in re.finditer(r"^[^\n]+", text, re.MULTILINE):
+            stripped = line.group().strip()
 
             is_header = (
                 (stripped.isupper() and len(stripped) < 100)
                 or re.match(r"^\d+\.\s+[A-Z]", stripped)
                 or re.match(r"^[IVX]+\.\s+", stripped)
             )
-
             if is_header:
-                if current_section is None and "".join(preamble).strip():
-                    sections.append(
-                        Section(
-                            title="",
-                            content="\n".join(preamble).strip(),
-                            page_number=page_number,
-                        )
-                    )
-                    preamble = []
-                if current_section:
-                    sections.append(current_section)
-                current_section = Section(
-                    title=stripped, content="", level=1, page_number=page_number
-                )
-            elif current_section:
-                current_section.content += stripped + " "
-            else:
-                preamble.append(line)
+                headings.append((line.start(), line.end(), stripped, 1))
+        return self._sections_from_headings(text, headings, page_number)
 
-        if current_section:
-            sections.append(current_section)
-        elif "".join(preamble).strip():
+    @staticmethod
+    def _sections_from_headings(
+        text: str,
+        headings: list[tuple[int, int, str, int]],
+        page_number: int | None = None,
+    ) -> list[Section]:
+        """Slice section bodies from normalized text without relocating repeated passages."""
+        starts = [(0, "", 0)] + [(end, title, level) for _, end, title, level in headings]
+        ends = [start for start, _, _, _ in headings] + [len(text)]
+        sections = []
+        for (start, title, level), end in zip(starts, ends, strict=True):
+            body = text[start:end]
+            content = body.strip()
+            if not content and not title:
+                continue
+            start += len(body) - len(body.lstrip())
             sections.append(
-                Section(title="", content="\n".join(preamble).strip(), page_number=page_number)
+                Section(
+                    title=title,
+                    content=content,
+                    level=level,
+                    page_number=page_number,
+                    start_offset=start,
+                    end_offset=start + len(content),
+                )
             )
-
         return sections
 
     @staticmethod

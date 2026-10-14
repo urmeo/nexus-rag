@@ -37,6 +37,13 @@ class SynthesisResult:
     error: str | None = None
 
 
+@dataclass
+class SynthesisPrompt:
+    prompt: str
+    sources: list[Source]
+    error: str | None = None
+
+
 SYSTEM_PROMPT = """You are a precise research assistant. Answer questions using ONLY the provided sources.
 
 RULES:
@@ -90,15 +97,41 @@ class Synthesizer:
 
     def _build_prompt(self, query: str, sources: list[Source], query_type: QueryType | None) -> str:
         formatted_sources = self._format_sources_for_llm(sources)
-        if len(formatted_sources) > self.max_context_length:
-            formatted_sources = formatted_sources[: self.max_context_length] + "\n\n[truncated]"
-
         prompt = USER_PROMPT_TEMPLATE.format(question=query, formatted_sources=formatted_sources)
         if query_type is not None:
             hint = self._get_type_hint(query_type)
             if hint:
                 prompt += f"\n\nInstruction: {hint}"
         return prompt
+
+    def prepare(
+        self,
+        query: str,
+        results: list[RetrievalResult],
+        doc_names: dict[str, str] | None = None,
+        query_type: QueryType | None = None,
+    ) -> SynthesisPrompt:
+        if not results:
+            return SynthesisPrompt(
+                prompt="",
+                sources=[],
+                error="No relevant documents found. Please upload documents and try again.",
+            )
+
+        sources: list[Source] = []
+        context_length = 0
+        for source in self._build_sources(results, doc_names or {})[: self.max_sources]:
+            block_length = len(self._format_sources_for_llm([source])) + (1 if sources else 0)
+            if context_length + block_length > self.max_context_length:
+                break
+            sources.append(source)
+            context_length += block_length
+
+        if not sources:
+            return SynthesisPrompt(
+                prompt="", sources=[], error="No source passages fit the context limit."
+            )
+        return SynthesisPrompt(self._build_prompt(query, sources, query_type), sources)
 
     def synthesize(
         self,
@@ -107,33 +140,26 @@ class Synthesizer:
         doc_names: dict[str, str] | None = None,
         query_type: QueryType | None = None,
     ) -> SynthesisResult:
-        if not results:
-            return SynthesisResult(
-                answer="No relevant documents found. Please upload documents and try again.",
-                sources=[],
-                confidence=0.0,
-            )
-
-        doc_names = doc_names or {}
-        sources = self._build_sources(results, doc_names)[: self.max_sources]
-        user_prompt = self._build_prompt(query, sources, query_type)
+        prepared = self.prepare(query, results, doc_names, query_type)
+        if prepared.error:
+            return SynthesisResult(answer=prepared.error, sources=[], error=prepared.error)
 
         try:
             answer = self.llm.generate(
-                user_prompt,
+                prepared.prompt,
                 system=SYSTEM_PROMPT,
                 temperature=self.temperature,
-                max_tokens=self._token_budget(sources),
+                max_tokens=self._token_budget(prepared.sources),
             )
         except Exception:
             logger.error("LLM generation failed", exc_info=True)
             return SynthesisResult(
                 answer="Unable to generate response. Please try again.",
-                sources=sources,
+                sources=prepared.sources,
                 error="Answer generation failed.",
             )
 
-        return SynthesisResult(answer=answer.strip(), sources=sources, raw_response=answer)
+        return SynthesisResult(answer=answer.strip(), sources=prepared.sources, raw_response=answer)
 
     def synthesize_streaming(
         self,
@@ -143,19 +169,17 @@ class Synthesizer:
         query_type: QueryType | None = None,
     ) -> Generator[str, None, None]:
         """Stream the synthesis response token by token."""
-        if not results:
-            yield "No relevant documents found. Please upload documents and try again."
+        yield from self.stream_prepared(self.prepare(query, results, doc_names, query_type))
+
+    def stream_prepared(self, prepared: SynthesisPrompt) -> Generator[str, None, None]:
+        if prepared.error:
+            yield prepared.error
             return
-
-        doc_names = doc_names or {}
-        sources = self._build_sources(results, doc_names)[: self.max_sources]
-        user_prompt = self._build_prompt(query, sources, query_type)
-
         yield from self.llm.stream(
-            user_prompt,
+            prepared.prompt,
             system=SYSTEM_PROMPT,
             temperature=self.temperature,
-            max_tokens=self._token_budget(sources),
+            max_tokens=self._token_budget(prepared.sources),
         )
 
     def _build_sources(

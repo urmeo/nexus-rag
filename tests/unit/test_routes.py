@@ -520,6 +520,18 @@ class TestQueryDocuments:
         assert data["sources"][0]["score"] == 0.95
         assert data["sources"][1]["score"] == 0.87
 
+    def test_query_preserves_source_indices(self, client, patch_get_scinexusrag, mock_scinexusrag):
+        sources = [
+            Source(index=index, chunk_id=f"chunk_{index}", document_id="doc", content="Evidence.")
+            for index in (2, 4)
+        ]
+        mock_scinexusrag.query.return_value = RAGResponse("Answer [2] [4].", sources, 0.5)
+
+        response = client.post("/api/query", json={"question": "What was measured?"})
+
+        assert response.status_code == 200
+        assert [source["index"] for source in response.json()["sources"]] == [2, 4]
+
     def test_query_long_source_content_truncated(
         self, client, patch_get_scinexusrag, mock_scinexusrag
     ):

@@ -76,6 +76,19 @@ class TestCitationValidation:
         assert result.citations_found == []
         assert any("no sources" in w for w in result.warnings)
 
+    def test_citations_match_actual_source_indices(self) -> None:
+        sources = [
+            Source(index=2, chunk_id="c2", document_id="d2", content="alpha"),
+            Source(index=4, chunk_id="c4", document_id="d4", content="beta"),
+        ]
+
+        result = AnswerVerifier().verify("Claim [1] [2] [4] [5].", sources)
+
+        assert result.citations_valid == [2, 4]
+        assert result.citations_invalid == [1, 5]
+        assert "[2]" in result.verified_answer and "[4]" in result.verified_answer
+        assert "[1]" not in result.verified_answer and "[5]" not in result.verified_answer
+
 
 class TestSynthesizerFormatting:
     def test_format_sources_numbered(self) -> None:
@@ -107,6 +120,57 @@ class TestSynthesizerFormatting:
         assert Synthesizer(StubLLM("x"), max_tokens=2048)._token_budget(sources) == 756  # type: ignore[arg-type]
 
         assert Synthesizer(StubLLM("x"), max_tokens=300)._token_budget(sources) == 300  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("shortfall, expected_count", [(0, 2), (1, 1)])
+    def test_context_budget_keeps_only_complete_blocks(
+        self, shortfall: int, expected_count: int
+    ) -> None:
+        synth = Synthesizer(Mock(spec=LLMClient))
+        results = [_result(i, f"Passage {i}.") for i in range(1, 4)]
+        results[1].chunk.context_before = "Nearby evidence."
+        sources = synth._build_sources(results, {})
+        synth.max_context_length = len(synth._format_sources_for_llm(sources[:2])) - shortfall
+
+        prepared = synth.prepare("What did the study find?", results)
+
+        assert prepared.error is None
+        assert prepared.sources == sources[:expected_count]
+        for source in prepared.sources:
+            assert synth._format_sources_for_llm([source]) in prepared.prompt
+        assert results[expected_count].chunk.content not in prepared.prompt
+        assert "[truncated]" not in prepared.prompt
+
+    def test_source_limit_applies_after_deduplication(self) -> None:
+        first = _result(1, "First passage.")
+        synth = Synthesizer(Mock(spec=LLMClient), max_sources=2)
+
+        prepared = synth.prepare(
+            "What did the study find?",
+            [first, first, _result(2, "Second passage."), _result(3, "Omitted passage.")],
+        )
+
+        assert [source.chunk_id for source in prepared.sources] == ["c1", "c2"]
+        assert [source.index for source in prepared.sources] == [1, 2]
+        assert prepared.prompt.count("First passage.") == 1
+        assert "Omitted passage." not in prepared.prompt
+
+    def test_regular_and_streaming_use_same_retained_sources_and_token_budget(self) -> None:
+        results = [_result(i, f"Passage {i}: " + "evidence " * 145) for i in range(1, 6)]
+        llm = Mock(spec=LLMClient)
+        llm.generate.return_value = "Answer [2]."
+        llm.stream.return_value = iter(["Answer ", "[2]."])
+        synth = Synthesizer(llm)
+
+        response = synth.synthesize("What did the study find?", results)
+        streamed = "".join(synth.synthesize_streaming("What did the study find?", results))
+
+        assert streamed == response.answer
+        assert [source.chunk_id for source in response.sources] == ["c1", "c2", "c3", "c4"]
+        assert llm.generate.call_args == llm.stream.call_args
+        assert llm.generate.call_args.kwargs["max_tokens"] == 656
+        prompt = llm.generate.call_args.args[0]
+        assert results[4].chunk.content not in prompt
+        assert all(source.content in prompt for source in response.sources)
 
 
 class TestOrchestratorWiring:
@@ -170,14 +234,9 @@ class TestOrchestratorWiring:
 
     def test_streaming_appends_verification_event(self) -> None:
         retriever = StubRetriever([_result(1, "fact")])
-        llm = StubLLM("ignored")
-
-        def fake_stream(query: str, results: Any, **kwargs: Any) -> Any:
-            yield "Fact "
-            yield "[1] and [9]."
-
+        llm = Mock(spec=LLMClient)
+        llm.stream.return_value = iter(["Fact ", "[1] and [9]."])
         orch = Orchestrator(retriever, llm)  # type: ignore[arg-type]
-        orch.synthesizer.synthesize_streaming = fake_stream  # type: ignore[assignment]
 
         chunks = list(orch.query_streaming("q?"))
 
@@ -186,6 +245,87 @@ class TestOrchestratorWiring:
         assert final.startswith("\ndata: ")
         assert "verification" in final
         assert "citations_valid" in final
+
+    def test_omitted_sources_cannot_be_cited_or_used_for_grounding(self) -> None:
+        results = [_result(i, f"Passage {i}: " + "evidence " * 145) for i in range(1, 6)]
+        llm = Mock(spec=LLMClient)
+        llm.generate.return_value = "Visible claim [1]. Omitted claim [5]."
+        grounding = Mock(spec=StubGrounding)
+        grounding.verify.return_value = GroundingReport(faithfulness=1.0, sentences=[])
+        orch = Orchestrator(StubRetriever(results), llm, grounding_verifier=grounding)  # type: ignore[arg-type]
+
+        response = orch.query("What did the study find?")
+
+        assert [source.index for source in response.sources] == [1, 2, 3, 4]
+        assert "[1]" in response.answer and "[5]" not in response.answer
+        assert any("out-of-range" in warning for warning in response.warnings)
+        assert grounding.verify.call_args.args == (response.answer, response.sources)
+        prompt = llm.generate.call_args.args[0]
+        assert all((source.full_content or source.content) in prompt for source in response.sources)
+        assert results[4].chunk.content not in prompt
+
+    @pytest.mark.parametrize("streaming", [False, True])
+    def test_oversized_context_stops_before_generation_and_verification(
+        self, streaming: bool
+    ) -> None:
+        first = _result(1, "Short main passage.")
+        first.chunk.context_before = "Nearby context. " * 500
+        llm = Mock(spec=LLMClient)
+        grounding = Mock(spec=StubGrounding)
+        orch = Orchestrator(  # type: ignore[arg-type]
+            StubRetriever([first, _result(2, "A later passage that would fit.")]),
+            llm,
+            grounding_verifier=grounding,
+        )
+        error = "No source passages fit the context limit."
+
+        if streaming:
+            chunks = list(orch.query_streaming("What did the study find?"))
+            event = json.loads(chunks[-1].removeprefix("\ndata: "))
+            assert chunks[:-1] == [error]
+            assert event["citations_valid"] == []
+            assert event["faithfulness"] is None
+            assert event["warnings"] == [error]
+        else:
+            response = orch.query("What did the study find?")
+            assert response.answer == error
+            assert response.sources == []
+            assert response.confidence == 0.0
+            assert response.faithfulness is None
+            assert response.warnings == [error]
+
+        llm.generate.assert_not_called()
+        llm.stream.assert_not_called()
+        grounding.verify.assert_not_called()
+
+    def test_stream_verifies_the_source_snapshot_sent_to_the_llm(self) -> None:
+        results = [_result(i, f"Passage {i}: " + "evidence " * 145) for i in range(1, 6)]
+        original_contents = [result.chunk.content for result in results[:4]]
+        llm = Mock(spec=LLMClient)
+        grounding = Mock(spec=StubGrounding)
+        grounding.verify.return_value = GroundingReport(faithfulness=1.0, sentences=[])
+        orch = Orchestrator(StubRetriever(results), llm, grounding_verifier=grounding)  # type: ignore[arg-type]
+
+        def mutate_after_preparation(*args: Any, **kwargs: Any) -> Any:
+            results[0].chunk.content = "Changed after prompt construction."
+            results.clear()
+            orch.synthesizer.max_sources = 0
+            orch.synthesizer.max_context_length = 0
+            yield "Visible claim [1]. Omitted claim [5]."
+
+        llm.stream.side_effect = mutate_after_preparation
+
+        chunks = list(orch.query_streaming("What did the study find?"))
+        event = json.loads(chunks[-1].removeprefix("\ndata: "))
+
+        assert event["citations_valid"] == [1]
+        assert any("out-of-range" in warning for warning in event["warnings"])
+        verified_answer, sources = grounding.verify.call_args.args
+        assert "[5]" not in verified_answer
+        assert [source.content for source in sources] == original_contents
+        assert [source.index for source in sources] == [1, 2, 3, 4]
+        prompt = llm.stream.call_args.args[0]
+        assert all(source.content in prompt for source in sources)
 
     @pytest.mark.parametrize("partial", [False, True])
     def test_failed_stream_reports_failure_without_grounding_partial_text(
