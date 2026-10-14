@@ -4,9 +4,9 @@ import logging
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -15,6 +15,7 @@ from scinexusrag import __version__
 from scinexusrag.api.routes import router
 from scinexusrag.api.security import limiter
 from scinexusrag.config import get_settings
+from scinexusrag.ingestion.embedder import EmbeddingConfigError
 
 FRONTEND_DIR = Path(
     os.environ.get("NEXUSRAG_FRONTEND_DIR") or Path(__file__).resolve().parents[1] / "web"
@@ -44,6 +45,22 @@ def create_app() -> FastAPI:
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+    @app.exception_handler(EmbeddingConfigError)
+    async def embedding_config_error(_request: Request, _exc: EmbeddingConfigError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": (
+                    "Embedding configuration is invalid or incompatible with this index. "
+                    "Custom models need a full 40-character EMBEDDING_REVISION commit SHA; "
+                    "local model paths are unsupported. "
+                    "Restore the original embedding settings, or set new DATA_DIR and "
+                    "LANCEDB_PATH directories and re-upload the original documents. "
+                    "Clear the old collection only if you intend to delete and rebuild it."
+                )
+            },
+        )
 
     origins = settings.api.cors_origins
     allow_credentials = "*" not in origins

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import lancedb
 import numpy as np
 from numpy.typing import NDArray
 
@@ -19,6 +20,7 @@ from scinexusrag.ingestion import (
     DocumentParseError,
     DocumentParser,
     Embedder,
+    EmbeddingConfigError,
     ParsedDocument,
     SemanticChunker,
 )
@@ -106,7 +108,7 @@ class NexusRAG:
             self._vector_store = VectorStore(
                 path=self.settings.storage.lancedb_path,
                 table_name=self.settings.storage.table_name,
-                embedding_dim=self.embedder.dimension,
+                embedding_config=self.embedder.embedding_config,
             )
         return self._vector_store
 
@@ -177,6 +179,7 @@ class NexusRAG:
     ) -> None:
         """Write document + chunks to all stores; roll back on partial failure."""
         with self._write_lock:
+            self.vector_store.validate_embedding_config(self.embedder.embedding_config)
             try:
                 self.document_store.add(document)
                 self.vector_store.add(chunks, embeddings)
@@ -203,6 +206,7 @@ class NexusRAG:
     ) -> IngestResult:
         """Chunk, embed, and persist an already-parsed document."""
         with self._write_lock:
+            self.vector_store.validate_embedding_config(self.embedder.embedding_config)
             if self.document_store.exists(document.id):
                 return self._failed_ingest(filename, "Document already exists", document)
 
@@ -250,6 +254,8 @@ class NexusRAG:
             return self._ingest_document(document, path.name, show_progress=True)
         except DocumentParseError as e:
             return self._failed_ingest(path.name, str(e))
+        except EmbeddingConfigError:
+            raise
         except Exception as e:
             logger.exception("Failed to ingest file: %s", path.name)
             return self._failed_ingest(path.name, f"Ingestion failed: {type(e).__name__}")
@@ -261,6 +267,8 @@ class NexusRAG:
             return self._ingest_document(document, filename, show_progress=False)
         except DocumentParseError as e:
             return self._failed_ingest(filename, str(e))
+        except EmbeddingConfigError:
+            raise
         except Exception as e:
             logger.exception("Failed to ingest bytes: %s", filename)
             return self._failed_ingest(filename, f"Ingestion failed: {type(e).__name__}")
@@ -295,6 +303,7 @@ class NexusRAG:
 
     def query(self, question: str) -> RAGResponse:
         """Answer a question over the ingested corpus with cited sources."""
+        self.vector_store.validate_embedding_config(self.embedder.embedding_config)
         if self.vector_store.count() == 0:
             return RAGResponse(
                 answer="No documents have been uploaded yet. Please upload research papers first.",
@@ -307,6 +316,7 @@ class NexusRAG:
 
     def query_streaming(self, question: str) -> Generator[str, None, None]:
         """Stream query response token by token."""
+        self.vector_store.validate_embedding_config(self.embedder.embedding_config)
         if self.vector_store.count() == 0:
             yield "No documents have been uploaded yet. Please upload research papers first."
             return
@@ -333,7 +343,12 @@ class NexusRAG:
     def clear_all(self) -> None:
         """Remove all documents and reset the system."""
         with self._write_lock:
-            self.vector_store.clear()
+            if self._vector_store is not None:
+                self._vector_store.clear()
+            else:
+                lancedb.connect(str(self.settings.storage.lancedb_path)).drop_table(
+                    self.settings.storage.table_name, ignore_missing=True
+                )
             if self._bm25 is not None:
                 self._bm25.clear()
             self.document_store.clear()
@@ -378,6 +393,8 @@ class NexusRAG:
 
         if self._orchestrator is not None:
             self._orchestrator = None
+        self._vector_store = None
+        self._bm25 = None
 
         if self._llm is not None:
             self._llm.close()

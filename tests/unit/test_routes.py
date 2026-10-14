@@ -2,13 +2,16 @@
 
 import io
 import zipfile
+from dataclasses import replace
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from scinexusrag.api import create_app
 from scinexusrag.api.routes import (
     MAX_FILENAME_LENGTH,
     DeleteResponse,
@@ -20,8 +23,9 @@ from scinexusrag.api.routes import (
     UploadResponse,
     router,
 )
-from scinexusrag.config import Settings, get_settings
+from scinexusrag.config import EmbeddingSettings, Settings, StorageSettings, get_settings
 from scinexusrag.generation import RAGResponse, Source
+from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfig, EmbeddingConfigError
 from scinexusrag.pipeline import IngestResult, NexusRAG, SystemStats
 
 MAX_FILE_SIZE_MB = get_settings().api.max_upload_mb
@@ -955,6 +959,129 @@ class TestErrorHandling:
         )
 
         assert response.status_code == 422
+
+
+@pytest.fixture
+def embedding_client(patch_get_scinexusrag):
+    return TestClient(create_app())
+
+
+class TestEmbeddingConfigErrors:
+    @staticmethod
+    def assert_conflict(response):
+        assert response.status_code == 409
+        detail = response.json()["detail"]
+        assert "EMBEDDING_REVISION" in detail
+        assert "DATA_DIR" in detail
+        assert "LANCEDB_PATH" in detail
+        assert "original documents" in detail
+        assert "private embedding metadata" not in detail
+
+    @pytest.mark.parametrize(
+        "path", ["/api/health", "/api/status", "/api/documents", "/api/metrics"]
+    )
+    def test_count_conflict_is_not_reported_as_empty_or_healthy(
+        self, embedding_client, mock_scinexusrag, path
+    ):
+        mock_scinexusrag.get_stats.side_effect = EmbeddingConfigError("private embedding metadata")
+
+        self.assert_conflict(embedding_client.get(path))
+
+    @pytest.mark.parametrize("failed_method", ["query", "list_documents"])
+    def test_query_conflict_is_actionable_and_does_not_expose_metadata(
+        self, embedding_client, mock_scinexusrag, failed_method
+    ):
+        mock_scinexusrag.query.return_value = RAGResponse("Answer.", [], 0.0)
+        getattr(mock_scinexusrag, failed_method).side_effect = EmbeddingConfigError(
+            "private embedding metadata"
+        )
+
+        response = embedding_client.post("/api/query", json={"question": "What was measured?"})
+
+        self.assert_conflict(response)
+
+    def test_ingest_conflict_returns_409(self, embedding_client, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.side_effect = EmbeddingConfigError(
+            "private embedding metadata"
+        )
+
+        response = embedding_client.post(
+            "/api/ingest", files={"file": ("paper.txt", b"Sensor readings.", "text/plain")}
+        )
+
+        self.assert_conflict(response)
+
+    def test_real_ingest_rejects_same_dimension_model_change(self, temp_dir):
+        settings = Settings(
+            data_dir=temp_dir,
+            storage=StorageSettings(lancedb_path=temp_dir / "lancedb"),
+            embedding=EmbeddingSettings(model="test-model", revision="a" * 40),
+        )
+        config = EmbeddingConfig("test-model", "a" * 40, "", "", True, 4)
+        original_embedder = MagicMock(spec=Embedder)
+        original_embedder.embedding_config = config
+        original_embedder.embed.return_value = np.array([[1, 0, 0, 0]], dtype=np.float32)
+        original = NexusRAG(settings)
+        original._embedder = original_embedder
+        result = original.ingest_bytes(
+            b"Sensor A records temperature every thirty seconds.", "original.txt", ".txt"
+        )
+        assert result.success
+        assert original.vector_store.count() == 1
+
+        changed = NexusRAG(settings)
+        changed_embedder = MagicMock(spec=Embedder)
+        changed_embedder.embedding_config = replace(config, model_name="different-model")
+        changed._embedder = changed_embedder
+        with (
+            patch("scinexusrag.api.routes.get_scinexusrag", return_value=changed),
+            TestClient(create_app()) as client,
+        ):
+            self.assert_conflict(
+                client.post(
+                    "/api/ingest",
+                    files={"file": ("new.txt", b"Sensor B records pressure.", "text/plain")},
+                )
+            )
+            self.assert_conflict(
+                client.post("/api/query", json={"question": "What did the sensor record?"})
+            )
+
+        changed_embedder.embed.assert_not_called()
+        changed_embedder.embed_query.assert_not_called()
+        assert changed._llm is None
+        reopened = NexusRAG(settings)
+        reopened._embedder = original_embedder
+        assert reopened.vector_store.count() == 1
+        assert [document["id"] for document in reopened.list_documents()] == [result.document_id]
+
+    def test_delete_conflict_returns_409(self, embedding_client, mock_scinexusrag):
+        mock_scinexusrag.delete_document.side_effect = EmbeddingConfigError(
+            "private embedding metadata"
+        )
+
+        self.assert_conflict(embedding_client.delete("/api/documents/paper"))
+
+    def test_explicit_clear_does_not_require_compatible_stats(
+        self, embedding_client, mock_scinexusrag
+    ):
+        mock_scinexusrag.get_stats.side_effect = EmbeddingConfigError("private embedding metadata")
+
+        response = embedding_client.delete("/api/documents")
+
+        assert response.status_code == 200
+        mock_scinexusrag.clear_all.assert_called_once()
+        mock_scinexusrag.get_stats.assert_not_called()
+
+    def test_auth_runs_before_index_checks(self, embedding_client, mock_scinexusrag):
+        mock_scinexusrag.get_stats.side_effect = EmbeddingConfigError("private embedding metadata")
+        with patch(
+            "scinexusrag.api.security.get_settings", return_value=_settings(api_key="secret")
+        ):
+            response = embedding_client.get("/api/health")
+
+        assert response.status_code == 401
+        mock_scinexusrag.get_stats.assert_not_called()
 
 
 def _settings(**api_overrides) -> Settings:

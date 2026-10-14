@@ -1,14 +1,24 @@
 """Tests for Embedder."""
 
+import sys
+from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
+from scinexusrag.config import HF_REVISIONS
 from scinexusrag.ingestion import Embedder
+from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
 
 
 class TestEmbedder:
+    @pytest.fixture(autouse=True)
+    def sentence_transformers_module(self, monkeypatch):
+        module = ModuleType("sentence_transformers")
+        module.SentenceTransformer = MagicMock()
+        monkeypatch.setitem(sys.modules, "sentence_transformers", module)
+
     @pytest.fixture
     def mock_sentence_transformer(self):
         with patch("sentence_transformers.SentenceTransformer") as mock_cls:
@@ -165,3 +175,66 @@ class TestEmbedder:
 
         call_kwargs = mock_sentence_transformer.encode.call_args[1]
         assert call_kwargs["show_progress_bar"] is True
+
+    def test_embedding_configuration_uses_effective_defaults(self, mock_sentence_transformer):
+        embedder = Embedder()
+
+        assert embedder.embedding_config == EmbeddingConfig(
+            model_name="BAAI/bge-small-en-v1.5",
+            revision=HF_REVISIONS["BAAI/bge-small-en-v1.5"],
+            query_prefix="Represent this sentence for searching relevant passages: ",
+            doc_prefix="",
+            normalize=True,
+            dimension=384,
+        )
+        mock_sentence_transformer.encode.assert_not_called()
+
+    def test_embedding_configuration_preserves_exact_overrides(self, mock_sentence_transformer):
+        embedder = Embedder(
+            model_name="test-model",
+            revision="a" * 40,
+            query_prefix="  query: ",
+            doc_prefix="passage:  ",
+            normalize=False,
+        )
+
+        assert embedder.embedding_config == EmbeddingConfig(
+            "test-model", "a" * 40, "  query: ", "passage:  ", False, 384
+        )
+
+    @pytest.mark.parametrize("revision", [None, "main", "v1.0", "a" * 39, "g" * 40])
+    def test_unknown_revision_rejects_before_model_loading(self, revision):
+        with patch("sentence_transformers.SentenceTransformer") as model:
+            embedder = Embedder(model_name="test-model", revision=revision)
+
+            with pytest.raises(EmbeddingConfigError):
+                _ = embedder.embedding_config
+
+            model.assert_not_called()
+
+    def test_local_model_path_rejects_even_with_commit_shaped_revision(self, tmp_path):
+        with patch("sentence_transformers.SentenceTransformer") as model:
+            embedder = Embedder(model_name=str(tmp_path), revision="a" * 40)
+
+            with pytest.raises(EmbeddingConfigError):
+                _ = embedder.embedding_config
+
+            model.assert_not_called()
+
+    @pytest.mark.parametrize("changed_field", ["model_name", "revision"])
+    def test_loaded_weights_cannot_be_relabelled_before_unload(
+        self, mock_sentence_transformer, changed_field
+    ):
+        embedder = Embedder(model_name="test-model", revision="a" * 40)
+        original = embedder.embedding_config
+        changed = "another-model" if changed_field == "model_name" else "b" * 40
+        setattr(embedder, changed_field, changed)
+
+        with pytest.raises(EmbeddingConfigError):
+            _ = embedder.embedding_config
+        mock_sentence_transformer.encode.assert_not_called()
+
+        embedder.unload()
+        reloaded = embedder.embedding_config
+        assert getattr(reloaded, changed_field) == changed
+        assert reloaded != original

@@ -51,6 +51,7 @@ Set environment variables or create `.env` in the repository root with the setti
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama address; retrieved passages are sent here |
 | `LLM_MODEL` | `llama3.2:3b` | Ollama model tag |
 | `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Embedding model |
+| `EMBEDDING_REVISION` | Pinned for known models | Full model commit SHA for persistent indexes |
 | `EMBEDDING_DEVICE` | `cpu` | `cpu`, `cuda` or `mps` |
 | `DATA_DIR` | `./data` | Document metadata directory |
 | `LANCEDB_PATH` | `./data/lancedb` | Vector index directory; set separately from `DATA_DIR` |
@@ -58,6 +59,10 @@ Set environment variables or create `.env` in the repository root with the setti
 | `SELF_CORRECTION_GROUNDING_ENABLED` | `false` | Check answer sentences with an NLI model |
 | `NEXUSRAG_API_KEY` | Empty | Require an API key on `/api` routes |
 | `NEXUSRAG_FRONTEND_DIR` | Packaged `web/` directory | Serve a different interface directory |
+
+Each persistent table binds a versioned embedding configuration: model, revision, exact query and document prefixes, normalization, and vector dimension. Legacy tables without this binding and any configuration mismatch are rejected, including empty tables. Custom Hugging Face models require a full 40-character commit SHA in `EMBEDDING_REVISION`. Local model paths are not accepted for persistent indexes.
+
+To keep an existing collection, restore its original embedding settings. To use a different configuration, choose new `DATA_DIR` and `LANCEDB_PATH` directories and re-upload the original documents. `NexusRAG.clear_all()` or `DELETE /api/documents` explicitly deletes the current collection; use it only for an intentional reset before reingestion. Existing data is not automatically deleted, relabeled, or rebuilt.
 
 When a server key is configured, enter it through **API key** in the interface. Interactive API documentation is disabled when a key is set. Without a key, `/docs` is available unless `API_DOCS_ENABLED=false`.
 

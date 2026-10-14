@@ -3,7 +3,8 @@
 import json
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -13,12 +14,13 @@ import pyarrow as pa
 from lancedb.query import LanceVectorQueryBuilder
 from numpy.typing import NDArray
 
-from scinexusrag.ingestion import Chunk
+from scinexusrag.ingestion import Chunk, EmbeddingConfig, EmbeddingConfigError
 
 logger = logging.getLogger(__name__)
 
 
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+EMBEDDING_CONFIG_KEY = b"nexusrag.embedding_config"
 
 
 def _sanitize_id(value: str) -> str:
@@ -47,11 +49,15 @@ class VectorStore:
         self,
         path: str | Path = "./data/lancedb",
         table_name: str = "chunks",
-        embedding_dim: int = 384,
+        *,
+        embedding_config: EmbeddingConfig,
     ):
+        if not isinstance(embedding_config, EmbeddingConfig):
+            raise EmbeddingConfigError("VectorStore requires an explicit EmbeddingConfig.")
         self.path = Path(path)
         self.table_name = table_name
-        self.embedding_dim = embedding_dim
+        self.embedding_config = embedding_config
+        self.embedding_dim = embedding_config.dimension
         self._db: lancedb.DBConnection | None = None
         self._table: lancedb.table.Table | None = None
 
@@ -60,18 +66,61 @@ class VectorStore:
         """Lazy database connection."""
         if self._db is None:
             self.path.mkdir(parents=True, exist_ok=True)
-            self._db = lancedb.connect(str(self.path))
+            self._db = lancedb.connect(str(self.path), read_consistency_interval=timedelta(0))
         return self._db
 
     @property
     def table(self) -> lancedb.table.Table:
         """Get or create the chunks table."""
-        if self._table is None:
-            if self._table_exists():
-                self._table = self.db.open_table(self.table_name)
-            else:
-                self._table = self._create_table()
-        return self._table
+        try:
+            table = self._table
+            if table is None:
+                table = (
+                    self.db.open_table(self.table_name)
+                    if self._table_exists()
+                    else self._create_table()
+                )
+            self._validate_table(table)
+        except EmbeddingConfigError:
+            raise
+        except Exception as exc:
+            raise EmbeddingConfigError("Cannot open or validate the vector index.") from exc
+        self._table = table
+        return table
+
+    def _config_metadata(self) -> dict[str, Any]:
+        return {"version": 1, **asdict(self.embedding_config)}
+
+    def _validate_table(self, table: lancedb.table.Table) -> None:
+        schema = table.schema
+        raw = (schema.metadata or {}).get(EMBEDDING_CONFIG_KEY)
+        if raw is None:
+            raise EmbeddingConfigError(
+                "Vector index has no embedding configuration. Rebuild it in a new collection."
+            )
+        try:
+            stored = json.loads(raw)
+            actual = json.dumps(stored, sort_keys=True, allow_nan=False)
+        except (UnicodeDecodeError, ValueError, TypeError) as exc:
+            raise EmbeddingConfigError("Vector index embedding metadata is invalid.") from exc
+        expected = json.dumps(self._config_metadata(), sort_keys=True, allow_nan=False)
+        if actual != expected:
+            raise EmbeddingConfigError(
+                "Vector index embedding configuration differs. Restore the original settings "
+                "or rebuild in a new collection."
+            )
+        if schema.field("vector").type != pa.list_(pa.float32(), self.embedding_dim):
+            raise EmbeddingConfigError(
+                "Vector index schema does not match its embedding dimension."
+            )
+
+    def validate_embedding_config(self, config: EmbeddingConfig) -> None:
+        if config != self.embedding_config:
+            raise EmbeddingConfigError(
+                "Active embedder differs from the vector index configuration. "
+                "Restore the original settings or rebuild in a new collection."
+            )
+        _ = self.table
 
     def _table_exists(self) -> bool:
         """Find the configured table with either LanceDB listing API."""
@@ -96,7 +145,12 @@ class VectorStore:
                 pa.field("document_id", pa.string()),
                 pa.field("metadata", pa.string()),
                 pa.field("vector", pa.list_(pa.float32(), self.embedding_dim)),
-            ]
+            ],
+            metadata={
+                EMBEDDING_CONFIG_KEY: json.dumps(
+                    self._config_metadata(), sort_keys=True, allow_nan=False
+                ).encode("utf-8")
+            },
         )
         return self.db.create_table(self.table_name, schema=schema)
 
@@ -208,15 +262,14 @@ class VectorStore:
         return initial_count - self.count()
 
     def count(self) -> int:
-        try:
-            return int(self.table.count_rows())
-        except (OSError, ValueError):
-            return 0
+        return int(self.table.count_rows())
 
     def list_documents(self) -> list[str]:
         """Get all unique document IDs."""
         try:
             return list(dict.fromkeys(self.table.to_arrow().column("document_id").to_pylist()))
+        except EmbeddingConfigError:
+            raise
         except Exception:
             logger.debug("Failed to list documents from vector store", exc_info=True)
             return []
@@ -233,6 +286,8 @@ class VectorStore:
                 return []
 
             return [self._chunk_from_row(row) for row in self.table.to_arrow().to_pylist()]
+        except EmbeddingConfigError:
+            raise
         except Exception:
             logger.debug("Failed to get all chunks", exc_info=True)
             return []
@@ -244,6 +299,8 @@ class VectorStore:
                 self.table.search().where(f"document_id = '{safe_doc_id}'").limit(100000).to_list()
             )
             return [self._chunk_from_row(row) for row in results]
+        except EmbeddingConfigError:
+            raise
         except Exception:
             logger.debug("Failed to get chunks by document", exc_info=True)
             return []

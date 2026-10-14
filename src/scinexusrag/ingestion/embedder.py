@@ -1,6 +1,9 @@
 """Text embedding with sentence-transformers."""
 
 import gc
+import re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
@@ -10,6 +13,39 @@ from scinexusrag.config import HF_REVISIONS
 
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
+
+
+class EmbeddingConfigError(RuntimeError):
+    """A persistent index cannot verify its embedding configuration."""
+
+
+def _pinned_revision(revision: str | None) -> str:
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", revision):
+        raise EmbeddingConfigError(
+            "Persistent indexes require a full model commit SHA in EMBEDDING_REVISION."
+        )
+    return revision.lower()
+
+
+@dataclass(frozen=True)
+class EmbeddingConfig:
+    model_name: str
+    revision: str
+    query_prefix: str
+    doc_prefix: str
+    normalize: bool
+    dimension: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.model_name, str) or not self.model_name.strip():
+            raise EmbeddingConfigError("Embedding model name must be a nonempty string.")
+        if not isinstance(self.query_prefix, str) or not isinstance(self.doc_prefix, str):
+            raise EmbeddingConfigError("Embedding prefixes must be strings.")
+        if type(self.normalize) is not bool:
+            raise EmbeddingConfigError("Embedding normalization must be a boolean.")
+        if type(self.dimension) is not int or self.dimension <= 0:
+            raise EmbeddingConfigError("Embedding dimension must be a positive integer.")
+        object.__setattr__(self, "revision", _pinned_revision(self.revision))
 
 
 def default_prefixes(model_name: str) -> tuple[str, str]:
@@ -36,6 +72,7 @@ class Embedder:
         self.model_name = model_name
         self.normalize = normalize
         self._model: SentenceTransformer | None = None
+        self._loaded_model_source: tuple[str, str | None] | None = None
         self._device = device
         self.revision = revision or HF_REVISIONS.get(model_name)
         default_query_prefix, default_doc_prefix = default_prefixes(model_name)
@@ -44,17 +81,43 @@ class Embedder:
 
     @property
     def model(self) -> Any:
+        source = (self.model_name, self.revision)
+        if self._model is not None and self._loaded_model_source != source:
+            raise EmbeddingConfigError(
+                "Model settings changed after loading. Unload the model first."
+            )
         if self._model is None:
             from sentence_transformers import SentenceTransformer
 
             self._model = SentenceTransformer(
                 self.model_name, device=self._device, revision=self.revision
             )
+            self._loaded_model_source = source
         return self._model
+
+    @property
+    def embedding_config(self) -> EmbeddingConfig:
+        if (
+            Path(self.model_name).is_absolute()
+            or self.model_name.startswith(".")
+            or Path(self.model_name).exists()
+        ):
+            raise EmbeddingConfigError(
+                "Persistent indexes require a repository model with a pinned commit, not local files."
+            )
+        return EmbeddingConfig(
+            model_name=self.model_name,
+            revision=_pinned_revision(self.revision),
+            query_prefix=self.query_prefix,
+            doc_prefix=self.doc_prefix,
+            normalize=self.normalize,
+            dimension=self.dimension,
+        )
 
     def unload(self) -> None:
         """Release the underlying model; it lazy-loads again on next use."""
         self._model = None
+        self._loaded_model_source = None
         gc.collect()
 
     @property

@@ -7,7 +7,7 @@ from scinexusrag.ingestion.chunker import (
     SemanticChunker,
     get_chunker,
 )
-from scinexusrag.ingestion.embedder import Embedder
+from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfig, EmbeddingConfigError
 from scinexusrag.ingestion.parser import (
     DocumentParseError,
     DocumentParser,
@@ -20,6 +20,8 @@ __all__ = [
     "DocumentParseError",
     "DocumentParser",
     "Embedder",
+    "EmbeddingConfig",
+    "EmbeddingConfigError",
     "FixedSizeChunker",
     "HierarchicalChunker",
     "ParsedDocument",

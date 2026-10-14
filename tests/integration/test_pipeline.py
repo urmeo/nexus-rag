@@ -3,8 +3,9 @@
 import tempfile
 import zlib
 from collections.abc import Generator
+from dataclasses import replace
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 
 import numpy as np
 import pytest
@@ -16,6 +17,7 @@ from scinexusrag.config import (
     Settings,
     StorageSettings,
 )
+from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
 from scinexusrag.pipeline import IngestResult, NexusRAG, SystemStats, get_scinexusrag
 
 
@@ -35,6 +37,7 @@ def test_settings(temp_data_dir: Path) -> Settings:
         ),
         embedding=EmbeddingSettings(
             model="test-model",
+            revision="a" * 40,
             device="cpu",
             batch_size=8,
         ),
@@ -55,6 +58,7 @@ def test_settings(temp_data_dir: Path) -> Settings:
 def mock_embedder():
     embedder = MagicMock()
     embedder.dimension = 384
+    embedder.embedding_config = EmbeddingConfig("test-model", "a" * 40, "", "", True, 384)
 
     def mock_embed(texts, batch_size=None, show_progress=False):
         if isinstance(texts, str):
@@ -997,6 +1001,146 @@ class TestUnloadModels:
         assert scinexusrag_instance._embedder is None
         assert scinexusrag_instance._llm is None
         assert scinexusrag_instance._orchestrator is None
+        assert scinexusrag_instance._vector_store is None
+        assert scinexusrag_instance._bm25 is None
+
+
+class TestStoredEmbeddingConfiguration:
+    def test_explicit_reset_does_not_require_a_valid_embedder(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
+    ):
+        original = scinexusrag_instance
+        assert original.ingest(sample_text_file).success
+        restarted = NexusRAG(settings=original.settings)
+        invalid_embedder = MagicMock()
+        config = PropertyMock(side_effect=EmbeddingConfigError("Unpinned model revision"))
+        type(invalid_embedder).embedding_config = config
+        restarted._embedder = invalid_embedder
+
+        restarted.clear_all()
+
+        config.assert_not_called()
+        invalid_embedder.embed.assert_not_called()
+        invalid_embedder.embed_query.assert_not_called()
+        assert restarted.document_store.count() == 0
+        assert (
+            restarted.settings.storage.table_name
+            not in original.vector_store.db.list_tables().tables
+        )
+        assert restarted._vector_store is None
+        assert restarted._bm25 is None
+
+    def test_changed_model_rejects_query_before_embedding_or_generation(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
+    ):
+        original = scinexusrag_instance
+        ingested = original.ingest(sample_text_file)
+        assert ingested.success
+        changed_embedder = MagicMock()
+        changed_embedder.dimension = 384
+        changed_embedder.embedding_config = replace(
+            original.embedder.embedding_config, model_name="another-model"
+        )
+        restarted = NexusRAG(settings=original.settings)
+        restarted._embedder = changed_embedder
+        restarted._llm = MagicMock()
+
+        with pytest.raises(EmbeddingConfigError):
+            restarted.query("What measurements were recorded?")
+        with pytest.raises(EmbeddingConfigError):
+            list(restarted.query_streaming("What measurements were recorded?"))
+
+        changed_embedder.embed_query.assert_not_called()
+        restarted._llm.generate.assert_not_called()
+        assert original.vector_store.count() == ingested.chunk_count
+        assert original.document_store.count() == 1
+
+    def test_changed_revision_rejects_ingest_before_embedding_writes_or_rollback(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
+    ):
+        original = scinexusrag_instance
+        ingested = original.ingest(sample_text_file)
+        assert ingested.success
+        changed_embedder = MagicMock()
+        changed_embedder.dimension = 384
+        changed_embedder.embedding_config = replace(
+            original.embedder.embedding_config, revision="b" * 40
+        )
+        restarted = NexusRAG(settings=original.settings)
+        restarted._embedder = changed_embedder
+        document = restarted.parser.parse_bytes(
+            b"A distinct upload records pressure readings from sensor C.", "new.txt", ".txt"
+        )
+        writes = MagicMock()
+        deletes = MagicMock()
+        monkeypatch.setattr(restarted.document_store, "add", writes)
+        monkeypatch.setattr(restarted.document_store, "delete", deletes)
+
+        with pytest.raises(EmbeddingConfigError):
+            restarted._ingest_document(document, "new.txt", show_progress=False)
+        with pytest.raises(EmbeddingConfigError):
+            restarted._persist(document, [], np.empty((0, 384), dtype=np.float32))
+        new_path = sample_text_file.with_name("new.txt")
+        new_path.write_text(document.content)
+        with pytest.raises(EmbeddingConfigError):
+            restarted.ingest(new_path)
+        with pytest.raises(EmbeddingConfigError):
+            restarted.ingest_bytes(document.content.encode(), "new.txt", ".txt")
+
+        changed_embedder.embed.assert_not_called()
+        writes.assert_not_called()
+        deletes.assert_not_called()
+        assert original.vector_store.count() == ingested.chunk_count
+        assert original.document_store.count() == 1
+
+    def test_unload_reloads_configuration_instead_of_reusing_old_store(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
+    ):
+        rag = scinexusrag_instance
+        ingested = rag.ingest(sample_text_file)
+        assert ingested.success
+        assert rag.bm25.count() == ingested.chunk_count
+        changed_config = replace(rag.embedder.embedding_config, revision="b" * 40)
+
+        rag.unload_models()
+        changed_embedder = MagicMock()
+        changed_embedder.dimension = 384
+        changed_embedder.embedding_config = changed_config
+        rag._embedder = changed_embedder
+
+        assert rag._vector_store is None
+        assert rag._bm25 is None
+        with pytest.raises(EmbeddingConfigError):
+            rag.query("What measurements were recorded?")
+        changed_embedder.embed_query.assert_not_called()
+
+    def test_explicit_reset_clears_documents_and_allows_reingestion(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path
+    ):
+        original = scinexusrag_instance
+        assert original.ingest(sample_text_file).success
+        changed_config = replace(original.embedder.embedding_config, model_name="another-model")
+        original.unload_models()
+        original._embedder = MagicMock()
+        original._embedder.dimension = 384
+        original._embedder.embedding_config = changed_config
+        original._embedder.embed.return_value = np.ones((1, 384), dtype=np.float32)
+
+        with pytest.raises(EmbeddingConfigError):
+            original.query("What measurements were recorded?")
+
+        original.clear_all()
+        assert original.document_store.count() == 0
+        assert original.vector_store.count() == 0
+        assert original.bm25.count() == 0
+        original._embedder.embed.side_effect = lambda texts, **kwargs: np.ones(
+            (len(texts), 384), dtype=np.float32
+        )
+        result = original.ingest(sample_text_file)
+
+        assert result.success
+        assert original.document_store.count() == 1
+        assert original.vector_store.count() == original.bm25.count() == result.chunk_count
 
 
 class _ImmediateVisibilityStore:

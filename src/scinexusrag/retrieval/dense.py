@@ -33,6 +33,7 @@ class DenseRetriever:
         top_k: int = 5,
         document_id: str | None = None,
     ) -> list[RetrievalResult]:
+        self.vector_store.validate_embedding_config(self.embedder.embedding_config)
         query_embedding = self.embedder.embed_query(query)
 
         if document_id:
