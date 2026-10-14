@@ -85,10 +85,10 @@ The interface uses `POST /api/query`. It returns the answer, up to five source e
 | [orchestrator.py](../src/scinexusrag/generation/orchestrator.py) | Citation checks, optional grounding and confidence |
 | [config.py](../src/scinexusrag/config.py) | Defaults and environment settings |
 
-| Diagram | Earlier Figma layout | Editable SVG |
+| Diagram | Figma source | Editable SVG |
 | --- | --- | --- |
 | Overview | [Pipeline](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) | [pipeline.svg](../assets/figures/pipeline.svg) |
 | Retrieval | [Retrieval](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2) | [retrieval-flow.svg](../assets/figures/retrieval-flow.svg) |
 | Answer checks | [Answer checks](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20) | [answer-checks.svg](../assets/figures/answer-checks.svg) |
 
-The README diagrams and responsive app guide describe the same flow. Edit the SVG files directly; they include accessible titles, descriptions and font fallbacks. The linked Figma frames retain the earlier layouts.
+The linked Figma frames match the SVG diagrams. The responsive app guide describes the same flow. Keep the Figma frames and SVG files in sync when editing; the SVGs include accessible titles, descriptions and font fallbacks.
