@@ -15,7 +15,7 @@ import pytest
 from scinexusrag.ingestion import Chunk
 from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
 from scinexusrag.retrieval.dense import DenseRetriever
-from scinexusrag.storage.vector_store import VectorStore
+from scinexusrag.storage.vector_store import VectorStore, VectorStoreError
 
 
 def _config(dim: int = 4, **changes) -> EmbeddingConfig:
@@ -98,7 +98,16 @@ def test_search_score_clamped_to_unit_interval(temp_dir) -> None:
     assert results[0].score == 0.0
 
 
-@pytest.mark.parametrize("operation", ["delete", "delete_by_document", "search_by_document"])
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "delete",
+        "delete_by_document",
+        "search_by_document",
+        "get_chunks_by_document",
+        "get_chunk_ids_by_document",
+    ],
+)
 def test_trailing_newline_id_is_rejected_before_database_access(temp_dir, operation) -> None:
     store = _store(temp_dir)
 
@@ -107,8 +116,10 @@ def test_trailing_newline_id_is_rejected_before_database_access(temp_dir, operat
             store.delete(["paper\n"])
         elif operation == "delete_by_document":
             store.delete_by_document("paper\n")
-        else:
+        elif operation == "search_by_document":
             store.search_by_document(np.ones(4, dtype=np.float32), "paper\n")
+        else:
+            getattr(store, operation)("paper\n")
 
     assert store._db is None
 
@@ -274,7 +285,14 @@ def test_changed_configuration_rejects_before_vector_query_or_write(
 
 
 @pytest.mark.parametrize(
-    "operation", ["count", "list_documents", "get_all_chunks", "get_chunks_by_document"]
+    "operation",
+    [
+        "count",
+        "list_documents",
+        "get_all_chunks",
+        "get_chunks_by_document",
+        "get_chunk_ids_by_document",
+    ],
 )
 def test_read_helpers_propagate_configuration_errors(temp_dir, operation) -> None:
     original = _store(temp_dir)
@@ -285,8 +303,8 @@ def test_read_helpers_propagate_configuration_errors(temp_dir, operation) -> Non
     changed = _store(temp_dir, revision="b" * 40)
 
     with pytest.raises(EmbeddingConfigError):
-        if operation == "get_chunks_by_document":
-            changed.get_chunks_by_document("paper")
+        if operation in {"get_chunks_by_document", "get_chunk_ids_by_document"}:
+            getattr(changed, operation)("paper")
         else:
             getattr(changed, operation)()
 
@@ -302,10 +320,140 @@ def test_count_propagates_storage_failure_instead_of_reporting_empty(
     failure = error_type("Cannot read row count")
     monkeypatch.setattr(table, "count_rows", MagicMock(side_effect=failure))
 
-    with pytest.raises(error_type) as raised:
+    with pytest.raises(VectorStoreError, match="row count") as raised:
         store.count()
 
-    assert raised.value is failure
+    assert raised.value.__cause__ is failure
+
+
+@pytest.mark.parametrize("chunk_count", [0, 3, 4, 5, 8])
+def test_document_scans_cross_page_boundaries_without_losing_rows(
+    temp_dir, monkeypatch, chunk_count
+) -> None:
+    monkeypatch.setattr("scinexusrag.storage.vector_store.SCAN_PAGE_SIZE", 4)
+    store = _store(temp_dir)
+    chunks = [
+        Chunk(id=f"paper-{i}", content=f"Measurement {i}", document_id="paper")
+        for i in range(chunk_count)
+    ]
+    unrelated = Chunk(id="other", content="Different document", document_id="other")
+    store.add([unrelated, *chunks], np.ones((chunk_count + 1, 4), dtype=np.float32))
+
+    assert {chunk.id for chunk in store.get_chunks_by_document("paper")} == {
+        chunk.id for chunk in chunks
+    }
+    assert store.get_chunk_ids_by_document("paper") == {chunk.id for chunk in chunks}
+    assert {chunk.id for chunk in store.get_all_chunks()} == {"other", *(c.id for c in chunks)}
+    assert set(store.list_documents()) == ({"other", "paper"} if chunks else {"other"})
+    assert store.get_chunks_by_document("missing") == []
+    assert store.get_chunk_ids_by_document("missing") == set()
+
+
+def test_document_scans_include_chunks_beyond_the_previous_100000_limit(temp_dir) -> None:
+    store = _store(temp_dir)
+    count = 100_001
+    ids = [f"chunk-{i}" for i in range(count)]
+    store.table.add(
+        pa.table(
+            {
+                "id": ids,
+                "content": ["Measured current is 42 mA."] * count,
+                "document_id": ["large-paper"] * count,
+                "metadata": ["{}"] * count,
+                "vector": [[1.0, 0.0, 0.0, 0.0]] * count,
+            },
+            schema=store.table.schema,
+        )
+    )
+
+    assert store.get_chunk_ids_by_document("large-paper") == set(ids)
+    assert {chunk.id for chunk in store.get_chunks_by_document("large-paper")} == set(ids)
+
+
+@pytest.mark.parametrize(
+    "operation",
+    ["list_documents", "get_all_chunks", "get_chunks_by_document", "get_chunk_ids_by_document"],
+)
+def test_failed_scan_does_not_report_an_empty_or_partial_corpus(
+    temp_dir, monkeypatch, operation
+) -> None:
+    store = _store(temp_dir)
+    table = store.table
+    failure = OSError("Storage is unavailable")
+    monkeypatch.setattr(table, "search", MagicMock(side_effect=failure))
+
+    with pytest.raises(VectorStoreError, match="read passages") as raised:
+        if operation in {"get_chunks_by_document", "get_chunk_ids_by_document"}:
+            getattr(store, operation)("paper")
+        else:
+            getattr(store, operation)()
+
+    assert raised.value.__cause__ is failure
+
+
+def test_failure_on_a_later_scan_page_does_not_return_a_partial_document(
+    temp_dir, monkeypatch
+) -> None:
+    store = _store(temp_dir)
+    monkeypatch.setattr("scinexusrag.storage.vector_store.SCAN_PAGE_SIZE", 1)
+    store.add(
+        [Chunk(id="a", content="First measurement", document_id="paper")],
+        np.ones((1, 4), dtype=np.float32),
+    )
+    table = store.table
+    search = table.search
+    calls = 0
+
+    def fail_on_second_page(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("Cannot read the next page")
+        return search(*args, **kwargs)
+
+    monkeypatch.setattr(table, "search", fail_on_second_page)
+    with pytest.raises(VectorStoreError, match="read passages"):
+        store.get_chunks_by_document("paper")
+
+    assert calls == 2
+
+
+def test_vector_search_failure_is_distinct_from_empty_results(temp_dir, monkeypatch) -> None:
+    store = _store(temp_dir)
+    failure = OSError("Storage is unavailable")
+    monkeypatch.setattr(store.table, "search", MagicMock(side_effect=failure))
+
+    with pytest.raises(VectorStoreError, match="search the vector index") as raised:
+        store.search(np.ones(4, dtype=np.float32))
+
+    assert raised.value.__cause__ is failure
+
+
+@pytest.mark.parametrize("metadata", ["not JSON", "[]", "null"])
+@pytest.mark.parametrize("operation", ["get_all_chunks", "get_chunks_by_document", "search"])
+def test_corrupt_passage_metadata_is_reported_as_a_storage_error(
+    temp_dir, metadata, operation
+) -> None:
+    store = _store(temp_dir)
+    store.table.add(
+        [
+            {
+                "id": "corrupt",
+                "content": "Stored measurement",
+                "document_id": "paper",
+                "metadata": metadata,
+                "vector": [1, 0, 0, 0],
+            }
+        ]
+    )
+
+    with pytest.raises(VectorStoreError, match="decode passage metadata"):
+        if operation == "get_chunks_by_document":
+            store.get_chunks_by_document("paper")
+        elif operation == "search":
+            store.search(np.ones(4, dtype=np.float32))
+        else:
+            store.get_all_chunks()
 
 
 @pytest.mark.parametrize("populated", [False, True])
@@ -531,7 +679,7 @@ def test_failed_bootstrap_releases_lock_and_can_retry(temp_dir, monkeypatch, boo
     else:
         monkeypatch.setattr(store.db, "create_table", bootstrap)
 
-    with pytest.raises(EmbeddingConfigError) as raised:
+    with pytest.raises(VectorStoreError) as raised:
         store.count()
 
     assert isinstance(raised.value.__cause__, OSError)

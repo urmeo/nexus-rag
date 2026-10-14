@@ -1,10 +1,11 @@
 """Storage module for vector and document persistence."""
 
 from scinexusrag.storage.document_store import DocumentStore
-from scinexusrag.storage.vector_store import SearchResult, VectorStore
+from scinexusrag.storage.vector_store import SearchResult, VectorStore, VectorStoreError
 
 __all__ = [
     "DocumentStore",
     "SearchResult",
     "VectorStore",
+    "VectorStoreError",
 ]

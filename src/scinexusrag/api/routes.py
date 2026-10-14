@@ -21,6 +21,7 @@ from scinexusrag.api.security import (
 from scinexusrag.config import get_settings
 from scinexusrag.ingestion.embedder import EmbeddingConfigError
 from scinexusrag.pipeline import get_scinexusrag
+from scinexusrag.storage import VectorStoreError
 from scinexusrag.storage.document_store import MAX_ID_LENGTH
 from scinexusrag.utils.filenames import resolve_display_name
 
@@ -148,7 +149,7 @@ async def health_check() -> HealthResponse:
             total_documents=stats.total_documents,
             total_chunks=stats.total_chunks,
         )
-    except EmbeddingConfigError:
+    except (EmbeddingConfigError, VectorStoreError):
         raise
     except Exception:
         return HealthResponse(status="error", llm_available=False)
@@ -220,7 +221,7 @@ async def ingest_document(
         )
     except HTTPException:
         raise
-    except EmbeddingConfigError:
+    except (EmbeddingConfigError, VectorStoreError):
         raise
     except Exception:
         logger.exception("Document ingestion failed")
@@ -248,7 +249,7 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
             docs = await asyncio.to_thread(rag.list_documents)
             for doc in docs:
                 doc_names[doc.get("id", "")] = resolve_display_name(doc)
-        except EmbeddingConfigError:
+        except (EmbeddingConfigError, VectorStoreError):
             raise
         except Exception:
             logger.debug("Could not load source filenames", exc_info=True)
@@ -287,7 +288,7 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
         )
     except HTTPException:
         raise
-    except EmbeddingConfigError:
+    except (EmbeddingConfigError, VectorStoreError):
         raise
     except Exception:
         logger.exception("Query processing failed")
@@ -326,7 +327,7 @@ async def list_documents(
             total_documents=stats.total_documents,
             total_chunks=stats.total_chunks,
         )
-    except EmbeddingConfigError:
+    except (EmbeddingConfigError, VectorStoreError):
         raise
     except Exception:
         logger.exception("Failed to list documents")
@@ -348,7 +349,7 @@ async def get_status() -> StatusResponse:
             llm_model=stats.llm_model,
             embedding_model=stats.embedding_model,
         )
-    except EmbeddingConfigError:
+    except (EmbeddingConfigError, VectorStoreError):
         raise
     except Exception:
         logger.exception("Failed to get status")
@@ -379,7 +380,7 @@ async def delete_document(document_id: str) -> DeleteResponse:
         raise
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid document ID format") from None
-    except EmbeddingConfigError:
+    except (EmbeddingConfigError, VectorStoreError):
         raise
     except Exception:
         logger.exception("Failed to delete document")
@@ -398,7 +399,7 @@ async def clear_all_documents() -> DeleteResponse:
         await asyncio.to_thread(rag.clear_all)
 
         return DeleteResponse(success=True, message="All documents cleared")
-    except EmbeddingConfigError:
+    except (EmbeddingConfigError, VectorStoreError):
         raise
     except Exception:
         logger.exception("Failed to clear documents")
@@ -419,7 +420,7 @@ async def get_metrics() -> MetricsResponse:
             pipeline_stats = await asyncio.to_thread(rag.get_stats)
             total_documents = pipeline_stats.total_documents
             total_chunks = pipeline_stats.total_chunks
-        except EmbeddingConfigError:
+        except (EmbeddingConfigError, VectorStoreError):
             raise
         except Exception:
             logger.debug("Could not load pipeline statistics for metrics", exc_info=True)
@@ -434,7 +435,7 @@ async def get_metrics() -> MetricsResponse:
             total_chunks=total_chunks,
             version=__version__,
         )
-    except EmbeddingConfigError:
+    except (EmbeddingConfigError, VectorStoreError):
         raise
     except Exception:
         logger.exception("Failed to get metrics")

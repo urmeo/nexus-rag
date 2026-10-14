@@ -100,6 +100,7 @@ class Orchestrator:
         )
 
     def query_streaming(self, question: str) -> Generator[str, None, None]:
+        """Emit provisional tokens, verification metadata, then a replacement answer."""
         analyzed = self.analyzer.analyze(question)
         question = self.analyzer.rewrite_vague_query(question)
         results = self.retriever.retrieve(question, top_k=self.top_k)
@@ -116,18 +117,21 @@ class Orchestrator:
                 yield token
         except Exception:
             logger.exception("Streaming generation failed")
-            yield "Unable to generate response."
+            answer = "Unable to generate response."
+            yield answer
             citations_valid = []
             faithfulness = None
             warnings = ["Answer generation failed."]
         else:
             if prepared.error:
+                answer = prepared.error
                 citations_valid = []
                 faithfulness = None
                 warnings = [prepared.error]
             else:
                 answer = "".join(chunks)
                 verification, faithfulness, warnings = self._verify_answer(answer, prepared.sources)
+                answer = verification.verified_answer
                 citations_valid = verification.citations_valid
 
         for warning in warnings:
@@ -140,6 +144,8 @@ class Orchestrator:
             "warnings": warnings,
         }
         yield f"\ndata: {json.dumps(event)}\n\n"
+        final = {"event": "verified_answer", "answer": answer}
+        yield f"\ndata: {json.dumps(final)}\n\n"
 
     def _verify_answer(
         self, answer: str, sources: list[Source]

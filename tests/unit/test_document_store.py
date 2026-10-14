@@ -1,6 +1,8 @@
 """DocumentStore crash recovery: index and doc files reconcile on load."""
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 from unittest.mock import Mock
 
 import pytest
@@ -93,3 +95,62 @@ def test_failed_file_deletion_keeps_the_index_entry(temp_dir, monkeypatch) -> No
 
     assert store.exists("abc123def456")
     assert DocumentStore(path=temp_dir).exists("abc123def456")
+
+
+@pytest.mark.parametrize("operation", ["add", "delete", "update"])
+def test_stats_use_one_snapshot_during_concurrent_writes(temp_dir, operation) -> None:
+    reading = Event()
+    written = Event()
+
+    class PausingCount(int):
+        def __radd__(self, other):
+            reading.set()
+            assert written.wait(5), "Writer could not finish while statistics were calculated"
+            return other + int(self)
+
+    store = DocumentStore(path=temp_dir)
+    store.add(_doc("first"))
+    store.add(_doc("second"))
+    store.update_metadata("first", "word_count", PausingCount(7))
+    store.update_metadata("first", "section_count", 1)
+    store.update_metadata("second", "word_count", 2)
+    store.update_metadata("second", "section_count", 2)
+
+    def write():
+        try:
+            assert reading.wait(5), "Statistics never reached aggregation"
+            if operation == "add":
+                store.add(_doc("third"))
+            elif operation == "delete":
+                store.delete("second")
+            else:
+                store.update_metadata("second", "word_count", 99)
+                store.update_metadata("second", "section_count", 99)
+        finally:
+            written.set()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        writer = executor.submit(write)
+        stats = store.get_stats()
+        writer.result(timeout=5)
+
+    assert stats == {
+        "document_count": 2,
+        "total_words": 9,
+        "total_sections": 3,
+        "storage_path": str(temp_dir.resolve()),
+    }
+
+
+def test_metadata_snapshot_does_not_share_mutable_entries(temp_dir) -> None:
+    store = DocumentStore(path=temp_dir)
+    store.add(_doc("first"))
+    snapshot = store.list_with_metadata()
+    initial_count = snapshot["first"]["word_count"]
+
+    store.update_metadata("first", "word_count", 99)
+    snapshot["first"]["filename"] = "changed.txt"
+
+    assert snapshot["first"]["word_count"] == initial_count
+    assert store.list_with_metadata()["first"]["filename"] == "paper.pdf"
+    assert store.get_stats()["total_words"] == 99

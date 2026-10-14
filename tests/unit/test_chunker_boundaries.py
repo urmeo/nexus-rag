@@ -1,6 +1,10 @@
 """Keep all input text while respecting split and overlap boundaries."""
 
+from io import BytesIO
+from types import SimpleNamespace
+
 import pytest
+from docx import Document as DocxDocument
 
 from scinexusrag.ingestion import (
     DocumentParser,
@@ -9,6 +13,74 @@ from scinexusrag.ingestion import (
     Section,
     SemanticChunker,
 )
+
+
+@pytest.mark.parametrize("extension", [".txt", ".md", ".docx", ".pdf"])
+def test_heading_only_documents_produce_chunks_with_exact_source_spans(extension, monkeypatch):
+    headings = ["CALIBRATION PASSED.", "THE CURRENT IS 42 MA.", "CALIBRATION PASSED."]
+    if extension == ".docx":
+        source = DocxDocument()
+        for heading in headings:
+            source.add_heading(heading, level=1)
+        buffer = BytesIO()
+        source.save(buffer)
+        data = buffer.getvalue()
+        expected = headings
+    elif extension == ".pdf":
+        pages = [SimpleNamespace(extract_text=lambda text=text: text) for text in headings]
+        reader = SimpleNamespace(is_encrypted=False, pages=pages)
+        monkeypatch.setattr("scinexusrag.ingestion.parser.PdfReader", lambda path: reader)
+        data = b"%PDF-1.4 fixture"
+        expected = headings
+    else:
+        expected = [f"# {heading}" for heading in headings] if extension == ".md" else headings
+        data = "\n\n".join(expected).encode()
+    document = DocumentParser().parse_bytes(data, "readings" + extension, extension)
+
+    chunks = SemanticChunker(context_chars=12).chunk(document)
+
+    assert [chunk.content for chunk in chunks] == expected
+    assert [chunk.section_title for chunk in chunks] == headings
+    for chunk, section in zip(chunks, document.sections, strict=True):
+        assert section.heading_only
+        assert document.content[chunk.start_offset : chunk.end_offset] == chunk.content
+        _assert_context_span(chunk, document.content, section.start_offset, section.end_offset, 12)
+    assert chunks[0].start_offset < chunks[2].start_offset
+    if extension == ".pdf":
+        assert [chunk.page_number for chunk in chunks] == [1, 2, 3]
+
+
+def test_body_and_empty_final_heading_are_chunked_once_with_their_own_metadata():
+    source = "# Methods\nMeasured current: 42 mA.\n\n## CALIBRATION PASSED."
+    document = DocumentParser().parse_bytes(source.encode(), "readings.md", ".md")
+
+    chunks = SemanticChunker(context_chars=16).chunk(document)
+
+    assert [chunk.content for chunk in chunks] == [
+        "[Methods]\n\nMeasured current: 42 mA.",
+        "## CALIBRATION PASSED.",
+    ]
+    assert [chunk.section_title for chunk in chunks] == ["Methods", "CALIBRATION PASSED."]
+    for chunk, section in zip(chunks, document.sections, strict=True):
+        _assert_context_span(chunk, document.content, section.start_offset, section.end_offset, 16)
+
+
+@pytest.mark.parametrize("section_title", ["", "Legacy heading"])
+def test_empty_sections_fall_back_to_original_text_with_exact_source_offsets(section_title):
+    content = "  THE CURRENT IS 42 MA.\n\nCALIBRATION PASSED.  "
+    document = ParsedDocument(
+        id="empty-sections",
+        content=content,
+        sections=[Section(title=section_title, content=""), Section(title="", content="  ")],
+    )
+
+    chunks = SemanticChunker(context_chars=10).chunk(document)
+
+    assert len(chunks) == 1
+    chunk = chunks[0]
+    assert chunk.content == content.strip()
+    assert chunk.section_title == ""
+    _assert_context_span(chunk, content, 2, len(content) - 2, 10)
 
 
 @pytest.mark.parametrize("sectioned", [False, True])

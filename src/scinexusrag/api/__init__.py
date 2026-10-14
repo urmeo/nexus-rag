@@ -16,6 +16,7 @@ from scinexusrag.api.routes import router
 from scinexusrag.api.security import limiter
 from scinexusrag.config import get_settings
 from scinexusrag.ingestion.embedder import EmbeddingConfigError
+from scinexusrag.storage import VectorStoreError
 
 FRONTEND_DIR = Path(
     os.environ.get("NEXUSRAG_FRONTEND_DIR") or Path(__file__).resolve().parents[1] / "web"
@@ -45,6 +46,21 @@ def create_app() -> FastAPI:
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+    @app.exception_handler(VectorStoreError)
+    async def vector_store_error(_request: Request, exc: VectorStoreError) -> JSONResponse:
+        logging.getLogger(__name__).error(
+            "Vector index operation failed", exc_info=(type(exc), exc, exc.__traceback__)
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": (
+                    "The vector index is unavailable. "
+                    "Check the server logs and storage access, then retry."
+                )
+            },
+        )
 
     @app.exception_handler(EmbeddingConfigError)
     async def embedding_config_error(_request: Request, _exc: EmbeddingConfigError) -> JSONResponse:

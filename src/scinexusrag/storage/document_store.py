@@ -30,7 +30,7 @@ class DocumentStore:
         self.path.mkdir(parents=True, exist_ok=True)
         self._index_path = self.path / f"{INDEX_STEM}.json"
         self._index: dict[str, dict[str, Any]] | None = None
-        self._index_lock = threading.Lock()
+        self._index_lock = threading.RLock()
 
     def _validate_doc_id(self, doc_id: str) -> str:
         """Validate and sanitize document ID to prevent path traversal."""
@@ -133,63 +133,69 @@ class DocumentStore:
             "sections": [asdict(s) for s in document.sections],
         }
 
-        self._write_json(self._doc_path(document.id), doc_dict)
-
         original_name = resolve_display_name(document.metadata, fallback="unknown")
-
-        self.index[document.id] = {
-            "filename": original_name,
-            "original_filename": original_name,
-            "display_name": original_name,
-            "word_count": document.word_count,
-            "section_count": len(document.sections),
-            "uploaded_at": datetime.now(UTC).isoformat(),
-            "file_type": document.metadata.get("file_type", "unknown"),
-        }
-        self._save_index()
+        with self._index_lock:
+            self._write_json(self._doc_path(document.id), doc_dict)
+            self.index[document.id] = {
+                "filename": original_name,
+                "original_filename": original_name,
+                "display_name": original_name,
+                "word_count": document.word_count,
+                "section_count": len(document.sections),
+                "uploaded_at": datetime.now(UTC).isoformat(),
+                "file_type": document.metadata.get("file_type", "unknown"),
+            }
+            self._save_index()
 
         return document.id
 
     def update_metadata(self, doc_id: str, key: str, value: Any) -> bool:
         """Update a single metadata field for a document in the index."""
-        if doc_id not in self.index:
-            return False
-        self.index[doc_id][key] = value
-        self._save_index()
-        return True
+        with self._index_lock:
+            if doc_id not in self.index:
+                return False
+            self.index[doc_id][key] = value
+            self._save_index()
+            return True
 
     def exists(self, doc_id: str) -> bool:
-        return doc_id in self.index
+        with self._index_lock:
+            return doc_id in self.index
 
     def list_with_metadata(self) -> dict[str, dict[str, Any]]:
-        """Get all documents with their index metadata."""
-        return dict(self.index)
+        """Return a metadata snapshot taken under the write lock."""
+        with self._index_lock:
+            return {doc_id: dict(metadata) for doc_id, metadata in self.index.items()}
 
     def delete(self, doc_id: str) -> bool:
-        doc_path = self._doc_path(doc_id)
-        if not doc_path.exists():
-            return False
+        with self._index_lock:
+            doc_path = self._doc_path(doc_id)
+            if not doc_path.exists():
+                return False
 
-        doc_path.unlink()
-        self.index.pop(doc_id, None)
-        self._save_index()
-        return True
+            doc_path.unlink()
+            self.index.pop(doc_id, None)
+            self._save_index()
+            return True
 
     def count(self) -> int:
-        return len(self.index)
+        with self._index_lock:
+            return len(self.index)
 
     def clear(self) -> int:
-        count = len(self.index)
-        for doc_id in list(self.index):
-            self.delete(doc_id)
-        return count
+        with self._index_lock:
+            count = len(self.index)
+            for doc_id in list(self.index):
+                self.delete(doc_id)
+            return count
 
     def get_stats(self) -> dict[str, Any]:
-        total_words = sum(m.get("word_count", 0) for m in self.index.values())
-        total_sections = sum(m.get("section_count", 0) for m in self.index.values())
+        metadata = self.list_with_metadata()
+        total_words = sum(m.get("word_count", 0) for m in metadata.values())
+        total_sections = sum(m.get("section_count", 0) for m in metadata.values())
 
         return {
-            "document_count": len(self.index),
+            "document_count": len(metadata),
             "total_words": total_words,
             "total_sections": total_sections,
             "storage_path": str(self.path),

@@ -19,7 +19,7 @@ class DocumentParseError(ValueError):
 
 @dataclass
 class Section:
-    """A section body with optional source offsets; end_offset is exclusive."""
+    """Section text with optional source offsets; end_offset is exclusive."""
 
     title: str
     content: str
@@ -27,6 +27,7 @@ class Section:
     page_number: int | None = None
     start_offset: int | None = None
     end_offset: int | None = None
+    heading_only: bool = False
 
 
 @dataclass
@@ -246,14 +247,21 @@ class DocumentParser:
         headings: list[tuple[int, int, str, int]],
         page_number: int | None = None,
     ) -> list[Section]:
-        """Slice section bodies from normalized text without relocating repeated passages."""
-        starts = [(0, "", 0)] + [(end, title, level) for _, end, title, level in headings]
+        """Keep exact body spans, or the heading itself when it has no body."""
+        starts: list[tuple[int, int | None, str, int]] = [(0, None, "", 0)] + [
+            (end, start, title, level) for start, end, title, level in headings
+        ]
         ends = [start for start, _, _, _ in headings] + [len(text)]
         sections = []
-        for (start, title, level), end in zip(starts, ends, strict=True):
+        for (start, heading_start, title, level), end in zip(starts, ends, strict=True):
             body = text[start:end]
+            heading_only = False
+            if not body.strip() and heading_start is not None:
+                heading_only = True
+                body = text[heading_start:start]
+                start = heading_start
             content = body.strip()
-            if not content and not title:
+            if not content:
                 continue
             start += len(body) - len(body.lstrip())
             sections.append(
@@ -264,6 +272,7 @@ class DocumentParser:
                     page_number=page_number,
                     start_offset=start,
                     end_offset=start + len(content),
+                    heading_only=heading_only,
                 )
             )
         return sections

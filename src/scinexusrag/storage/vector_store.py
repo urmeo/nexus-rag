@@ -1,9 +1,9 @@
 """Vector storage using LanceDB."""
 
 import json
-import logging
 import re
 import threading
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -17,11 +17,13 @@ from numpy.typing import NDArray
 
 from scinexusrag.ingestion import Chunk, EmbeddingConfig, EmbeddingConfigError
 
-logger = logging.getLogger(__name__)
-
-
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 EMBEDDING_CONFIG_KEY = b"nexusrag.embedding_config"
+SCAN_PAGE_SIZE = 10_000
+
+
+class VectorStoreError(RuntimeError):
+    """The vector index could not be read or opened."""
 
 
 def _sanitize_id(value: str) -> str:
@@ -85,10 +87,10 @@ class VectorStore:
                         else self._create_table()
                     )
                 self._validate_table(table)
-            except EmbeddingConfigError:
+            except (EmbeddingConfigError, VectorStoreError):
                 raise
             except Exception as exc:
-                raise EmbeddingConfigError("Cannot open or validate the vector index.") from exc
+                raise VectorStoreError("Cannot open or read the vector index.") from exc
             self._table = table
             return table
 
@@ -197,9 +199,14 @@ class VectorStore:
 
     @staticmethod
     def _chunk_from_row(row: dict[str, Any]) -> Chunk:
-        metadata = (
-            json.loads(row["metadata"]) if isinstance(row["metadata"], str) else row["metadata"]
-        )
+        try:
+            metadata = (
+                json.loads(row["metadata"]) if isinstance(row["metadata"], str) else row["metadata"]
+            )
+            if not isinstance(metadata, dict):
+                raise ValueError("Passage metadata must be a JSON object")
+        except (KeyError, TypeError, ValueError) as exc:
+            raise VectorStoreError("Cannot decode passage metadata from the vector index.") from exc
         return Chunk(
             id=row["id"],
             content=row["content"],
@@ -221,14 +228,18 @@ class VectorStore:
         top_k: int = 5,
         filter_expr: str | None = None,
     ) -> list[SearchResult]:
-
-        vector_query = cast(LanceVectorQueryBuilder, self.table.search(query_embedding.tolist()))
-        query = vector_query.metric("cosine").limit(top_k)
-
-        if filter_expr:
-            query = query.where(filter_expr)
-
-        results = query.to_list()
+        try:
+            vector_query = cast(
+                LanceVectorQueryBuilder, self.table.search(query_embedding.tolist())
+            )
+            query = vector_query.metric("cosine").limit(top_k)
+            if filter_expr:
+                query = query.where(filter_expr)
+            results = query.to_list()
+        except (EmbeddingConfigError, VectorStoreError):
+            raise
+        except Exception as exc:
+            raise VectorStoreError("Cannot search the vector index.") from exc
 
         return [
             SearchResult(
@@ -270,17 +281,37 @@ class VectorStore:
         return initial_count - self.count()
 
     def count(self) -> int:
-        return int(self.table.count_rows())
+        try:
+            return int(self.table.count_rows())
+        except (EmbeddingConfigError, VectorStoreError):
+            raise
+        except Exception as exc:
+            raise VectorStoreError("Cannot read the vector index row count.") from exc
+
+    def _read_rows(
+        self, columns: list[str], filter_expr: str | None = None
+    ) -> Iterator[dict[str, Any]]:
+        """Read every matching row without loading vectors or imposing a total limit."""
+        try:
+            table = self.table
+            offset = 0
+            while True:
+                query = table.search().select(columns).offset(offset).limit(SCAN_PAGE_SIZE)
+                if filter_expr:
+                    query = query.where(filter_expr)
+                rows = query.to_list()
+                yield from rows
+                if len(rows) < SCAN_PAGE_SIZE:
+                    return
+                offset += len(rows)
+        except (EmbeddingConfigError, VectorStoreError):
+            raise
+        except Exception as exc:
+            raise VectorStoreError("Cannot read passages from the vector index.") from exc
 
     def list_documents(self) -> list[str]:
         """Get all unique document IDs."""
-        try:
-            return list(dict.fromkeys(self.table.to_arrow().column("document_id").to_pylist()))
-        except EmbeddingConfigError:
-            raise
-        except Exception:
-            logger.debug("Failed to list documents from vector store", exc_info=True)
-            return []
+        return list(dict.fromkeys(row["document_id"] for row in self._read_rows(["document_id"])))
 
     def clear(self) -> None:
         """Remove all data from the store."""
@@ -290,26 +321,22 @@ class VectorStore:
             self._table = None
 
     def get_all_chunks(self) -> list[Chunk]:
-        try:
-            if self.count() == 0:
-                return []
-
-            return [self._chunk_from_row(row) for row in self.table.to_arrow().to_pylist()]
-        except EmbeddingConfigError:
-            raise
-        except Exception:
-            logger.debug("Failed to get all chunks", exc_info=True)
-            return []
+        return [
+            self._chunk_from_row(row)
+            for row in self._read_rows(["id", "content", "document_id", "metadata"])
+        ]
 
     def get_chunks_by_document(self, document_id: str) -> list[Chunk]:
-        try:
-            safe_doc_id = _sanitize_id(document_id)
-            results = (
-                self.table.search().where(f"document_id = '{safe_doc_id}'").limit(100000).to_list()
+        safe_doc_id = _sanitize_id(document_id)
+        return [
+            self._chunk_from_row(row)
+            for row in self._read_rows(
+                ["id", "content", "document_id", "metadata"],
+                f"document_id = '{safe_doc_id}'",
             )
-            return [self._chunk_from_row(row) for row in results]
-        except EmbeddingConfigError:
-            raise
-        except Exception:
-            logger.debug("Failed to get chunks by document", exc_info=True)
-            return []
+        ]
+
+    def get_chunk_ids_by_document(self, document_id: str) -> set[str]:
+        """Read every chunk ID for deletion without materializing passage text."""
+        safe_doc_id = _sanitize_id(document_id)
+        return {row["id"] for row in self._read_rows(["id"], f"document_id = '{safe_doc_id}'")}

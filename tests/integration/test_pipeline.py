@@ -25,6 +25,7 @@ from scinexusrag.config import (
 )
 from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
 from scinexusrag.pipeline import IngestResult, NexusRAG, SystemStats, get_scinexusrag
+from scinexusrag.storage import VectorStoreError
 
 
 @pytest.fixture
@@ -217,6 +218,28 @@ def docs_directory(temp_data_dir: Path) -> Path:
 
 
 class TestBasicPipelineWorkflow:
+    def test_uppercase_evidence_is_ingested_with_exact_source_offsets(
+        self, scinexusrag_instance: NexusRAG
+    ):
+        rag = scinexusrag_instance
+        content = "THE MEASURED CURRENT IS 42 MA.\n\nCALIBRATION PASSED."
+
+        result = rag.ingest_bytes(content.encode(), "measurements.txt", ".txt")
+
+        assert result.success, result.error
+        assert result.chunk_count > 0
+        chunks = rag.vector_store.get_chunks_by_document(result.document_id)
+        assert all("[" not in chunk.content for chunk in chunks)
+        for line in content.splitlines():
+            if line:
+                assert sum(line in chunk.content for chunk in chunks) == 1
+        for chunk in chunks:
+            assert chunk.start_offset is not None and chunk.end_offset is not None
+            assert content[chunk.start_offset : chunk.end_offset] == chunk.content
+        sources = rag.bm25.retrieve("42 MA", top_k=1)
+        assert len(sources) == 1
+        assert "THE MEASURED CURRENT IS 42 MA." in sources[0].chunk.content
+
     def test_ingest_single_text_file(self, scinexusrag_instance: NexusRAG, sample_text_file: Path):
         result = scinexusrag_instance.ingest(sample_text_file)
 
@@ -342,6 +365,166 @@ class TestBasicPipelineWorkflow:
         deleted = scinexusrag_instance.delete_document("nonexistent_id")
         assert deleted is False
 
+    def test_empty_stream_ends_with_the_authoritative_answer(self, scinexusrag_instance: NexusRAG):
+        output = list(scinexusrag_instance.query_streaming("What was measured?"))
+        events = [json.loads(part.removeprefix("\ndata: ")) for part in output[1:]]
+
+        assert len(output) == 3
+        assert events[0] == {
+            "event": "verification",
+            "citations_valid": [],
+            "faithfulness": None,
+            "warnings": [output[0]],
+        }
+        assert events[1] == {"event": "verified_answer", "answer": output[0]}
+
+    @pytest.mark.parametrize("streaming", [False, True])
+    def test_query_propagates_failed_storage_reads_before_returning_an_answer(
+        self, scinexusrag_instance: NexusRAG, monkeypatch, streaming
+    ):
+        rag = scinexusrag_instance
+        failure = OSError("Index read failed")
+        monkeypatch.setattr(rag.vector_store.table, "count_rows", MagicMock(side_effect=failure))
+        rag._orchestrator = MagicMock()
+
+        with pytest.raises(VectorStoreError, match="row count") as raised:
+            if streaming:
+                list(rag.query_streaming("What was measured?"))
+            else:
+                rag.query("What was measured?")
+
+        assert raised.value.__cause__ is failure
+        rag._orchestrator.query.assert_not_called()
+        rag._orchestrator.query_streaming.assert_not_called()
+
+    @pytest.mark.parametrize("lazy", [False, True])
+    def test_failed_sparse_read_can_retry_without_publishing_an_empty_index(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch, lazy
+    ):
+        original = scinexusrag_instance
+        result = original.ingest(sample_text_file)
+        assert result.success
+        rag = NexusRAG(settings=original.settings)
+        rag._embedder = original.embedder
+        get_all_chunks = rag.vector_store.get_all_chunks
+        monkeypatch.setattr(
+            rag.vector_store,
+            "get_all_chunks",
+            MagicMock(side_effect=VectorStoreError("Cannot read passages from the vector index.")),
+        )
+
+        with pytest.raises(VectorStoreError, match="read passages"):
+            if lazy:
+                _ = rag.bm25
+            else:
+                rag._rebuild_bm25_index()
+
+        assert rag._bm25 is None
+        monkeypatch.setattr(rag.vector_store, "get_all_chunks", get_all_chunks)
+        assert rag.bm25.count() == result.chunk_count
+
+    @pytest.mark.parametrize("stage", ["enumeration", "dense_before", "dense_after", "sparse"])
+    def test_partial_deletion_reconciles_indexes_and_can_be_retried(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch, stage
+    ):
+        rag = scinexusrag_instance
+        result = rag.ingest(sample_text_file)
+        other = rag.ingest_bytes(
+            b"A separate document records voltage readings for sensor C.", "voltage.txt", ".txt"
+        )
+        assert result.success and other.success
+        other_ids = rag.vector_store.get_chunk_ids_by_document(other.document_id)
+        failure = OSError(f"Failed during {stage}")
+        if stage == "enumeration":
+            owner, method = rag.vector_store, "get_chunk_ids_by_document"
+        elif stage.startswith("dense"):
+            owner, method = rag.vector_store, "delete_by_document"
+        else:
+            owner, method = rag.bm25, "remove"
+        operation = getattr(owner, method)
+
+        def fail(*args, **kwargs):
+            if stage == "dense_after":
+                operation(*args, **kwargs)
+            raise failure
+
+        monkeypatch.setattr(owner, method, fail)
+        with pytest.raises(OSError, match=f"Failed during {stage}"):
+            rag.delete_document(result.document_id)
+        monkeypatch.setattr(owner, method, operation)
+
+        assert rag.document_store.exists(result.document_id)
+        assert rag.document_store.exists(other.document_id)
+        assert rag.vector_store.get_chunk_ids_by_document(other.document_id) == other_ids
+        assert rag.bm25.count() == rag.vector_store.count()
+        if stage in {"dense_after", "sparse"}:
+            assert rag.vector_store.get_chunk_ids_by_document(result.document_id) == set()
+            assert rag.bm25.retrieve("thirty-second") == []
+        else:
+            assert rag.bm25.count() == result.chunk_count + other.chunk_count
+
+        assert rag.delete_document(result.document_id)
+        assert not rag.document_store.exists(result.document_id)
+        assert rag.bm25.count() == rag.vector_store.count() == other.chunk_count
+        assert {chunk.id for chunk in rag.vector_store.get_all_chunks()} == other_ids
+        restarted = NexusRAG(settings=rag.settings)
+        restarted._embedder = rag.embedder
+        assert restarted.bm25.count() == other.chunk_count
+
+    def test_failed_deletion_recovery_discards_stale_sparse_handles(
+        self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
+    ):
+        rag = scinexusrag_instance
+        result = rag.ingest(sample_text_file)
+        assert result.success
+        sparse = rag.bm25
+        rag._orchestrator = MagicMock()
+        get_all_chunks = rag.vector_store.get_all_chunks
+        monkeypatch.setattr(
+            sparse, "remove", MagicMock(side_effect=OSError("Sparse deletion failed"))
+        )
+        monkeypatch.setattr(
+            rag.vector_store,
+            "get_all_chunks",
+            MagicMock(side_effect=VectorStoreError("Storage remains unavailable")),
+        )
+
+        with pytest.raises(OSError, match="Sparse deletion failed"):
+            rag.delete_document(result.document_id)
+
+        assert rag._bm25 is None
+        assert rag._orchestrator is None
+        assert rag.document_store.exists(result.document_id)
+        assert rag.vector_store.count() == 0
+        monkeypatch.setattr(rag.vector_store, "get_all_chunks", get_all_chunks)
+        assert rag.bm25 is not sparse
+        assert rag.bm25.count() == 0
+        assert rag.delete_document(result.document_id)
+        assert rag.document_store.count() == 0
+
+    def test_delete_document_with_more_than_100000_chunks_removes_all_sparse_entries(
+        self, scinexusrag_instance: NexusRAG
+    ):
+        from scinexusrag.ingestion import Chunk
+
+        rag = scinexusrag_instance
+        rag._embedder.embedding_config = replace(rag.embedder.embedding_config, dimension=4)
+        document = rag.parser.parse_bytes(b"Current is 42 mA.", "large.txt", ".txt")
+        count = 100_001
+        chunks = [
+            Chunk(id=f"large-{i}", content="Current is 42 mA.", document_id=document.id)
+            for i in range(count)
+        ]
+        rag.document_store.add(document)
+        rag.vector_store.add(chunks, np.ones((count, 4), dtype=np.float32))
+        assert rag.bm25.count() == count
+
+        assert rag.delete_document(document.id)
+
+        assert rag.vector_store.count() == rag.bm25.count() == 0
+        assert rag.bm25.retrieve("42 mA") == []
+        assert rag.document_store.count() == 0
+
     @pytest.mark.parametrize("failure", ["unlink", "index_save"])
     def test_delete_metadata_failure_keeps_retrieval_indexes_synced(
         self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch, failure: str
@@ -406,6 +589,51 @@ class TestMultiFileIngestion:
 
 
 class TestConcurrentWrites:
+    @pytest.mark.parametrize("blocked_stage", ["vector_count", "llm_check"])
+    def test_stats_snapshot_serializes_stores_without_locking_network_checks(
+        self, scinexusrag_instance: NexusRAG, monkeypatch, blocked_stage
+    ):
+        rag = scinexusrag_instance
+        store = rag.vector_store
+        count_rows = store.count
+        entered, release = Event(), Event()
+        lock = _ObservedWriteLock()
+        rag._write_lock = lock
+
+        def hold(operation):
+            entered.set()
+            assert release.wait(timeout=5)
+            return operation()
+
+        if blocked_stage == "vector_count":
+            monkeypatch.setattr(store, "count", lambda: hold(count_rows))
+        else:
+            monkeypatch.setattr(rag.llm, "is_available", lambda: hold(lambda: True))
+
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            stats_result = workers.submit(rag.get_stats)
+            try:
+                assert entered.wait(timeout=5)
+                ingest_result = workers.submit(
+                    rag.ingest_bytes,
+                    b"A new document contains current readings from sensor A.",
+                    "current.txt",
+                    ".txt",
+                )
+                if blocked_stage == "vector_count":
+                    lock.wait_for_threads(2)
+                    assert not ingest_result.done()
+                else:
+                    assert ingest_result.result(timeout=5).success
+            finally:
+                release.set()
+            snapshot = stats_result.result(timeout=5)
+            assert ingest_result.result(timeout=5).success
+
+        assert snapshot.total_documents == snapshot.total_chunks == snapshot.total_words == 0
+        assert rag.document_store.count() == 1
+        assert rag.vector_store.count() > 0
+
     @pytest.mark.parametrize("first_operation", ["ingest", "list_documents"])
     def test_ingest_during_cold_index_load(
         self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch, first_operation
@@ -1107,6 +1335,51 @@ class _ObservedWriteLock:
 
 
 class TestLazyResourceLifecycle:
+    @pytest.mark.parametrize("resource", ["bm25", "orchestrator"])
+    @pytest.mark.parametrize("fail_first", [False, True])
+    def test_lazy_retrieval_handles_wait_for_a_complete_sparse_index(
+        self, scinexusrag_instance: NexusRAG, monkeypatch, resource, fail_first
+    ):
+        rag = scinexusrag_instance
+        store = rag.vector_store
+        get_all_chunks = store.get_all_chunks
+        lock = _ObservedWriteLock()
+        rag._write_lock = lock
+        entered, release = Event(), Event()
+        reads = 0
+
+        def hold_first_read():
+            nonlocal reads
+            reads += 1
+            if reads == 1:
+                entered.set()
+                assert release.wait(timeout=5)
+                if fail_first:
+                    raise VectorStoreError("Sparse initialization failed")
+            return get_all_chunks()
+
+        monkeypatch.setattr(store, "get_all_chunks", hold_first_read)
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            first = workers.submit(lambda: getattr(rag, resource))
+            try:
+                assert entered.wait(timeout=5)
+                assert rag._bm25 is None
+                assert rag._orchestrator is None
+                second = workers.submit(lambda: getattr(rag, resource))
+                lock.wait_for_threads(2)
+                assert not second.done()
+            finally:
+                release.set()
+            if fail_first:
+                with pytest.raises(VectorStoreError, match="Sparse initialization failed"):
+                    first.result(timeout=5)
+                assert second.result(timeout=5) is getattr(rag, resource)
+                assert reads == 2
+            else:
+                assert first.result(timeout=5) is second.result(timeout=5)
+                assert reads == 1
+        assert rag.bm25.count() == 0
+
     @pytest.mark.parametrize(
         "resource,factory_name", [("embedder", "Embedder"), ("vector_store", "VectorStore")]
     )

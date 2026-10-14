@@ -202,7 +202,7 @@ class TestDocumentParser:
         assert document.sections[0].start_offset == 0
         assert document.sections[0].end_offset == len(document.content)
 
-    def test_markdown_empty_headings_have_valid_empty_spans(self, parser, temp_dir):
+    def test_markdown_empty_heading_bodies_preserve_the_heading_spans(self, parser, temp_dir):
         path = temp_dir / "headings.md"
         path.write_text("# Empty\n\n## Methods\n\nA measurement.\n\n### Empty tail\n")
 
@@ -210,9 +210,34 @@ class TestDocumentParser:
 
         _assert_section_spans(document)
         assert [section.level for section in document.sections] == [1, 2, 3]
-        assert [section.content for section in document.sections] == ["", "A measurement.", ""]
-        for section in (document.sections[0], document.sections[2]):
-            assert section.start_offset == section.end_offset
+        assert [section.content for section in document.sections] == [
+            "# Empty",
+            "A measurement.",
+            "### Empty tail",
+        ]
+        assert [section.heading_only for section in document.sections] == [True, False, True]
+
+    @pytest.mark.parametrize(
+        "source,expected",
+        [
+            ("THE CURRENT IS 42 MA.", ["THE CURRENT IS 42 MA."]),
+            (
+                "  CALIBRATION PASSED.\n\nTHE CURRENT IS 42 MA.\n\nCALIBRATION PASSED.\n",
+                ["CALIBRATION PASSED.", "THE CURRENT IS 42 MA.", "CALIBRATION PASSED."],
+            ),
+            (
+                "RESULTS\nA measurement.\n\nCALIBRATION PASSED.",
+                ["A measurement.", "CALIBRATION PASSED."],
+            ),
+        ],
+    )
+    def test_uppercase_sentences_keep_nonempty_source_spans(self, parser, source, expected):
+        document = parser.parse_bytes(source.encode(), "readings.txt", ".txt")
+
+        _assert_section_spans(document)
+        assert [section.content for section in document.sections] == expected
+        assert all(section.start_offset < section.end_offset for section in document.sections)
+        assert document.sections[-1].heading_only
 
     def test_docx_sections_preserve_paragraph_joins_and_repeated_source_positions(
         self, parser, temp_dir

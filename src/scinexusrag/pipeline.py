@@ -2,6 +2,7 @@
 
 import contextlib
 import gc
+import json
 import logging
 import threading
 from collections.abc import Generator
@@ -30,7 +31,7 @@ from scinexusrag.retrieval import (
     CorrectiveRetriever,
     DenseRetriever,
 )
-from scinexusrag.storage import DocumentStore, VectorStore
+from scinexusrag.storage import DocumentStore, VectorStore, VectorStoreError
 
 logger = logging.getLogger(__name__)
 
@@ -124,12 +125,11 @@ class NexusRAG:
 
     @property
     def bm25(self) -> BM25Retriever:
-        if self._bm25 is None:
-            with self._write_lock:
-                if self._bm25 is None:
-                    self._bm25 = BM25Retriever()
-                    self._rebuild_bm25_index()
-        return self._bm25
+        with self._write_lock:
+            if self._bm25 is None:
+                self._rebuild_bm25_index()
+            assert self._bm25 is not None
+            return self._bm25
 
     @property
     def llm(self) -> LLMClient:
@@ -143,38 +143,39 @@ class NexusRAG:
 
     @property
     def orchestrator(self) -> Orchestrator:
-        if self._orchestrator is None:
-            dense = DenseRetriever(self.embedder, self.vector_store)
-            hybrid = AdaptiveHybridRetriever(dense, self.bm25, 0.5, 0.5)
-            sc = self.settings.self_correction
-            retriever = CorrectiveRetriever(
-                hybrid,
-                tau=sc.confidence_tau,
-                feedback_docs=sc.feedback_docs,
-                feedback_terms=sc.feedback_terms,
-                enabled=sc.enabled,
-            )
-
-            grounding_verifier = None
-            if sc.grounding_enabled:
-                from scinexusrag.generation.grounding import GroundingVerifier
-
-                grounding_verifier = GroundingVerifier(
-                    model_name=sc.grounding_model,
-                    threshold=sc.grounding_threshold,
-                    device=self.settings.embedding.device,
+        with self._write_lock:
+            if self._orchestrator is None:
+                dense = DenseRetriever(self.embedder, self.vector_store)
+                hybrid = AdaptiveHybridRetriever(dense, self.bm25, 0.5, 0.5)
+                sc = self.settings.self_correction
+                retriever = CorrectiveRetriever(
+                    hybrid,
+                    tau=sc.confidence_tau,
+                    feedback_docs=sc.feedback_docs,
+                    feedback_terms=sc.feedback_terms,
+                    enabled=sc.enabled,
                 )
 
-            self._orchestrator = Orchestrator(
-                retriever=retriever,
-                llm=self.llm,
-                top_k=self.settings.retrieval.top_k,
-                document_store=self.document_store,
-                grounding_verifier=grounding_verifier,
-                max_tokens=self.settings.llm.max_tokens,
-                temperature=self.settings.llm.temperature,
-            )
-        return self._orchestrator
+                grounding_verifier = None
+                if sc.grounding_enabled:
+                    from scinexusrag.generation.grounding import GroundingVerifier
+
+                    grounding_verifier = GroundingVerifier(
+                        model_name=sc.grounding_model,
+                        threshold=sc.grounding_threshold,
+                        device=self.settings.embedding.device,
+                    )
+
+                self._orchestrator = Orchestrator(
+                    retriever=retriever,
+                    llm=self.llm,
+                    top_k=self.settings.retrieval.top_k,
+                    document_store=self.document_store,
+                    grounding_verifier=grounding_verifier,
+                    max_tokens=self.settings.llm.max_tokens,
+                    temperature=self.settings.llm.temperature,
+                )
+            return self._orchestrator
 
     def _persist(
         self, document: ParsedDocument, chunks: list[Chunk], embeddings: NDArray[np.float32]
@@ -256,7 +257,7 @@ class NexusRAG:
             return self._ingest_document(document, path.name, show_progress=True)
         except DocumentParseError as e:
             return self._failed_ingest(path.name, str(e))
-        except EmbeddingConfigError:
+        except (EmbeddingConfigError, VectorStoreError):
             raise
         except Exception as e:
             logger.exception("Failed to ingest file: %s", path.name)
@@ -269,7 +270,7 @@ class NexusRAG:
             return self._ingest_document(document, filename, show_progress=False)
         except DocumentParseError as e:
             return self._failed_ingest(filename, str(e))
-        except EmbeddingConfigError:
+        except (EmbeddingConfigError, VectorStoreError):
             raise
         except Exception as e:
             logger.exception("Failed to ingest bytes: %s", filename)
@@ -320,7 +321,21 @@ class NexusRAG:
         """Stream query response token by token."""
         self.vector_store.validate_embedding_config(self.embedder.embedding_config)
         if self.vector_store.count() == 0:
-            yield "No documents have been uploaded yet. Please upload research papers first."
+            error = "No documents have been uploaded yet. Please upload research papers first."
+            yield error
+            yield (
+                "\ndata: "
+                + json.dumps(
+                    {
+                        "event": "verification",
+                        "citations_valid": [],
+                        "faithfulness": None,
+                        "warnings": [error],
+                    }
+                )
+                + "\n\n"
+            )
+            yield "\ndata: " + json.dumps({"event": "verified_answer", "answer": error}) + "\n\n"
             return
 
         yield from self.orchestrator.query_streaming(question)
@@ -331,15 +346,22 @@ class NexusRAG:
             if not self.document_store.exists(document_id):
                 return False
 
-            doc_chunks = self.vector_store.get_chunks_by_document(document_id)
-            chunk_ids = {c.id for c in doc_chunks}
-
-            self.vector_store.delete_by_document(document_id)
-            if chunk_ids:
-                self.bm25.remove(chunk_ids)
-            self._assert_indexes_synced("delete")
-
-            self.document_store.delete(document_id)
+            sparse = self.bm25
+            chunk_ids = self.vector_store.get_chunk_ids_by_document(document_id)
+            try:
+                self.vector_store.delete_by_document(document_id)
+                if chunk_ids:
+                    sparse.remove(chunk_ids)
+                self._assert_indexes_synced("delete")
+                self.document_store.delete(document_id)
+            except Exception:
+                try:
+                    self._rebuild_bm25_index()
+                except Exception:
+                    self._bm25 = None
+                    self._orchestrator = None
+                    logger.exception("Could not rebuild the sparse index after failed deletion")
+                raise
             return True
 
     def clear_all(self) -> None:
@@ -356,11 +378,13 @@ class NexusRAG:
             self.document_store.clear()
 
     def get_stats(self) -> SystemStats:
-        doc_stats = self.document_store.get_stats()
+        with self._write_lock:
+            doc_stats = self.document_store.get_stats()
+            chunk_count = self.vector_store.count()
 
         return SystemStats(
             total_documents=doc_stats["document_count"],
-            total_chunks=self.vector_store.count(),
+            total_chunks=chunk_count,
             total_words=doc_stats["total_words"],
             storage_path=str(self.settings.data_dir),
             llm_model=self.settings.llm.model,
@@ -378,14 +402,13 @@ class NexusRAG:
     def _rebuild_bm25_index(self) -> None:
         """Rebuild BM25 index from vector store."""
         with self._write_lock:
-            if self._bm25 is None:
-                self._bm25 = BM25Retriever()
-
             chunks = self.vector_store.get_all_chunks()
-
-            self._bm25.clear()
+            sparse = self._bm25 if self._bm25 is not None else BM25Retriever()
             if chunks:
-                self._bm25.add(chunks)
+                sparse.add(chunks)
+            else:
+                sparse.clear()
+            self._bm25 = sparse
 
     def unload_models(self) -> None:
         "Unload ML models to free memory."

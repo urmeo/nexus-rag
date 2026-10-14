@@ -23,6 +23,20 @@ def _result(idx: int, content: str, score: float = 0.9) -> RetrievalResult:
     return RetrievalResult(chunk=chunk, score=score)
 
 
+def _consume_stream(chunks: list[str]) -> tuple[str, list[dict[str, Any]]]:
+    answer = ""
+    events = []
+    for chunk in chunks:
+        if chunk.startswith("\ndata: "):
+            event = json.loads(chunk.removeprefix("\ndata: "))
+            events.append(event)
+            if event["event"] == "verified_answer":
+                answer = event["answer"]
+        else:
+            answer += chunk
+    return answer, events
+
+
 class StubLLM:
     """Stand-in for LLMClient that returns a canned answer."""
 
@@ -232,19 +246,51 @@ class TestOrchestratorWiring:
         assert response.warnings == ["Answer generation failed."]
         grounding.verify.assert_not_called()
 
-    def test_streaming_appends_verification_event(self) -> None:
+    @pytest.mark.parametrize(
+        ("tokens", "expected_answer", "expected_citations"),
+        [
+            (["Fact ", "[1]."], "Fact [1].", [1]),
+            (["Claim ", "[99]."], "Claim .", []),
+            (["Fact ", "[1] and [9]."], "Fact [1] and .", [1]),
+        ],
+    )
+    def test_streaming_replaces_provisional_text_with_verified_answer(
+        self, tokens: list[str], expected_answer: str, expected_citations: list[int]
+    ) -> None:
         retriever = StubRetriever([_result(1, "fact")])
         llm = Mock(spec=LLMClient)
-        llm.stream.return_value = iter(["Fact ", "[1] and [9]."])
+        llm.stream.return_value = iter(tokens)
         orch = Orchestrator(retriever, llm)  # type: ignore[arg-type]
 
         chunks = list(orch.query_streaming("q?"))
+        answer, events = _consume_stream(chunks)
 
-        assert "Fact " in chunks
-        final = chunks[-1]
-        assert final.startswith("\ndata: ")
-        assert "verification" in final
-        assert "citations_valid" in final
+        assert chunks[:-2] == tokens
+        assert [event["event"] for event in events] == ["verification", "verified_answer"]
+        assert events[0]["citations_valid"] == expected_citations
+        assert events[1]["answer"] == expected_answer
+        assert answer == expected_answer
+        assert "[99]" not in answer and "[9]" not in answer
+
+    def test_empty_retrieval_stream_returns_final_error_without_answer_checks(self) -> None:
+        llm = Mock(spec=LLMClient)
+        grounding = Mock(spec=StubGrounding)
+        orch = Orchestrator(StubRetriever([]), llm, grounding_verifier=grounding)  # type: ignore[arg-type]
+        orch.verifier = Mock(spec=AnswerVerifier)
+        error = "No relevant documents found. Please upload documents and try again."
+
+        chunks = list(orch.query_streaming("What did the study find?"))
+        answer, events = _consume_stream(chunks)
+
+        assert chunks[:-2] == [error]
+        assert answer == error
+        assert events[-1] == {"event": "verified_answer", "answer": error}
+        assert events[0]["citations_valid"] == []
+        assert events[0]["faithfulness"] is None
+        assert events[0]["warnings"] == [error]
+        llm.stream.assert_not_called()
+        orch.verifier.verify.assert_not_called()
+        grounding.verify.assert_not_called()
 
     def test_omitted_sources_cannot_be_cited_or_used_for_grounding(self) -> None:
         results = [_result(i, f"Passage {i}: " + "evidence " * 145) for i in range(1, 6)]
@@ -281,8 +327,11 @@ class TestOrchestratorWiring:
 
         if streaming:
             chunks = list(orch.query_streaming("What did the study find?"))
-            event = json.loads(chunks[-1].removeprefix("\ndata: "))
-            assert chunks[:-1] == [error]
+            answer, events = _consume_stream(chunks)
+            event = events[0]
+            assert chunks[:-2] == [error]
+            assert answer == error
+            assert events[-1] == {"event": "verified_answer", "answer": error}
             assert event["citations_valid"] == []
             assert event["faithfulness"] is None
             assert event["warnings"] == [error]
@@ -316,12 +365,14 @@ class TestOrchestratorWiring:
         llm.stream.side_effect = mutate_after_preparation
 
         chunks = list(orch.query_streaming("What did the study find?"))
-        event = json.loads(chunks[-1].removeprefix("\ndata: "))
+        answer, events = _consume_stream(chunks)
+        event = events[0]
 
         assert event["citations_valid"] == [1]
         assert any("out-of-range" in warning for warning in event["warnings"])
         verified_answer, sources = grounding.verify.call_args.args
         assert "[5]" not in verified_answer
+        assert answer == verified_answer
         assert [source.content for source in sources] == original_contents
         assert [source.index for source in sources] == [1, 2, 3, 4]
         prompt = llm.stream.call_args.args[0]
@@ -345,9 +396,13 @@ class TestOrchestratorWiring:
         )
 
         chunks = list(orch.query_streaming("What did the study find?"))
-        event = json.loads(chunks[-1].removeprefix("\ndata: "))
+        answer, events = _consume_stream(chunks)
+        event = events[0]
 
-        assert chunks[-2] == "Unable to generate response."
+        assert chunks[-3] == "Unable to generate response."
+        assert "Partial answer" not in answer
+        assert answer == "Unable to generate response."
+        assert events[-1] == {"event": "verified_answer", "answer": answer}
         assert event["warnings"] == ["Answer generation failed."]
         assert event["faithfulness"] is None
         assert event["citations_valid"] == []

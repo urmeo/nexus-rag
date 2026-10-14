@@ -108,9 +108,8 @@ class HierarchicalChunker:
 
     def chunk(self, document: ParsedDocument) -> list[Chunk]:
         doc_name = resolve_display_name(document.metadata, fallback="Document")
-        if document.sections:
-            chunks = self._chunk_by_sections(document, doc_name)
-        else:
+        chunks = self._chunk_by_sections(document, doc_name) if document.sections else []
+        if not chunks:
             chunks = self._chunk_by_paragraphs(document, doc_name)
         if self.include_context:
             self._add_context_windows(chunks, document.content)
@@ -144,7 +143,9 @@ class HierarchicalChunker:
             else:
                 source = _TextSpan(section_text)
             section_title = section.title or ""
-            header_prefix = f"[{section_title}]\n\n" if section_title else ""
+            header_prefix = (
+                f"[{section_title}]\n\n" if section_title and not section.heading_only else ""
+            )
             for span in self._pack_spans(self._paragraph_spans(source), header_prefix):
                 chunks.append(
                     self._create_chunk(

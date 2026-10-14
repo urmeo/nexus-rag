@@ -27,6 +27,7 @@ from scinexusrag.config import EmbeddingSettings, Settings, StorageSettings, get
 from scinexusrag.generation import RAGResponse, Source
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfig, EmbeddingConfigError
 from scinexusrag.pipeline import IngestResult, NexusRAG, SystemStats
+from scinexusrag.storage import VectorStoreError
 
 MAX_FILE_SIZE_MB = get_settings().api.max_upload_mb
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -1094,6 +1095,80 @@ class TestEmbeddingConfigErrors:
 
         assert response.status_code == 401
         mock_scinexusrag.get_stats.assert_not_called()
+
+
+class TestStorageErrors:
+    @staticmethod
+    def assert_unavailable(response):
+        assert response.status_code == 503
+        detail = response.json()["detail"]
+        assert "vector index is unavailable" in detail
+        assert "server logs" in detail
+        assert "private database details" not in detail
+        assert "No documents" not in detail
+
+    @pytest.mark.parametrize(
+        ("method", "path", "failed_method"),
+        [
+            ("GET", "/api/health", "get_stats"),
+            ("GET", "/api/status", "get_stats"),
+            ("GET", "/api/documents", "get_stats"),
+            ("GET", "/api/metrics", "get_stats"),
+            ("POST", "/api/query", "query"),
+            ("DELETE", "/api/documents/paper", "delete_document"),
+            ("DELETE", "/api/documents", "clear_all"),
+        ],
+    )
+    def test_storage_failure_returns_503(
+        self, patch_get_scinexusrag, mock_scinexusrag, method, path, failed_method
+    ):
+        getattr(mock_scinexusrag, failed_method).side_effect = VectorStoreError(
+            "private database details"
+        )
+
+        response = TestClient(create_app()).request(
+            method, path, json={"question": "What was measured?"} if method == "POST" else None
+        )
+
+        self.assert_unavailable(response)
+
+    def test_ingest_storage_failure_returns_503(self, patch_get_scinexusrag, mock_scinexusrag):
+        mock_scinexusrag.ingest_bytes.side_effect = VectorStoreError("private database details")
+
+        response = TestClient(create_app()).post(
+            "/api/ingest", files={"file": ("paper.txt", b"Sensor readings.", "text/plain")}
+        )
+
+        self.assert_unavailable(response)
+
+    def test_failed_real_index_count_is_distinct_from_an_empty_corpus(self, temp_dir, monkeypatch):
+        rag = NexusRAG(
+            Settings(
+                data_dir=temp_dir,
+                storage=StorageSettings(lancedb_path=temp_dir / "lancedb"),
+            )
+        )
+        embedder = MagicMock(spec=Embedder)
+        embedder.embedding_config = EmbeddingConfig("fixture", "a" * 40, "", "", True, 4)
+        rag._embedder = embedder
+        with (
+            patch("scinexusrag.api.routes.get_scinexusrag", return_value=rag),
+            TestClient(create_app()) as client,
+        ):
+            empty = client.post("/api/query", json={"question": "What was measured?"})
+            assert empty.status_code == 200
+            assert "No documents" in empty.json()["answer"]
+
+            def fail_count():
+                raise OSError("private database details")
+
+            monkeypatch.setattr(rag.vector_store.table, "count_rows", fail_count)
+            self.assert_unavailable(
+                client.post("/api/query", json={"question": "What was measured?"})
+            )
+
+        embedder.embed_query.assert_not_called()
+        assert rag._orchestrator is None
 
 
 def _settings(**api_overrides) -> Settings:

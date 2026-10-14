@@ -23,6 +23,8 @@ Open **Pipeline** in the app header, or visit `/pipeline`, for the responsive gu
 
 The document store saves parsed JSON, not the original upload. Duplicate documents and empty extracted text fail ingestion. Writes run under a process lock, check index counts and attempt rollback on partial failure. BM25 rebuilds from stored passages at initialization; run one application worker.
 
+Deletion reads all matching chunk IDs in pages, removes vectors and BM25 entries, then deletes document metadata. If a step fails, it attempts to rebuild BM25 from the remaining vectors. Retry deletion to finish any remaining cleanup.
+
 Reindex previously uploaded documents from the original files to regenerate stored offsets, nearby context and DOCX table text.
 
 ## For each question
@@ -69,7 +71,11 @@ A caught generation failure or blank output retains sources and returns an error
 
 ## Response and limits
 
-The interface uses `POST /api/query`. It returns the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first **500 characters**, plus `...` when truncated. Internal correction status and reasoning traces are not exposed by this route. Python streaming helpers emit text before their later verification event.
+The interface uses `POST /api/query`. It returns the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first **500 characters**, plus `...` when truncated. Internal correction status and reasoning traces are not exposed by this route.
+
+`Orchestrator.query_streaming()` and `NexusRAG.query_streaming()` emit provisional text, then two `data: {JSON}` events. The `verification` event contains citation indices, faithfulness and warnings. The final `verified_answer` event contains the complete `answer`; consumers must replace all provisional text with it. This removes invalid citations from the displayed answer and replaces incomplete text after a generation failure. Empty retrieval and context-limit failures also end with this event; their answer is an error message and checks are skipped.
+
+Vector index read failures return HTTP **503**. They do not count as an empty corpus. The Python API raises `VectorStoreError` with the original storage error as its cause.
 
 - PDF extraction needs embedded text. There is no OCR, and encrypted PDFs are rejected.
 - DOCX extraction reads body paragraphs and tables, including nested table text, in document order. Table cells become pipe-separated text. Headers, footers and image text are not extracted. Table layout is not preserved.
