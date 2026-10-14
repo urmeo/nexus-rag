@@ -1,6 +1,7 @@
 """Tests for DocumentParser."""
 
 import pytest
+from docx import Document as DocxDocument
 
 from scinexusrag.ingestion import DocumentParseError, DocumentParser, ParsedDocument
 
@@ -13,6 +14,14 @@ def _assert_section_spans(document):
         assert previous_end <= section.start_offset <= section.end_offset <= len(document.content)
         assert document.content[section.start_offset : section.end_offset] == section.content
         previous_end = section.end_offset
+
+
+def _add_table(container, rows):
+    table = container.add_table(rows=len(rows), cols=len(rows[0]))
+    for row, values in zip(table.rows, rows, strict=True):
+        for cell, value in zip(row.cells, values, strict=True):
+            cell.text = value
+    return table
 
 
 class TestDocumentParser:
@@ -208,8 +217,6 @@ class TestDocumentParser:
     def test_docx_sections_preserve_paragraph_joins_and_repeated_source_positions(
         self, parser, temp_dir
     ):
-        from docx import Document as DocxDocument
-
         source = DocxDocument()
         source.add_paragraph("  First\t preamble.  ")
         source.add_paragraph("Second preamble.")
@@ -224,6 +231,11 @@ class TestDocumentParser:
 
         document = parser.parse(path)
 
+        assert document.content == (
+            "First preamble.\n\nSecond preamble.\n\nMethods\n\n"
+            "Shared passage.\n\nLine one.\nLine two.\n\nResults\n\n"
+            "Shared passage.\n\nLine one.\nLine two."
+        )
         _assert_section_spans(document)
         assert [section.content for section in document.sections] == [
             "First preamble.\n\nSecond preamble.",
@@ -237,6 +249,143 @@ class TestDocumentParser:
         assert document.sections[2].start_offset == document.content.index("Results\n\n") + len(
             "Results\n\n"
         )
+
+    def test_docx_tables_follow_paragraph_and_heading_order(self, parser, temp_dir):
+        source = DocxDocument()
+        source.add_paragraph("Preamble.")
+        _add_table(source, [["Sensor", "Offset"], ["A", "-0.25 °C"]])
+        source.add_heading("Results", level=1)
+        source.add_paragraph("Recorded readings.")
+        _add_table(source, [["Sensor", "Value"], ["B", "12.50%"]])
+        source.add_paragraph("After table.")
+        path = temp_dir / "ordered.docx"
+        source.save(path)
+
+        document = parser.parse(path)
+
+        assert document.content == (
+            "Preamble.\n\nSensor | Offset\nA | -0.25 °C\n\nResults\n\n"
+            "Recorded readings.\n\nSensor | Value\nB | 12.50%\n\nAfter table."
+        )
+        assert [section.title for section in document.sections] == ["", "Results"]
+        assert document.sections[0].content == "Preamble.\n\nSensor | Offset\nA | -0.25 °C"
+        assert document.sections[1].content == (
+            "Recorded readings.\n\nSensor | Value\nB | 12.50%\n\nAfter table."
+        )
+        _assert_section_spans(document)
+
+    def test_table_only_docx_preserves_numeric_text_empty_columns_and_upload_metadata(
+        self, parser, temp_dir
+    ):
+        rows = [
+            ["-12.50 °C", "0.0001 mg/L", "98.6%", ""],
+            ["", "+0.25 m/s", "−3.2 kPa", "1.0e-06 mol"],
+        ]
+        source = DocxDocument()
+        source.add_table(rows=1, cols=4)
+        _add_table(source, rows)
+        source.add_table(rows=1, cols=4)
+        path = temp_dir / "readings.docx"
+        source.save(path)
+
+        document = parser.parse_bytes(path.read_bytes(), "readings.docx", ".docx")
+
+        extracted_rows = [
+            [value.strip() for value in line.split("|")]
+            for line in document.content.splitlines()
+            if line.strip()
+        ]
+        assert extracted_rows == rows
+        assert [section.title for section in document.sections] == [""]
+        assert document.sections[0].content == document.content
+        _assert_section_spans(document)
+        assert document.metadata["filename"] == "readings.docx"
+        assert document.metadata["original_filename"] == "readings.docx"
+        assert document.metadata["extension"] == ".docx"
+        assert document.metadata["file_type"] == "docx"
+        assert document.metadata["display_name"] == "readings.docx"
+
+    def test_repeated_docx_tables_have_distinct_section_offsets(self, parser, temp_dir):
+        source = DocxDocument()
+        for title in ("Methods", "Results"):
+            source.add_heading(title, level=1)
+            _add_table(source, [["Sensor A", "-0.25 °C"]])
+        path = temp_dir / "repeated-tables.docx"
+        source.save(path)
+
+        document = parser.parse(path)
+
+        table_text = "Sensor A | -0.25 °C"
+        assert [section.content for section in document.sections] == [table_text, table_text]
+        assert document.sections[0].start_offset == document.content.index(table_text)
+        assert document.sections[1].start_offset == document.content.rindex(table_text)
+        assert document.sections[0].start_offset != document.sections[1].start_offset
+        _assert_section_spans(document)
+
+    @pytest.mark.parametrize("direction", ["horizontal", "vertical"])
+    def test_merged_docx_cells_do_not_duplicate_evidence(self, parser, temp_dir, direction):
+        source = DocxDocument()
+        table = source.add_table(rows=2, cols=3)
+        table.cell(0, 0).text = "Shared result."
+        table.cell(0, 0).merge(table.cell(0, 1) if direction == "horizontal" else table.cell(1, 0))
+        table.cell(0, 2).text = "First row."
+        table.cell(1, 2).text = "Second row."
+        path = temp_dir / "merged.docx"
+        source.save(path)
+
+        document = parser.parse(path)
+
+        assert document.content.count("Shared result.") == 1
+        assert [
+            [value.strip() for value in line.split("|")]
+            for line in document.content.splitlines()
+            if line.strip()
+        ] == [["Shared result.", "", "First row."], ["", "", "Second row."]]
+        _assert_section_spans(document)
+
+    def test_docx_omitted_edge_cells_keep_their_column_positions(self, parser, temp_dir):
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        source = DocxDocument()
+        table = _add_table(source, [["", "-0.25 °C", ""], ["Left", "Center", "Right"]])
+        row = table.rows[0]._tr
+        first, _, last = row.tc_lst
+        row.remove(first)
+        row.remove(last)
+        for name in ("gridBefore", "gridAfter"):
+            omitted = OxmlElement("w:" + name)
+            omitted.set(qn("w:val"), "1")
+            row.get_or_add_trPr().append(omitted)
+        path = temp_dir / "omitted.docx"
+        source.save(path)
+
+        document = parser.parse(path)
+
+        assert [
+            [value.strip() for value in line.split("|")]
+            for line in document.content.splitlines()
+            if line.strip()
+        ] == [["", "-0.25 °C", ""], ["Left", "Center", "Right"]]
+        _assert_section_spans(document)
+
+    def test_nested_docx_tables_keep_cell_block_order(self, parser, temp_dir):
+        source = DocxDocument()
+        table = source.add_table(rows=1, cols=2)
+        cell = table.cell(0, 0)
+        cell.text = "Before nested."
+        _add_table(cell, [["Nested A", "-0.5 °C"], ["Nested B", "2.0%"]])
+        cell.add_paragraph("After nested.")
+        table.cell(0, 1).text = "Adjacent cell."
+        path = temp_dir / "nested.docx"
+        source.save(path)
+
+        document = parser.parse(path)
+
+        assert document.content == (
+            "Before nested.; [Nested A | -0.5 °C; Nested B | 2.0%]; After nested. | Adjacent cell."
+        )
+        _assert_section_spans(document)
 
 
 class TestPdfEdgeCases:
@@ -375,8 +524,6 @@ class TestPreamblePreserved:
         assert any("critical preamble" in s.content.lower() for s in doc.sections)
 
     def test_docx_preamble_before_first_heading_kept(self, temp_dir):
-        from docx import Document as DocxDocument
-
         d = DocxDocument()
         d.add_paragraph("Critical preamble sentence.")
         d.add_heading("Heading One", level=1)

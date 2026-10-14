@@ -23,7 +23,7 @@ Open **Pipeline** in the app header, or visit `/pipeline`, for the responsive gu
 
 The document store saves parsed JSON, not the original upload. Duplicate documents and empty extracted text fail ingestion. Writes run under a process lock, check index counts and attempt rollback on partial failure. BM25 rebuilds from stored passages at initialization; run one application worker.
 
-Reindex previously uploaded documents to regenerate stored offsets and nearby context.
+Reindex previously uploaded documents from the original files to regenerate stored offsets, nearby context and DOCX table text.
 
 ## For each question
 
@@ -72,7 +72,7 @@ A caught generation failure or blank output retains sources and returns an error
 The interface uses `POST /api/query`. It returns the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first **500 characters**, plus `...` when truncated. Internal correction status and reasoning traces are not exposed by this route. Python streaming helpers emit text before their later verification event.
 
 - PDF extraction needs embedded text. There is no OCR, and encrypted PDFs are rejected.
-- DOCX extraction reads paragraphs, not tables, headers or footers.
+- DOCX extraction reads body paragraphs and tables, including nested table text, in document order. Table cells become pipe-separated text. Headers, footers and image text are not extracted. Table layout is not preserved.
 - Cross-encoder reranking and SPLADE are available in library or evaluation tools; they are not stages in this default application path.
 - Retrieval and evidence benchmarks do not establish generated-answer accuracy. See the [evaluation conditions](evaluation.md) and [setup and operating limits](../CONTRIBUTING.md).
 

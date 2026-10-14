@@ -1,10 +1,12 @@
 """Integration tests for the ingest -> query -> delete pipeline."""
 
+import json
 import tempfile
 import zlib
 from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from io import BytesIO
 from pathlib import Path
 from queue import Queue
 from threading import Barrier, Event, RLock, get_ident
@@ -12,6 +14,7 @@ from unittest.mock import MagicMock, PropertyMock
 
 import numpy as np
 import pytest
+from docx import Document as DocxDocument
 
 from scinexusrag.config import (
     EmbeddingSettings,
@@ -231,6 +234,77 @@ class TestBasicPipelineWorkflow:
         assert result.filename == "test_paper.md"
         assert result.chunk_count > 0
         assert result.word_count > 0
+
+    @pytest.mark.parametrize("interleaved", [False, True])
+    def test_docx_table_rows_remain_retrievable_after_reload(
+        self, scinexusrag_instance: NexusRAG, interleaved: bool
+    ):
+        document = DocxDocument()
+        before = "A paragraph before the measurement table."
+        after = "A paragraph after the measurement table."
+        if interleaved:
+            document.add_heading("Measurements", level=1)
+            document.add_paragraph(before)
+        rows = [
+            ["Sensor", "Reading", "Run"],
+            ["calibration", "42.50", "007"],
+            ["comparison", "", "-3.25"],
+        ]
+        table = document.add_table(rows=3, cols=3)
+        for row, values in zip(table.rows, rows, strict=True):
+            for cell, value in zip(row.cells, values, strict=True):
+                cell.text = value
+        if interleaved:
+            document.add_paragraph(after)
+        upload = BytesIO()
+        document.save(upload)
+        rag = scinexusrag_instance
+
+        result = rag.ingest_bytes(upload.getvalue(), "measurements.docx", ".docx")
+
+        assert result.success, result.error
+        assert result.chunk_count > 0
+        stored = json.loads(rag.document_store._doc_path(result.document_id).read_text())
+        content = stored["content"]
+        numeric_row = "calibration | 42.50 | 007"
+        assert numeric_row in content
+        empty_cell_row = next(
+            line for line in content.splitlines() if line.startswith("comparison")
+        )
+        assert [cell.strip() for cell in empty_cell_row.split("|")] == ["comparison", "", "-3.25"]
+        if interleaved:
+            assert content.index(before) < content.index(numeric_row) < content.index(after)
+        assert stored["sections"]
+        for section in stored["sections"]:
+            assert content[section["start_offset"] : section["end_offset"]] == section["content"]
+
+        restarted = NexusRAG(settings=rag.settings)
+        restarted._embedder = rag.embedder
+        restarted._llm = rag.llm
+        matches = restarted.bm25.retrieve("42.50", top_k=1)
+        assert len(matches) == 1
+        match = matches[0].chunk
+        assert numeric_row in match.content
+        persisted = {
+            chunk.id: chunk
+            for chunk in restarted.vector_store.get_chunks_by_document(result.document_id)
+        }[match.id]
+        assert persisted.full_context == match.full_context
+        start, end = persisted.start_offset, persisted.end_offset
+        assert start is not None and end is not None
+        assert numeric_row in content[start:end]
+        assert persisted.context_before == content[max(0, start - 150) : start].strip()
+        assert persisted.context_after == content[end : end + 150].strip()
+
+        prepared = restarted.orchestrator.synthesizer.prepare(
+            "What reading was recorded?", matches, {result.document_id: "measurements.docx"}
+        )
+        assert prepared.error is None
+        assert prepared.sources[0].chunk_id == match.id
+        assert (
+            prepared.sources[0].full_content or prepared.sources[0].content
+        ) == match.full_context
+        assert numeric_row in prepared.prompt
 
     def test_full_workflow_ingest_and_query(
         self, scinexusrag_instance: NexusRAG, sample_text_file: Path

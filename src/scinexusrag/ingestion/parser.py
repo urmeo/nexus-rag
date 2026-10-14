@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from docx import Document as DocxDocument
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 from pypdf import PdfReader
 
 
@@ -145,8 +147,12 @@ class DocumentParser:
         headings: list[tuple[int, int, str, int]] = []
         position = 0
 
-        for para in doc.paragraphs:
-            text = self._clean_text(para.text)
+        for block in doc.iter_inner_content():
+            text = (
+                self._clean_text(block.text)
+                if isinstance(block, Paragraph)
+                else self._docx_table_text(block)
+            )
             if not text:
                 continue
 
@@ -156,12 +162,42 @@ class DocumentParser:
             full_text_parts.append(text)
             position += len(text)
 
-            if para.style and para.style.name.startswith("Heading"):
-                level = self._get_heading_level(para.style.name)
+            if (
+                isinstance(block, Paragraph)
+                and block.style
+                and block.style.name.startswith("Heading")
+            ):
+                level = self._get_heading_level(block.style.name)
                 headings.append((start, position, text, level))
 
         full_text = "\n\n".join(full_text_parts)
         return full_text, self._sections_from_headings(full_text, headings)
+
+    def _docx_table_text(self, table: Table) -> str:
+        """Keep row order and empty columns without repeating merged-cell text."""
+        rows: list[str] = []
+        seen_cells: set[object] = set()
+        for row in table.rows:
+            cells = [""] * row.grid_cols_before
+            for cell in row.cells:
+                if cell._tc in seen_cells:
+                    cells.append("")
+                    continue
+                seen_cells.add(cell._tc)
+                parts: list[str] = []
+                for block in cell.iter_inner_content():
+                    if isinstance(block, Paragraph):
+                        text = self._clean_text(block.text)
+                    else:
+                        nested = self._docx_table_text(block)
+                        text = "[" + nested.replace("\n", "; ") + "]" if nested else ""
+                    if text:
+                        parts.append(text)
+                cells.append("; ".join(parts))
+            cells.extend([""] * row.grid_cols_after)
+            if any(cells):
+                rows.append(" | ".join(cells))
+        return "\n".join(rows)
 
     @staticmethod
     def _read_text(path: Path) -> str:

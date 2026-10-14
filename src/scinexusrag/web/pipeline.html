@@ -80,7 +80,7 @@
                 <dl class="pipeline-defaults">
                     <div>
                         <dt>Documents</dt>
-                        <dd>PDF parsing reads text without OCR. DOCX parsing reads paragraphs. Parsed documents and passage vectors are saved; BM25 stays in memory, so run one application worker.</dd>
+                        <dd>PDF parsing reads text without OCR. DOCX parsing reads body paragraphs and tables, including nested table text, in document order. Headers, footers and image text are not extracted; table layout is not preserved. Parsed documents and passage vectors are saved; BM25 stays in memory, so run one application worker.</dd>
                     </div>
                     <div>
                         <dt>Retrieval</dt>
