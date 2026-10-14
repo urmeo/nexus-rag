@@ -94,23 +94,25 @@ class NexusRAG:
 
     @property
     def embedder(self) -> Embedder:
-        if self._embedder is None:
-            self._embedder = Embedder(
-                model_name=self.settings.embedding.model,
-                device=self.settings.embedding.device,
-                revision=self.settings.embedding.revision,
-            )
-        return self._embedder
+        with self._write_lock:
+            if self._embedder is None:
+                self._embedder = Embedder(
+                    model_name=self.settings.embedding.model,
+                    device=self.settings.embedding.device,
+                    revision=self.settings.embedding.revision,
+                )
+            return self._embedder
 
     @property
     def vector_store(self) -> VectorStore:
-        if self._vector_store is None:
-            self._vector_store = VectorStore(
-                path=self.settings.storage.lancedb_path,
-                table_name=self.settings.storage.table_name,
-                embedding_config=self.embedder.embedding_config,
-            )
-        return self._vector_store
+        with self._write_lock:
+            if self._vector_store is None:
+                self._vector_store = VectorStore(
+                    path=self.settings.storage.lancedb_path,
+                    table_name=self.settings.storage.table_name,
+                    embedding_config=self.embedder.embedding_config,
+                )
+            return self._vector_store
 
     @property
     def document_store(self) -> DocumentStore:
@@ -387,18 +389,18 @@ class NexusRAG:
 
     def unload_models(self) -> None:
         "Unload ML models to free memory."
-        if self._embedder is not None:
-            self._embedder.unload()
-            self._embedder = None
+        with self._write_lock:
+            if self._embedder is not None:
+                self._embedder.unload()
+                self._embedder = None
 
-        if self._orchestrator is not None:
             self._orchestrator = None
-        self._vector_store = None
-        self._bm25 = None
+            self._vector_store = None
+            self._bm25 = None
 
-        if self._llm is not None:
-            self._llm.close()
-            self._llm = None
+            if self._llm is not None:
+                self._llm.close()
+                self._llm = None
 
         gc.collect()
 

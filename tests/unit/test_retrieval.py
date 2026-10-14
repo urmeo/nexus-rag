@@ -241,6 +241,19 @@ class TestHybridRetriever:
         sparse.retrieve.return_value = []
         assert HybridRetriever(dense, sparse).retrieve("q", top_k=5) == []
 
+    def test_fusion_retains_lexical_match_with_zero_bm25_score(self):
+        sparse = BM25Retriever()
+        sparse.add([Chunk(id="match", document_id="paper", content="kinase tumor inhibition")])
+        assert sparse.retrieve("kinase")[0].score == 0.0
+        dense = MagicMock()
+        dense.retrieve.return_value = []
+
+        results = HybridRetriever(dense, sparse).retrieve("kinase", top_k=1)
+
+        assert [result.chunk.id for result in results] == ["match"]
+        assert results[0].source == "hybrid"
+        assert results[0].score == 1.0
+
 
 class TestSpladeEmptyCorpus:
     def test_empty_corpus_does_not_crash(self):

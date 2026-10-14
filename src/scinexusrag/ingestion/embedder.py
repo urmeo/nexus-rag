@@ -2,6 +2,7 @@
 
 import gc
 import re
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -73,6 +74,7 @@ class Embedder:
         self.normalize = normalize
         self._model: SentenceTransformer | None = None
         self._loaded_model_source: tuple[str, str | None] | None = None
+        self._model_lock = threading.Lock()
         self._device = device
         self.revision = revision or HF_REVISIONS.get(model_name)
         default_query_prefix, default_doc_prefix = default_prefixes(model_name)
@@ -81,19 +83,20 @@ class Embedder:
 
     @property
     def model(self) -> Any:
-        source = (self.model_name, self.revision)
-        if self._model is not None and self._loaded_model_source != source:
-            raise EmbeddingConfigError(
-                "Model settings changed after loading. Unload the model first."
-            )
-        if self._model is None:
-            from sentence_transformers import SentenceTransformer
+        with self._model_lock:
+            source = (self.model_name, self.revision)
+            if self._model is not None and self._loaded_model_source != source:
+                raise EmbeddingConfigError(
+                    "Model settings changed after loading. Unload the model first."
+                )
+            if self._model is None:
+                model_name, revision = source
+                device = self._device
+                from sentence_transformers import SentenceTransformer
 
-            self._model = SentenceTransformer(
-                self.model_name, device=self._device, revision=self.revision
-            )
-            self._loaded_model_source = source
-        return self._model
+                self._model = SentenceTransformer(model_name, device=device, revision=revision)
+                self._loaded_model_source = source
+            return self._model
 
     @property
     def embedding_config(self) -> EmbeddingConfig:
@@ -116,8 +119,9 @@ class Embedder:
 
     def unload(self) -> None:
         """Release the underlying model; it lazy-loads again on next use."""
-        self._model = None
-        self._loaded_model_source = None
+        with self._model_lock:
+            self._model = None
+            self._loaded_model_source = None
         gc.collect()
 
     @property

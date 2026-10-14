@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import threading
 from dataclasses import asdict, dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -58,35 +59,38 @@ class VectorStore:
         self.table_name = table_name
         self.embedding_config = embedding_config
         self.embedding_dim = embedding_config.dimension
+        self._init_lock = threading.RLock()
         self._db: lancedb.DBConnection | None = None
         self._table: lancedb.table.Table | None = None
 
     @property
     def db(self) -> lancedb.DBConnection:
         """Lazy database connection."""
-        if self._db is None:
-            self.path.mkdir(parents=True, exist_ok=True)
-            self._db = lancedb.connect(str(self.path), read_consistency_interval=timedelta(0))
-        return self._db
+        with self._init_lock:
+            if self._db is None:
+                self.path.mkdir(parents=True, exist_ok=True)
+                self._db = lancedb.connect(str(self.path), read_consistency_interval=timedelta(0))
+            return self._db
 
     @property
     def table(self) -> lancedb.table.Table:
         """Get or create the chunks table."""
-        try:
-            table = self._table
-            if table is None:
-                table = (
-                    self.db.open_table(self.table_name)
-                    if self._table_exists()
-                    else self._create_table()
-                )
-            self._validate_table(table)
-        except EmbeddingConfigError:
-            raise
-        except Exception as exc:
-            raise EmbeddingConfigError("Cannot open or validate the vector index.") from exc
-        self._table = table
-        return table
+        with self._init_lock:
+            try:
+                table = self._table
+                if table is None:
+                    table = (
+                        self.db.open_table(self.table_name)
+                        if self._table_exists()
+                        else self._create_table()
+                    )
+                self._validate_table(table)
+            except EmbeddingConfigError:
+                raise
+            except Exception as exc:
+                raise EmbeddingConfigError("Cannot open or validate the vector index.") from exc
+            self._table = table
+            return table
 
     def _config_metadata(self) -> dict[str, Any]:
         return {"version": 1, **asdict(self.embedding_config)}
@@ -280,9 +284,10 @@ class VectorStore:
 
     def clear(self) -> None:
         """Remove all data from the store."""
-        if self._table_exists():
-            self.db.drop_table(self.table_name)
-        self._table = None
+        with self._init_lock:
+            if self._table_exists():
+                self.db.drop_table(self.table_name)
+            self._table = None
 
     def get_all_chunks(self) -> list[Chunk]:
         try:

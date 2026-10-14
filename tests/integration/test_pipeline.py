@@ -3,8 +3,11 @@
 import tempfile
 import zlib
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
+from queue import Queue
+from threading import Barrier, Event, RLock, get_ident
 from unittest.mock import MagicMock, PropertyMock
 
 import numpy as np
@@ -1003,6 +1006,140 @@ class TestUnloadModels:
         assert scinexusrag_instance._orchestrator is None
         assert scinexusrag_instance._vector_store is None
         assert scinexusrag_instance._bm25 is None
+
+
+class _ObservedWriteLock:
+    def __init__(self):
+        self.lock = RLock()
+        self.attempts = Queue()
+
+    def __enter__(self):
+        self.attempts.put(get_ident())
+        if not self.lock.acquire(timeout=5):
+            raise TimeoutError("Pipeline lock was not released")
+        return self
+
+    def __exit__(self, *_args):
+        self.lock.release()
+
+    def wait_for_attempts(self, count):
+        return [self.attempts.get(timeout=5) for _ in range(count)]
+
+    def wait_for_threads(self, count):
+        threads = set()
+        while len(threads) < count:
+            threads.add(self.attempts.get(timeout=5))
+        return threads
+
+
+class TestLazyResourceLifecycle:
+    @pytest.mark.parametrize(
+        "resource,factory_name", [("embedder", "Embedder"), ("vector_store", "VectorStore")]
+    )
+    def test_concurrent_first_access_constructs_one_handle(
+        self, test_settings, mock_embedder, monkeypatch, resource, factory_name
+    ):
+        rag = NexusRAG(test_settings)
+        if resource == "vector_store":
+            rag._embedder = mock_embedder
+        lock = _ObservedWriteLock()
+        rag._write_lock = lock
+        start = Barrier(4)
+        constructing = Event()
+        release = Event()
+        handle = MagicMock()
+
+        def construct(**_kwargs):
+            constructing.set()
+            assert release.wait(timeout=5)
+            return handle
+
+        def load():
+            start.wait(timeout=5)
+            return getattr(rag, resource)
+
+        factory = MagicMock(side_effect=construct)
+        monkeypatch.setattr("scinexusrag.pipeline." + factory_name, factory)
+        with ThreadPoolExecutor(max_workers=4) as workers:
+            futures = [workers.submit(load) for _ in range(4)]
+            try:
+                assert constructing.wait(timeout=5)
+                assert len(lock.wait_for_threads(4)) == 4
+            finally:
+                release.set()
+            assert all(future.result(timeout=5) is handle for future in futures)
+
+        if resource == "embedder":
+            factory.assert_called_once_with(
+                model_name="test-model", device="cpu", revision="a" * 40
+            )
+        else:
+            factory.assert_called_once_with(
+                path=test_settings.storage.lancedb_path,
+                table_name=test_settings.storage.table_name,
+                embedding_config=mock_embedder.embedding_config,
+            )
+
+    @pytest.mark.parametrize(
+        "resource,factory_name", [("embedder", "Embedder"), ("vector_store", "VectorStore")]
+    )
+    def test_failed_constructor_can_retry(
+        self, test_settings, mock_embedder, monkeypatch, resource, factory_name
+    ):
+        rag = NexusRAG(test_settings)
+        if resource == "vector_store":
+            rag._embedder = mock_embedder
+        rag._write_lock = _ObservedWriteLock()
+        handle = MagicMock()
+        factory = MagicMock(side_effect=[RuntimeError("Constructor failed"), handle])
+        monkeypatch.setattr("scinexusrag.pipeline." + factory_name, factory)
+
+        with pytest.raises(RuntimeError, match="Constructor failed"):
+            getattr(rag, resource)
+        assert getattr(rag, "_" + resource) is None
+        with ThreadPoolExecutor(max_workers=1) as workers:
+            assert workers.submit(lambda: getattr(rag, resource)).result(timeout=5) is handle
+        assert getattr(rag, resource) is handle
+        assert factory.call_count == 2
+
+    def test_unload_waits_for_lazy_embedder_construction(self, test_settings, monkeypatch):
+        rag = NexusRAG(test_settings)
+        lock = _ObservedWriteLock()
+        rag._write_lock = lock
+        constructing = Event()
+        release = Event()
+        original_embedder, fresh_embedder = MagicMock(), MagicMock()
+
+        def construct(**_kwargs):
+            constructing.set()
+            assert release.wait(timeout=5)
+            return original_embedder
+
+        factory = MagicMock(side_effect=construct)
+        monkeypatch.setattr("scinexusrag.pipeline.Embedder", factory)
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            loading = workers.submit(lambda: rag.embedder)
+            try:
+                assert constructing.wait(timeout=5)
+                lock.wait_for_attempts(1)
+                unloading = workers.submit(rag.unload_models)
+                lock.wait_for_attempts(1)
+                assert not unloading.done()
+            finally:
+                release.set()
+            assert loading.result(timeout=5) is original_embedder
+            unloading.result(timeout=5)
+
+        original_embedder.unload.assert_called_once()
+        assert rag._embedder is None
+        assert rag._orchestrator is None
+        assert rag._vector_store is None
+        assert rag._bm25 is None
+        factory.side_effect = None
+        factory.return_value = fresh_embedder
+        assert rag.embedder is fresh_embedder
+        assert rag.embedder is fresh_embedder
+        assert factory.call_count == 2
 
 
 class TestStoredEmbeddingConfiguration:

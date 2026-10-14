@@ -1,10 +1,13 @@
 """Vector storage, cosine search and persisted embedding configuration."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, replace
+from threading import Event, get_ident
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import lancedb
 import numpy as np
 import pyarrow as pa
 import pytest
@@ -21,6 +24,29 @@ def _config(dim: int = 4, **changes) -> EmbeddingConfig:
 
 def _store(tmp_path, dim: int = 4, **changes) -> VectorStore:
     return VectorStore(path=tmp_path / "lancedb", embedding_config=_config(dim, **changes))
+
+
+class _ObservedLock:
+    """Signal a contender's attempt before it waits on the real lock."""
+
+    def __init__(self, lock):
+        self.lock = lock
+        self.contender = None
+        self.attempted = Event()
+
+    def __enter__(self):
+        if get_ident() == self.contender:
+            self.attempted.set()
+        if not self.lock.acquire(timeout=5):
+            raise TimeoutError("Vector store lock was not released")
+        return self
+
+    def __exit__(self, *_args):
+        self.lock.release()
+
+    def run_contender(self, operation):
+        self.contender = get_ident()
+        return operation()
 
 
 def test_search_scores_are_cosine_similarity(temp_dir) -> None:
@@ -451,3 +477,124 @@ def test_cached_handle_rejects_a_recreated_collection(temp_dir, operation, extra
 
     assert replacement.count() == 1
     assert replacement.list_documents() == ["new-paper"]
+
+
+@pytest.mark.parametrize("bootstrap_stage", ["connect", "create_table"])
+def test_concurrent_first_access_connects_and_creates_once(temp_dir, monkeypatch, bootstrap_stage):
+    store = _store(temp_dir)
+    observed = _ObservedLock(store._init_lock)
+    store._init_lock = observed
+    entered = Event()
+    release = Event()
+    original = lancedb.connect if bootstrap_stage == "connect" else store.db.create_table
+
+    def held_bootstrap(*args, **kwargs):
+        entered.set()
+        if not release.wait(timeout=5):
+            raise TimeoutError("Bootstrap was not released")
+        return original(*args, **kwargs)
+
+    bootstrap = MagicMock(side_effect=held_bootstrap)
+    if bootstrap_stage == "connect":
+        monkeypatch.setattr(lancedb, "connect", bootstrap)
+    else:
+        monkeypatch.setattr(store.db, "create_table", bootstrap)
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        first = workers.submit(store.count)
+        try:
+            assert entered.wait(timeout=5)
+            second = workers.submit(observed.run_contender, store.count)
+            assert observed.attempted.wait(timeout=5)
+            assert bootstrap.call_count == 1
+        finally:
+            release.set()
+        assert first.result(timeout=5) == second.result(timeout=5) == 0
+
+    assert bootstrap.call_count == 1
+    assert store.db.list_tables().tables == ["chunks"]
+
+
+@pytest.mark.parametrize("bootstrap_stage", ["connect", "create_table"])
+def test_failed_bootstrap_releases_lock_and_can_retry(temp_dir, monkeypatch, bootstrap_stage):
+    store = _store(temp_dir)
+    original = lancedb.connect if bootstrap_stage == "connect" else store.db.create_table
+
+    def fail_once(*args, **kwargs):
+        if bootstrap.call_count == 1:
+            raise OSError("Storage temporarily unavailable")
+        return original(*args, **kwargs)
+
+    bootstrap = MagicMock(side_effect=fail_once)
+    if bootstrap_stage == "connect":
+        monkeypatch.setattr(lancedb, "connect", bootstrap)
+    else:
+        monkeypatch.setattr(store.db, "create_table", bootstrap)
+
+    with pytest.raises(EmbeddingConfigError) as raised:
+        store.count()
+
+    assert isinstance(raised.value.__cause__, OSError)
+    assert store._table is None
+    if bootstrap_stage == "connect":
+        assert store._db is None
+    assert store.count() == 0
+    assert bootstrap.call_count == 2
+    assert json.loads(store.table.schema.metadata[b"nexusrag.embedding_config"])["version"] == 1
+
+
+def test_clear_waits_for_table_bootstrap_then_removes_the_published_table(temp_dir, monkeypatch):
+    store = _store(temp_dir)
+    observed = _ObservedLock(store._init_lock)
+    store._init_lock = observed
+    entered = Event()
+    release = Event()
+    original_create = store.db.create_table
+
+    def held_create(*args, **kwargs):
+        entered.set()
+        if not release.wait(timeout=5):
+            raise TimeoutError("Table creation was not released")
+        return original_create(*args, **kwargs)
+
+    monkeypatch.setattr(store.db, "create_table", held_create)
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        first = workers.submit(lambda: store.table)
+        try:
+            assert entered.wait(timeout=5)
+            cleared = workers.submit(observed.run_contender, store.clear)
+            assert observed.attempted.wait(timeout=5)
+        finally:
+            release.set()
+        assert first.result(timeout=5) is not None
+        assert cleared.result(timeout=5) is None
+
+    assert store._table is None
+    assert "chunks" not in store.db.list_tables().tables
+    assert store.count() == 0
+
+
+def test_failed_clear_keeps_cached_data_and_allows_retry(temp_dir, monkeypatch):
+    store = _store(temp_dir)
+    store.add(
+        [Chunk(id="kept", content="Stored passage", document_id="paper")],
+        np.ones((1, 4), dtype=np.float32),
+    )
+    original_drop = store.db.drop_table
+    attempts = 0
+
+    def fail_once(*args, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError("Cannot remove table")
+        return original_drop(*args, **kwargs)
+
+    monkeypatch.setattr(store.db, "drop_table", fail_once)
+    with pytest.raises(OSError):
+        store.clear()
+
+    assert store.count() == 1
+    store.clear()
+    assert store._table is None
+    assert "chunks" not in store.db.list_tables().tables

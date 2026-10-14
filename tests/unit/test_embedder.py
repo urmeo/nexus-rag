@@ -1,6 +1,9 @@
 """Tests for Embedder."""
 
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
+from threading import Barrier, Event, Lock, get_ident
 from types import ModuleType
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +13,24 @@ import pytest
 from scinexusrag.config import HF_REVISIONS
 from scinexusrag.ingestion import Embedder
 from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
+
+
+class _ObservedLock:
+    def __init__(self):
+        self.lock = Lock()
+        self.attempts = Queue()
+
+    def __enter__(self):
+        self.attempts.put(get_ident())
+        if not self.lock.acquire(timeout=5):
+            raise TimeoutError("Model lock was not released")
+        return self
+
+    def __exit__(self, *_args):
+        self.lock.release()
+
+    def wait_for_attempts(self, count):
+        return [self.attempts.get(timeout=5) for _ in range(count)]
 
 
 class TestEmbedder:
@@ -127,6 +148,99 @@ class TestEmbedder:
             _ = embedder.model
 
             mock_cls.assert_called_once_with("test-model", device="cuda", revision=None)
+
+    def test_concurrent_model_first_access_constructs_once(self):
+        embedder = Embedder(model_name="test-model", revision="a" * 40)
+        lock = _ObservedLock()
+        embedder._model_lock = lock
+        start = Barrier(4)
+        constructing = Event()
+        release = Event()
+        model = object()
+
+        def construct(*_args, **_kwargs):
+            constructing.set()
+            assert release.wait(timeout=5)
+            return model
+
+        def load():
+            start.wait(timeout=5)
+            return embedder.model
+
+        with (
+            patch("sentence_transformers.SentenceTransformer", side_effect=construct) as factory,
+            ThreadPoolExecutor(max_workers=4) as workers,
+        ):
+            futures = [workers.submit(load) for _ in range(4)]
+            try:
+                assert constructing.wait(timeout=5)
+                assert len(set(lock.wait_for_attempts(4))) == 4
+            finally:
+                release.set()
+            assert all(future.result(timeout=5) is model for future in futures)
+
+        factory.assert_called_once_with("test-model", device=None, revision="a" * 40)
+        assert embedder._model is model
+        assert embedder._loaded_model_source == ("test-model", "a" * 40)
+
+    def test_failed_constructor_can_retry_without_deadlock(self):
+        embedder = Embedder(model_name="test-model", revision="a" * 40)
+        embedder._model_lock = _ObservedLock()
+        model = object()
+        with patch(
+            "sentence_transformers.SentenceTransformer",
+            side_effect=[RuntimeError("Constructor failed"), model],
+        ) as factory:
+            with pytest.raises(RuntimeError, match="Constructor failed"):
+                _ = embedder.model
+            assert embedder._model is None
+            assert embedder._loaded_model_source is None
+
+            with ThreadPoolExecutor(max_workers=1) as workers:
+                assert workers.submit(lambda: embedder.model).result(timeout=5) is model
+            assert embedder.model is model
+
+        assert factory.call_count == 2
+        assert embedder._loaded_model_source == ("test-model", "a" * 40)
+
+    def test_unload_waits_for_initial_load_and_next_access_loads_fresh_model(self):
+        embedder = Embedder(model_name="test-model", revision="a" * 40)
+        lock = _ObservedLock()
+        embedder._model_lock = lock
+        constructing = Event()
+        release = Event()
+        original_model, fresh_model = object(), object()
+
+        def construct(*_args, **_kwargs):
+            constructing.set()
+            assert release.wait(timeout=5)
+            return original_model
+
+        with (
+            patch("sentence_transformers.SentenceTransformer", side_effect=construct) as factory,
+            ThreadPoolExecutor(max_workers=2) as workers,
+        ):
+            loading = workers.submit(lambda: embedder.model)
+            try:
+                assert constructing.wait(timeout=5)
+                lock.wait_for_attempts(1)
+                unloading = workers.submit(embedder.unload)
+                lock.wait_for_attempts(1)
+                assert not unloading.done()
+            finally:
+                release.set()
+            assert loading.result(timeout=5) is original_model
+            unloading.result(timeout=5)
+            assert embedder._model is None
+            assert embedder._loaded_model_source is None
+
+            factory.side_effect = None
+            factory.return_value = fresh_model
+            assert embedder.model is fresh_model
+            assert embedder.model is fresh_model
+
+        assert factory.call_count == 2
+        assert embedder._loaded_model_source == ("test-model", "a" * 40)
 
     def test_similarity_normalized(self, mock_sentence_transformer):
         embedder = Embedder(model_name="test-model", normalize=True)
