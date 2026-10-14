@@ -54,7 +54,7 @@ Set environment variables or create `.env` in the repository root with the setti
 | `EMBEDDING_DEVICE` | `cpu` | `cpu`, `cuda` or `mps` |
 | `DATA_DIR` | `./data` | Document metadata directory |
 | `LANCEDB_PATH` | `./data/lancedb` | Vector index directory; set separately from `DATA_DIR` |
-| `SELF_CORRECTION_ENABLED` | `true` | Allow one search using feedback terms when confidence is low |
+| `SELF_CORRECTION_ENABLED` | `true` | Allow one feedback search when dense similarity is low |
 | `SELF_CORRECTION_GROUNDING_ENABLED` | `false` | Check answer sentences with an NLI model |
 | `NEXUSRAG_API_KEY` | Empty | Require an API key on `/api` routes |
 | `NEXUSRAG_FRONTEND_DIR` | Packaged `web/` directory | Serve a different interface directory |

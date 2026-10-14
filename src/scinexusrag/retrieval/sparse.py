@@ -53,26 +53,34 @@ class BM25Retriever:
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
         index = self._index
-        if index is None:
+        if index is None or top_k <= 0:
             return []
 
         tokenized_query = self.tokenize(query)
         if not tokenized_query:
             return []
 
+        query_terms = set(tokenized_query)
+        candidates = [
+            i
+            for i, frequencies in enumerate(index.bm25.doc_freqs)
+            if any(term in frequencies for term in query_terms)
+        ]
+        if not candidates:
+            return []
+
         scores = index.bm25.get_scores(tokenized_query)
-        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+        top_indices = sorted(candidates, key=lambda i: scores[i], reverse=True)[:top_k]
         peak_score = max(scores)
         max_score = peak_score if peak_score > 0 else 1.0
 
         return [
             RetrievalResult(
                 chunk=index.chunks[i],
-                score=scores[i] / max_score,
+                score=max(0.0, float(scores[i] / max_score)),
                 source="sparse",
             )
             for i in top_indices
-            if scores[i] > 0
         ]
 
     def remove(self, chunk_ids: set[str]) -> int:

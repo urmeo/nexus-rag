@@ -131,6 +131,7 @@ class HierarchicalChunker:
         texts: list[str] = []
         current: list[str] = []
         current_length = len(header_prefix)
+        overlap_count = 0
 
         for para in paragraphs:
             para = para.strip()
@@ -142,6 +143,7 @@ class HierarchicalChunker:
                 if current:
                     texts.append(header_prefix + "\n\n".join(current))
                     current, current_length = [], len(header_prefix)
+                    overlap_count = 0
                 for sent_chunk in self._split_by_sentences(para, header_prefix):
                     body = sent_chunk.removeprefix(header_prefix).strip()
                     if (
@@ -167,6 +169,7 @@ class HierarchicalChunker:
                 if len(header_prefix) + len("\n\n".join([*overlap, para])) > self.max_chunk_size:
                     overlap = []
                 current = overlap + [para]
+                overlap_count = len(overlap)
                 current_length = len(header_prefix) + sum(len(c) + 2 for c in current)
             else:
                 current.append(para)
@@ -176,14 +179,15 @@ class HierarchicalChunker:
             return texts
         body = "\n\n".join(current)
         tail = header_prefix + body
+        new_body = "\n\n".join(current[overlap_count:])
         if (
             len(tail) >= self.min_chunk_size
             or not texts
-            or len(texts[-1]) + 2 + len(body) > self.max_chunk_size
+            or len(texts[-1]) + 2 + len(new_body) > self.max_chunk_size
         ):
             texts.append(tail)
         else:
-            texts[-1] += "\n\n" + body
+            texts[-1] += "\n\n" + new_body
         return texts
 
     def _split_into_paragraphs(self, text: str) -> list[str]:
@@ -261,17 +265,20 @@ class HierarchicalChunker:
         return overlap_content
 
     def _add_context_windows(self, chunks: list[Chunk], full_text: str) -> None:
+        search_start = 0
+        previous_body = ""
         for chunk in chunks:
             body = chunk.content
-            header = re.match(r"^\[[^\]]*\]\n\n", body)
-            if header:
-                body = body[header.end() :]
-            needle = body[:80]
-            if not needle:
+            if chunk.section_title:
+                body = body.removeprefix(f"[{chunk.section_title}]\n\n")
+            if not body:
                 continue
-            start_idx = full_text.find(needle)
+            lookup_start = search_start + 1 if previous_body.startswith(body) else search_start
+            start_idx = full_text.find(body, lookup_start)
             if start_idx == -1:
                 continue
+            search_start = start_idx
+            previous_body = body
             end_idx = start_idx + len(body)
             if start_idx > 0:
                 chunk.context_before = full_text[

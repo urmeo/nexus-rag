@@ -127,7 +127,7 @@ function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
         console: { error() {} }
     });
     vm.runInContext(script, context, { filename: 'frontend/js/app.js' });
-    const api = vm.runInContext('({ init, loadDocuments, uploadFiles, sendMessage, state })', context);
+    const api = vm.runInContext('({ init, checkHealth, loadDocuments, uploadFiles, sendMessage, state })', context);
     return { api, get, clipboard, storage, timers, document: context.document,
         dispatchDocument: async (name, event) => {
             for (const handler of documentListeners.get(name) || []) await handler(event);
@@ -141,12 +141,70 @@ function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
 }
 
 function response(data, status = 200) { return { ok: status < 400, status, json: async () => data }; }
-function deferred() { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; }
+function deferred() {
+    let resolve, reject;
+    const promise = new Promise((done, failed) => { resolve = done; reject = failed; });
+    return { promise, resolve, reject };
+}
 async function settle() { for (let i = 0; i < 20; i++) await Promise.resolve(); }
 function documents(count, prefix = 'paper') {
     return Array.from({ length: count }, (_, index) => ({ id: `${prefix}-${index}`, filename: `${prefix}-${index}.txt` }));
 }
 const health = { llm_available: true, llm_model: 'local', embedding_model: 'embedding', total_documents: 1, total_chunks: 2 };
+
+test('stale health responses cannot replace newer model status or document counts', async () => {
+    for (const outcome of ['success', 'unauthorized', 'network failure']) {
+        const oldHealth = deferred();
+        const newHealth = deferred();
+        const responses = [oldHealth, newHealth];
+        const app = createApp(async () => responses.shift().promise);
+
+        const oldRequest = app.api.checkHealth();
+        const newRequest = app.api.checkHealth();
+        newHealth.resolve(response({ ...health, llm_model: 'current-model', total_documents: 0, total_chunks: 0 }));
+        await newRequest;
+
+        if (outcome === 'success') {
+            oldHealth.resolve(response({ ...health, llm_model: 'old-model', total_documents: 2, total_chunks: 12 }));
+        } else if (outcome === 'unauthorized') {
+            oldHealth.resolve(response({ detail: 'Expired API key' }, 401));
+        } else {
+            oldHealth.reject(new Error('Connection lost'));
+        }
+        await oldRequest;
+
+        assert.equal(app.api.state.llmModel, 'current-model', outcome);
+        assert.equal(app.get('modelStatus').querySelector('.model-name').textContent, 'current-model', outcome);
+        assert.equal(app.get('docStatus').textContent, '0', outcome);
+        assert.equal(app.get('chunkStatus').textContent, '0', outcome);
+    }
+});
+
+test('health refreshes preserve counts from the latest document list', async () => {
+    for (const outcome of ['success', 'network failure']) {
+        const pendingHealth = deferred();
+        const latestDocuments = outcome === 'success' ? [] : documents(2);
+        const totalChunks = latestDocuments.length * 6;
+        const app = createApp(async url => url === '/api/health'
+            ? pendingHealth.promise
+            : response({ documents: latestDocuments, total_documents: latestDocuments.length, total_chunks: totalChunks }));
+
+        const healthRefresh = app.api.checkHealth();
+        await app.api.loadDocuments();
+        if (outcome === 'success') {
+            pendingHealth.resolve(response({ ...health, total_documents: 2, total_chunks: 12 }));
+        } else {
+            pendingHealth.reject(new Error('Connection lost'));
+        }
+        await healthRefresh;
+
+        assert.equal(app.api.state.documents.length, latestDocuments.length, outcome);
+        assert.equal(app.get('docStatus').textContent, String(latestDocuments.length), outcome);
+        assert.equal(app.get('chunkStatus').textContent, String(totalChunks), outcome);
+        assert.equal(app.get('modelStatus').querySelector('.model-name').textContent,
+            outcome === 'success' ? 'local' : 'Server unavailable', outcome);
+    }
+});
 
 test('older answer controls copy its answer and restore its own citation sources', async () => {
     const answers = [

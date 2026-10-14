@@ -1,5 +1,8 @@
 """VectorStore search uses cosine similarity, not raw L2 distance."""
 
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
 
@@ -107,3 +110,57 @@ def test_chunk_context_and_citation_metadata_survive_reload(temp_dir, access) ->
     assert restored.chunk_index == 7
     assert restored.metadata["file_type"] == "pdf"
     assert reloaded.list_documents() == ["paper"]
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_legacy_connection_can_create_reopen_and_clear_tables(temp_dir, existing) -> None:
+    store = _store(temp_dir)
+    vectors = np.array([[1, 0, 0, 0]], dtype=np.float32)
+    if existing:
+        store.add([Chunk(id="old", content="Original passage", document_id="paper")], vectors)
+
+    class LegacyConnection:
+        """Expose the table_names interface used by LanceDB 0.17."""
+
+        def __init__(self, connection):
+            self.connection = connection
+
+        def table_names(self):
+            return self.connection.list_tables().tables
+
+        def __getattr__(self, name):
+            if name == "list_tables":
+                raise AttributeError(name)
+            return getattr(self.connection, name)
+
+    reloaded = _store(temp_dir)
+    reloaded._db = LegacyConnection(store.db)
+    reloaded.add([Chunk(id="new", content="New passage", document_id="paper")], vectors)
+
+    assert reloaded.count() == 1 + existing
+    assert {result.chunk.id for result in reloaded.search(vectors[0])} == (
+        {"old", "new"} if existing else {"new"}
+    )
+    reloaded.clear()
+    assert "chunks" not in store.db.list_tables().tables
+    assert reloaded.count() == 0
+
+
+@pytest.mark.parametrize("operation", ["open", "clear"])
+def test_current_connection_finds_tables_on_later_pages(temp_dir, operation) -> None:
+    store = _store(temp_dir)
+    database = MagicMock(spec=["list_tables", "open_table", "create_table", "drop_table"])
+    pages = {
+        None: SimpleNamespace(tables=["another_table"], page_token="next_page"),
+        "next_page": SimpleNamespace(tables=["chunks"], page_token=None),
+    }
+    database.list_tables.side_effect = lambda *, page_token: pages[page_token]
+    store._db = database
+
+    if operation == "open":
+        assert store.table is database.open_table.return_value
+        database.open_table.assert_called_once_with("chunks")
+        database.create_table.assert_not_called()
+    else:
+        store.clear()
+        database.drop_table.assert_called_once_with("chunks")

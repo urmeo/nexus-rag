@@ -67,11 +67,26 @@ class VectorStore:
     def table(self) -> lancedb.table.Table:
         """Get or create the chunks table."""
         if self._table is None:
-            if self.table_name in self.db.list_tables().tables:
+            if self._table_exists():
                 self._table = self.db.open_table(self.table_name)
             else:
                 self._table = self._create_table()
         return self._table
+
+    def _table_exists(self) -> bool:
+        """Find the configured table with either LanceDB listing API."""
+        list_tables = getattr(self.db, "list_tables", None)
+        if list_tables is None:
+            return self.table_name in self.db.table_names()
+
+        page_token: str | None = None
+        while True:
+            page = list_tables(page_token=page_token)
+            if self.table_name in page.tables:
+                return True
+            page_token = page.page_token
+            if not page_token:
+                return False
 
     def _create_table(self) -> lancedb.table.Table:
         """Create table with schema."""
@@ -210,7 +225,7 @@ class VectorStore:
 
     def clear(self) -> None:
         """Remove all data from the store."""
-        if self.table_name in self.db.list_tables().tables:
+        if self._table_exists():
             self.db.drop_table(self.table_name)
         self._table = None
 

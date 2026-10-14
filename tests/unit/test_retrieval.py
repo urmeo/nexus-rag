@@ -49,6 +49,49 @@ class TestBM25Retriever:
         r.add(sample_chunks)
         assert r.retrieve("", top_k=5) == []
 
+    def test_single_matching_passage_with_negative_idf_is_returned(self):
+        retriever = BM25Retriever()
+        retriever.add([Chunk(id="match", document_id="paper", content="kinase tumor inhibition")])
+
+        results = retriever.retrieve("kinase")
+
+        assert [result.chunk.id for result in results] == ["match"]
+        assert results[0].score == 0.0
+
+    @pytest.mark.parametrize(
+        "texts",
+        [
+            ["cardiac disease", "kinase inhibition"],
+            ["shared pathway", "shared pathway kinase", "shared pathway kinase kinase"],
+        ],
+    )
+    def test_nonpositive_match_is_ranked_before_unmatched_passage(self, texts):
+        retriever = BM25Retriever()
+        retriever.add(
+            [
+                Chunk(id=f"passage{i}", document_id="paper", content=text)
+                for i, text in enumerate(texts)
+            ]
+        )
+
+        results = retriever.retrieve("kinase", top_k=1)
+
+        assert [result.chunk.id for result in results] == ["passage1"]
+        assert results[0].score == 0.0
+
+    def test_query_without_token_overlap_returns_no_passages(self):
+        retriever = BM25Retriever()
+        retriever.add([Chunk(id="one", document_id="paper", content="kinase tumor inhibition")])
+
+        assert retriever.retrieve("cardiac disease") == []
+
+    @pytest.mark.parametrize("top_k", [0, -1])
+    def test_nonpositive_depth_returns_no_passages(self, sample_chunks, top_k):
+        retriever = BM25Retriever()
+        retriever.add(sample_chunks)
+
+        assert retriever.retrieve("neural networks", top_k=top_k) == []
+
     def test_tokenize_drops_stopwords(self):
         tokens = BM25Retriever().tokenize("the quick brown fox is jumping")
         assert "the" not in tokens and "is" not in tokens

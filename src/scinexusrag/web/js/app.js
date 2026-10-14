@@ -21,6 +21,7 @@ const state = {
 
 let documentRequest = 0;
 let queryRequest = 0;
+let healthRequest = 0;
 let uploadQueue = Promise.resolve();
 let uploadHideTimer = null;
 let sourceTrigger = null;
@@ -133,7 +134,9 @@ async function saveApiKey(event) {
         state.embeddingModel = '';
         renderDocuments();
         el.docCount.textContent = '0';
-        updateStatusBar({});
+        el.docStatus.textContent = '0';
+        el.chunkStatus.textContent = '0';
+        updateStatusBar();
         updateInputState();
         closeSources();
         updateSourcesPanel([]);
@@ -194,11 +197,12 @@ function autoResize() {
 }
 
 async function checkHealth() {
+    const request = ++healthRequest;
     const key = state.apiKey;
     try {
         const res = await fetch('/api/health', { headers: apiHeaders() });
         const data = await res.json();
-        if (key !== state.apiKey) return;
+        if (request !== healthRequest || key !== state.apiKey) return;
         if (!res.ok) {
             updateConnectionStatus({ llm_available: false });
             if (res.status === 401) {
@@ -211,12 +215,12 @@ async function checkHealth() {
         state.embeddingModel = data.embedding_model || '';
 
         updateConnectionStatus(data);
-        updateStatusBar(data);
+        updateStatusBar();
     } catch {
-        if (key !== state.apiKey) return;
+        if (request !== healthRequest || key !== state.apiKey) return;
         updateConnectionStatus({ llm_available: false });
         el.modelStatus.querySelector('.model-name').textContent = 'Server unavailable';
-        updateStatusBar({});
+        updateStatusBar();
     }
 }
 
@@ -233,11 +237,9 @@ function updateConnectionStatus(data) {
     }
 }
 
-function updateStatusBar(data) {
+function updateStatusBar() {
     el.llmStatus.textContent = state.llmModel || '--';
     el.embeddingStatus.textContent = state.embeddingModel || '--';
-    el.docStatus.textContent = data.total_documents || 0;
-    el.chunkStatus.textContent = data.total_chunks || 0;
 }
 
 async function loadDocuments() {

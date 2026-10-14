@@ -24,6 +24,131 @@ def test_short_tail_does_not_overflow_full_chunk(content, sectioned):
         assert all(chunk.section_title == "Methods" and chunk.page_number == 4 for chunk in chunks)
 
 
+@pytest.mark.parametrize("sectioned", [False, True])
+def test_short_tail_merge_does_not_duplicate_overlap(sectioned):
+    content = "\n\n".join(
+        [("alpha " * 185).strip(), ("beta " * 10).strip(), ("gamma " * 10).strip()]
+    )
+    document = ParsedDocument(id="overlap-tail", content=content)
+    if sectioned:
+        document.sections = [Section(title="Methods", content=content, page_number=4)]
+    chunker = SemanticChunker(min_chunk_size=200, include_context=False)
+
+    chunks = chunker.chunk(document)
+
+    assert len(chunks) == 1
+    assert chunks[0].content.removeprefix("[Methods]\n\n") == content
+    assert len(chunks[0].content) <= chunker.max_chunk_size
+    if sectioned:
+        assert chunks[0].section_title == "Methods"
+        assert chunks[0].page_number == 4
+
+
+def test_context_matches_full_passage_when_prefixes_repeat():
+    prefix = "The shared introduction explains the study design and measurement procedure. "
+    prefix += "Both groups followed this procedure. "
+    first = prefix + "The first group used the original instrument."
+    second = prefix + "The second group used the replacement instrument."
+    content = f"First\n\n{first}\n\nSecond\n\n{second}\n\nEnd of the document."
+    document = ParsedDocument(
+        id="shared-prefix",
+        content=content,
+        sections=[Section(title="First", content=first), Section(title="Second", content=second)],
+    )
+    chunker = SemanticChunker(context_chars=20)
+
+    chunks = chunker.chunk(document)
+
+    second_start = content.index(second)
+    second_end = second_start + len(second)
+    assert chunks[1].context_before == content[second_start - 20 : second_start].strip()
+    assert chunks[1].context_after == content[second_end : second_end + 20].strip()
+
+
+def test_identical_passages_get_context_from_their_document_order():
+    passage = "The instrument was calibrated before collecting the measurements."
+    content = f"First marker.\n\n{passage}\n\nMiddle marker.\n\n{passage}\n\nLast marker."
+    document = ParsedDocument(
+        id="repeated-passage",
+        content=content,
+        sections=[
+            Section(title="First", content=passage),
+            Section(title="Second", content=passage),
+        ],
+    )
+
+    chunks = SemanticChunker(context_chars=16).chunk(document)
+
+    assert chunks[0].context_before == "First marker."
+    assert chunks[1].context_before == "Middle marker."
+    assert chunks[1].context_after == "Last marker."
+
+
+def test_full_overlap_chunks_keep_context_from_the_same_source_position():
+    first = ("alpha " * 40).strip()
+    second = ("beta " * 210).strip()
+    methods = first + "\n\n" + second
+    results = "Following measurements were performed after calibration."
+    content = f"Introduction marker.\n\n{methods}\n\nResults marker.\n\n{results}"
+    document = ParsedDocument(
+        id="full-overlap-context",
+        content=content,
+        sections=[
+            Section(title="Methods", content=methods),
+            Section(title="Results", content=results),
+        ],
+    )
+    chunker = SemanticChunker(min_chunk_size=200, context_chars=40)
+
+    chunks = chunker.chunk(document)
+
+    assert len(chunks) == 3
+    assert chunks[1].content == "[Methods]\n\n" + methods
+    assert chunks[1].context_before == "Introduction marker."
+    methods_end = content.index(methods) + len(methods)
+    assert chunks[1].context_after == content[methods_end : methods_end + 40].strip()
+
+
+def test_shorter_repeated_prefix_gets_context_from_its_later_occurrence():
+    passage = "The instrument was calibrated before collecting the measurements."
+    first = passage + " The first group used the original instrument."
+    content = f"First marker.\n\n{first}\n\nMiddle marker.\n\n{passage}\n\nLast marker."
+    document = ParsedDocument(
+        id="shorter-prefix",
+        content=content,
+        sections=[Section(title="First", content=first), Section(title="Second", content=passage)],
+    )
+
+    chunks = SemanticChunker(context_chars=16).chunk(document)
+
+    assert chunks[1].context_before == "Middle marker."
+    assert chunks[1].context_after == "Last marker."
+
+
+def test_unmatched_passage_does_not_borrow_context_from_a_shared_prefix():
+    prefix = "This shared passage prefix describes the methods used to collect the measurements. "
+    document = ParsedDocument(
+        id="unmatched-passage",
+        content="Beginning.\n\n" + prefix + "The original result.\n\nEnding.",
+        sections=[Section(title="Methods", content=prefix + "A different result.")],
+    )
+
+    chunk = SemanticChunker().chunk(document)[0]
+
+    assert chunk.context_before == ""
+    assert chunk.context_after == ""
+
+
+def test_literal_bracketed_text_is_not_treated_as_an_added_section_header():
+    content = "[Literal source label]\n\nA short document with a label in its source text."
+
+    chunk = SemanticChunker().chunk(ParsedDocument(id="literal-label", content=content))[0]
+
+    assert chunk.full_context == content
+    assert chunk.context_before == ""
+    assert chunk.context_after == ""
+
+
 @pytest.mark.parametrize("length_function", ["chars", "words"])
 def test_negative_overlap_fails_before_it_can_skip_content(length_function):
     with pytest.raises(ValueError, match="nonnegative"):
