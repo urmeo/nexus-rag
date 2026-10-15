@@ -2,7 +2,11 @@
 
 from dataclasses import dataclass
 
-from scinexusrag.generation.citations import extract_citations, strip_citations
+from scinexusrag.generation.citations import (
+    count_unparseable_citations,
+    extract_citations,
+    strip_citations,
+)
 from scinexusrag.generation.synthesizer import Source
 
 
@@ -31,6 +35,8 @@ class AnswerVerifier:
             warnings.append(
                 f"removed {len(invalid)} out-of-range citation(s): {sorted(set(invalid))}"
             )
+        if unparseable := count_unparseable_citations(answer):
+            warnings.append(f"removed {unparseable} unparseable numeric citation(s)")
         if not found:
             warnings.append("answer cites no sources")
 

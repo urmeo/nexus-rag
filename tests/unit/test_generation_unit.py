@@ -103,6 +103,21 @@ class TestCitationValidation:
         assert "[2]" in result.verified_answer and "[4]" in result.verified_answer
         assert "[1]" not in result.verified_answer and "[5]" not in result.verified_answer
 
+    def test_unparseable_citations_are_removed_without_inventing_indices(self) -> None:
+        citation = "[" + "9" * 5000 + "]"
+        sources = [Source(index=1, chunk_id="c1", document_id="d1", content="evidence")]
+
+        result = AnswerVerifier().verify(
+            f"Claim {citation} and {citation}. Known [1], invalid [9].", sources
+        )
+
+        assert result.verified_answer == "Claim and . Known [1], invalid ."
+        assert result.citations_found == [1, 9]
+        assert result.citations_valid == [1]
+        assert result.citations_invalid == [9]
+        assert "removed 2 unparseable numeric citation(s)" in result.warnings
+        assert "removed 1 out-of-range citation(s): [9]" in result.warnings
+
 
 class TestSynthesizerFormatting:
     def test_format_sources_numbered(self) -> None:
@@ -188,6 +203,50 @@ class TestSynthesizerFormatting:
 
 
 class TestOrchestratorWiring:
+    @pytest.mark.parametrize("streaming", [False, True])
+    @pytest.mark.parametrize(
+        ("digits", "valid", "warning"),
+        [
+            ("9" * 5000, False, "removed 1 unparseable numeric citation(s)"),
+            ("0" * 5000 + "1", True, None),
+            ("٠" * 5000 + "١", True, None),
+            ("0" * 5000, False, "removed 1 out-of-range citation(s): [0]"),
+            ("0" * 5000 + "99", False, "removed 1 out-of-range citation(s): [99]"),
+        ],
+        ids=["unparseable", "leading-zeros", "unicode-leading-zeros", "zero", "invalid-index"],
+    )
+    def test_long_citations_do_not_interrupt_the_final_answer(
+        self, streaming: bool, digits: str, valid: bool, warning: str | None
+    ) -> None:
+        citation = f"[{digits}]"
+        raw_answer = f"Claim {citation}. Known [1]."
+        expected = raw_answer if valid else "Claim . Known [1]."
+
+        def reply(request: httpx.Request) -> httpx.Response:
+            if json.loads(request.content)["stream"]:
+                records = [{"response": raw_answer}, {"done": True}]
+                return httpx.Response(200, text="\n".join(json.dumps(row) for row in records))
+            return httpx.Response(200, json={"response": raw_answer})
+
+        with LLMClient() as llm:
+            llm._client = httpx.Client(base_url=llm.base_url, transport=httpx.MockTransport(reply))
+            orch = Orchestrator(StubRetriever([_result(1, "evidence")]), llm)  # type: ignore[arg-type]
+
+            if streaming:
+                chunks = list(orch.query_streaming("What was measured?"))
+                answer, events = _consume_stream(chunks)
+                assert chunks[:-2] == [raw_answer]
+                assert events[-1] == {"event": "verified_answer", "answer": expected}
+                assert events[0]["citations_valid"] == ([1, 1] if valid else [1])
+                warnings = events[0]["warnings"]
+            else:
+                response = orch.query("What was measured?")
+                answer, warnings = response.answer, response.warnings
+                assert [source.index for source in response.sources] == [1]
+
+        assert answer == expected
+        assert warnings == ([] if warning is None else [warning])
+
     def test_returns_rag_response(self) -> None:
         retriever = StubRetriever([_result(1, "the sky is blue")])
         llm = StubLLM("The sky is blue [1].")

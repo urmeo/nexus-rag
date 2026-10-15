@@ -23,6 +23,7 @@ from scinexusrag.config import (
     Settings,
     StorageSettings,
 )
+from scinexusrag.ingestion import Chunk
 from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
 from scinexusrag.pipeline import IngestResult, NexusRAG, SystemStats, get_scinexusrag
 from scinexusrag.storage import VectorStoreError
@@ -1239,6 +1240,103 @@ class TestParametrized:
 
 
 class TestIngestRollback:
+    def test_failed_count_during_ingest_keeps_dense_rows_attached_to_a_document(
+        self, scinexusrag_instance: NexusRAG, monkeypatch
+    ):
+        rag = scinexusrag_instance
+        table = rag.vector_store.table
+        count_rows = table.count_rows
+        failure = OSError("Row count temporarily unavailable")
+        monkeypatch.setattr(table, "count_rows", MagicMock(side_effect=failure))
+
+        with pytest.raises(VectorStoreError, match="row count") as raised:
+            rag.ingest_bytes(b"The measured current is forty-two milliamps.", "current.txt", ".txt")
+
+        assert raised.value.__cause__ is failure
+        monkeypatch.setattr(table, "count_rows", count_rows)
+        chunks = rag.vector_store.get_all_chunks()
+        documents = rag.document_store.list_with_metadata()
+        assert chunks and len(documents) == 1
+        assert {chunk.document_id for chunk in chunks} == set(documents)
+        assert rag.bm25.count() == rag.vector_store.count() == len(chunks)
+        document_id = chunks[0].document_id
+        restarted = NexusRAG(settings=rag.settings)
+        restarted._embedder = rag.embedder
+        assert restarted.document_store.exists(document_id)
+        assert restarted.bm25.count() == len(chunks)
+        assert restarted.delete_document(document_id)
+        assert restarted.document_store.count() == 0
+        assert restarted.bm25.count() == restarted.vector_store.count() == 0
+
+    @pytest.mark.parametrize(
+        "stage", ["dense_before", "dense_partial", "dense_after", "sparse_read", "document_file"]
+    )
+    def test_failed_ingest_rollback_preserves_the_original_error_and_can_be_recovered(
+        self, scinexusrag_instance: NexusRAG, monkeypatch, stage
+    ):
+        rag = scinexusrag_instance
+        other = rag.ingest_bytes(
+            b"A separate document records voltage for sensor B.", "voltage.txt", ".txt"
+        )
+        assert other.success
+        document = rag.parser.parse_bytes(
+            b"The measured current is forty-two milliamps.", "current.txt", ".txt"
+        )
+        chunks = [
+            Chunk(
+                id=f"current-{index}",
+                content=f"Current measurement {index}",
+                document_id=document.id,
+            )
+            for index in range(3)
+        ]
+        original_error = OSError("Document metadata update failed")
+        monkeypatch.setattr(
+            rag.document_store, "update_metadata", MagicMock(side_effect=original_error)
+        )
+        if stage.startswith("dense"):
+            owner, method = rag.vector_store, "delete_by_document"
+        elif stage == "sparse_read":
+            owner, method = rag.vector_store, "get_all_chunks"
+        else:
+            owner, method = rag.document_store, "delete"
+        cleanup = getattr(owner, method)
+
+        def fail_cleanup(*args, **kwargs):
+            if stage == "dense_partial":
+                rag.vector_store.delete([chunks[0].id])
+            elif stage == "dense_after":
+                cleanup(*args, **kwargs)
+            raise OSError(f"Rollback failed during {stage}")
+
+        monkeypatch.setattr(owner, method, fail_cleanup)
+        with pytest.raises(OSError, match="Document metadata update failed") as raised:
+            rag._persist(document, chunks, np.ones((3, 384), dtype=np.float32))
+
+        assert raised.value is original_error
+        assert rag.document_store.exists(document.id)
+        assert rag.document_store.exists(other.document_id)
+        if stage == "sparse_read":
+            assert rag._bm25 is None
+            assert rag._orchestrator is None
+        monkeypatch.setattr(owner, method, cleanup)
+        expected_remaining = 3 if stage == "dense_before" else 2 if stage == "dense_partial" else 0
+        assert len(rag.vector_store.get_chunks_by_document(document.id)) == expected_remaining
+        assert (
+            rag.bm25.count() == rag.vector_store.count() == other.chunk_count + expected_remaining
+        )
+        assert all(
+            rag.document_store.exists(chunk.document_id)
+            for chunk in rag.vector_store.get_all_chunks()
+        )
+        restarted = NexusRAG(settings=rag.settings)
+        restarted._embedder = rag.embedder
+        assert restarted.bm25.count() == other.chunk_count + expected_remaining
+        assert restarted.delete_document(document.id)
+        assert restarted.document_store.count() == 1
+        assert restarted.document_store.exists(other.document_id)
+        assert restarted.bm25.count() == restarted.vector_store.count() == other.chunk_count
+
     def test_document_index_failure_rolls_back_document_file(
         self, scinexusrag_instance: NexusRAG, sample_text_file: Path, monkeypatch
     ):

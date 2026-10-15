@@ -4,7 +4,7 @@
 
 ## Development setup
 
-Use Python 3.11 or later. Node.js 22 is used for the JavaScript tests. Run commands from the repository root:
+Use Python 3.11.4 or later. Node.js 22 is used for the JavaScript tests. Run commands from the repository root:
 
 ```bash
 python3 -m venv .venv

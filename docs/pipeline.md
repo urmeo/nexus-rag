@@ -23,6 +23,8 @@ Open **Pipeline** in the app header, or visit `/pipeline`, for the responsive gu
 
 The document store saves parsed JSON, not the original upload. Duplicate documents and empty extracted text fail ingestion. Writes run under a process lock, check index counts and attempt rollback on partial failure. BM25 rebuilds from stored passages at initialization; run one application worker.
 
+If a failed upload cannot be rolled back, its document stays listed for cleanup after storage recovers. Delete that record before uploading the same file again.
+
 Deletion reads all matching chunk IDs in pages, removes vectors and BM25 entries, then deletes document metadata. If a step fails, it attempts to rebuild BM25 from the remaining vectors. Retry deletion to finish any remaining cleanup.
 
 Reindex previously uploaded documents from the original files to regenerate stored offsets, nearby context and DOCX table text.

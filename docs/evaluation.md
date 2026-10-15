@@ -26,6 +26,8 @@ BGE-small means `BAAI/bge-small-en-v1.5`; MiniLM means `sentence-transformers/al
 
 The analysis uses 10,000 query bootstrap samples for 95% intervals and 10,000 paired randomizations. Reports apply Holm correction within each dataset. Individual scores, query IDs, model and dataset revisions, runtime versions and source hashes are stored in [outputs/results](../outputs/results).
 
+The JSON result files record commit `c3a4875`, which is absent from the current history. Their source SHA-256 matches all 49 Python files at [b515aac](https://github.com/urmeo/nexus-rag/commit/b515aac7dbe6a2fc686c25f16b3f03420f624335).
+
 ![Retrieval nDCG scores and recorded 95% bootstrap intervals for both embedding models.](../assets/figures/retrieval-comparison.svg)
 
 ## Retrieval time
@@ -89,7 +91,9 @@ python -m scinexusrag.eval
 python -m scinexusrag.eval.report --results outputs/generated
 ```
 
-Full runs require the pinned datasets and models and fail when they are unavailable. Fresh results go to `outputs/generated/`; the report bundle goes to `outputs/generated/paper/`. Review the new provenance and scores before publishing. Rerunning a protocol need not produce identical timing or floating-point results on a different environment.
+Full retrieval runs require the pinned BEIR revisions and models and fail when they are unavailable. Evidence-sentence detection uses SciFact's mutable `release/latest` archive or an existing local copy. It records SHA-256 hashes of the corpus, training claims and development claims; it does not enforce a fixed dataset revision.
+
+Fresh results go to `outputs/generated/`; the report bundle goes to `outputs/generated/paper/`. Review the new provenance and scores before publishing. Rerunning a protocol need not produce identical timing or floating-point results on a different environment.
 
 To render the committed results without rerunning models:
 

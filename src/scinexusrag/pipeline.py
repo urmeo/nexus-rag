@@ -1,6 +1,5 @@
 """Document indexing, retrieval, and answer generation."""
 
-import contextlib
 import gc
 import json
 import logging
@@ -190,12 +189,13 @@ class NexusRAG:
                 self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
                 self._assert_indexes_synced("persist")
             except Exception:
-                with contextlib.suppress(Exception):
-                    self.bm25.remove({c.id for c in chunks})
-                with contextlib.suppress(Exception):
+                try:
                     self.vector_store.delete_by_document(document.id)
-                with contextlib.suppress(Exception):
+                    self._rebuild_bm25_index()
                     self.document_store.delete(document.id)
+                except Exception:
+                    logger.warning("Ingestion rollback did not finish", exc_info=True)
+                    self._recover_sparse_index("failed ingestion rollback")
                 raise
 
     def _assert_indexes_synced(self, where: str) -> None:
@@ -355,12 +355,7 @@ class NexusRAG:
                 self._assert_indexes_synced("delete")
                 self.document_store.delete(document_id)
             except Exception:
-                try:
-                    self._rebuild_bm25_index()
-                except Exception:
-                    self._bm25 = None
-                    self._orchestrator = None
-                    logger.exception("Could not rebuild the sparse index after failed deletion")
+                self._recover_sparse_index("failed deletion")
                 raise
             return True
 
@@ -409,6 +404,14 @@ class NexusRAG:
             else:
                 sparse.clear()
             self._bm25 = sparse
+
+    def _recover_sparse_index(self, operation: str) -> None:
+        try:
+            self._rebuild_bm25_index()
+        except Exception:
+            self._bm25 = None
+            self._orchestrator = None
+            logger.exception("Could not rebuild the sparse index after %s", operation)
 
     def unload_models(self) -> None:
         "Unload ML models to free memory."
