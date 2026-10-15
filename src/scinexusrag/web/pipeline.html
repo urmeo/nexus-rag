@@ -20,59 +20,16 @@
         <header class="pipeline-intro">
             <p class="pipeline-eyebrow">NexusRAG / Pipeline guide</p>
             <h1>From documents to cited answers</h1>
-            <p>Documents become searchable passages. Each question retrieves passages and asks local Ollama for an answer with numbered sources.</p>
+            <p>Documents become searchable passages. Each question retrieves passages, generates an answer with Ollama and checks its source numbers.</p>
             <p class="pipeline-note">This guide explains the default settings. It does not show a live run.</p>
         </header>
 
-        <section class="pipeline-flow" aria-labelledby="indexing-heading">
-            <div class="flow-heading">
-                <h2 id="indexing-heading">Index documents</h2>
-                <p>Once per upload</p>
-            </div>
-            <ol class="pipeline-steps" role="list">
-                <li class="pipeline-step">
-                    <span class="step-number" aria-hidden="true">1</span>
-                    <h3>Read the document</h3>
-                    <p>Extract text from PDF, DOCX, Markdown, or UTF-8 text files.</p>
-                </li>
-                <li class="pipeline-step">
-                    <span class="step-number" aria-hidden="true">2</span>
-                    <h3>Split into passages</h3>
-                    <p>Keep overlapping text passages with document names and available section and page details.</p>
-                </li>
-                <li class="pipeline-step">
-                    <span class="step-number" aria-hidden="true">3</span>
-                    <h3>Build passage indexes</h3>
-                    <p>Save BGE-small vectors for meaning search and build a BM25 keyword index.</p>
-                </li>
-            </ol>
-        </section>
-
-        <section class="pipeline-flow question-flow" aria-labelledby="question-heading">
-            <div class="flow-heading">
-                <h2 id="question-heading">Answer a question</h2>
-                <p>Search the saved passages each time</p>
-            </div>
-            <ol class="pipeline-steps" role="list">
-                <li class="pipeline-step">
-                    <span class="step-number" aria-hidden="true">1</span>
-                    <h3>Retrieve passages</h3>
-                    <p>Combine meaning search and BM25 keyword rankings to select relevant passages.</p>
-                    <p class="optional-step"><strong>Optional: one feedback search.</strong> When dense similarity is low, add terms from the first results and merge both searches before generation.</p>
-                </li>
-                <li class="pipeline-step">
-                    <span class="step-number" aria-hidden="true">2</span>
-                    <h3>Generate and check</h3>
-                    <p>Ollama writes an answer from up to five source passages. Citation checks remove out-of-range references.</p>
-                    <p class="optional-step"><strong>Optional NLI check.</strong> Score sentence support against the sources. Off by default.</p>
-                </li>
-                <li class="pipeline-step">
-                    <span class="step-number" aria-hidden="true">3</span>
-                    <h3>Read the answer and sources</h3>
-                    <p>See numbered citations, source excerpts, confidence, and warnings. Read the passages to check the claims.</p>
-                </li>
-            </ol>
-        </section>
+        <figure class="pipeline-diagram">
+            <a href="/images/pipeline.svg" target="_blank" rel="noopener" aria-label="Open the full-size NexusRAG pipeline diagram">
+                <img src="/images/pipeline.svg" width="1280" height="1550" alt="NexusRAG pipeline: extract and split documents, index passages in LanceDB and BM25, retrieve and fuse rankings, optionally search once more, generate with Ollama and check citations before returning the answer and sources. NLI sentence checks are optional.">
+            </a>
+            <figcaption><a href="/images/pipeline.svg" target="_blank" rel="noopener">Open the full-size pipeline to zoom</a></figcaption>
+        </figure>
 
         <div class="pipeline-details">
             <details>
@@ -125,7 +82,7 @@
 
     <footer class="pipeline-footer">
         <a href="https://github.com/urmeo/nexus-rag/blob/main/docs/pipeline.md">Pipeline details</a>
-        <a href="https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2">Figma source</a>
+        <a href="https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2">Figma source</a>
     </footer>
 </body>
 </html>

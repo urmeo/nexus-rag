@@ -33,7 +33,7 @@ class TestPipelinePresentation:
         assert len(re.findall(r"<th\b", table.group())) >= 3
         for value in ("SciFact", "NFCorpus", "0.708", "0.341", "0.704", "0.352", "0.703", "0.346"):
             assert value in table.group()
-        assert "https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2" in response.text
+        assert "https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2" in response.text
 
     def test_main_page_links_to_pipeline(self) -> None:
         response = TestClient(create_app()).get("/")
@@ -45,6 +45,7 @@ class TestPipelinePresentation:
         ("path", "content_type"),
         [
             ("/css/pipeline.css", "text/css"),
+            ("/images/pipeline.svg", "image/svg+xml"),
             ("/images/pipeline-upload-arrow.svg", "image/svg+xml"),
             ("/images/pipeline-question-arrow.svg", "image/svg+xml"),
             ("/images/pipeline-index-arrow.svg", "image/svg+xml"),

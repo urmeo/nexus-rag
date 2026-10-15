@@ -42,19 +42,11 @@
 .pipeline-note { color: var(--pipeline-muted); font-size: 0.875rem; }
 .pipeline-intro .pipeline-note { margin-top: 12px; }
 
-.pipeline-flow { margin-bottom: 28px; }
-.flow-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin-bottom: 12px; }
-.flow-heading h2 { color: var(--pipeline-ink); font-size: 1.25rem; }
-.flow-heading > p { color: var(--pipeline-muted); font-size: 0.875rem; }
-.pipeline-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; list-style: none; }
-.pipeline-step { padding: 20px; border: 1px solid var(--pipeline-border); border-radius: 12px; background: #f8fafc; }
-.step-number { display: block; margin-bottom: 12px; color: var(--pipeline-muted); font-size: 0.875rem; font-weight: 600; }
-.pipeline-step h3 { margin-bottom: 8px; color: var(--pipeline-ink); font-size: 1.0625rem; line-height: 1.4; }
-.pipeline-step p { font-size: 0.9375rem; line-height: 1.6; }
-.question-flow .pipeline-step { background: #faf9ff; border-color: #ddd6fe; }
-.question-flow .step-number { color: var(--pipeline-violet); }
-.pipeline-step .optional-step { margin-top: 16px; padding-top: 12px; border-top: 1px solid #ddd6fe; font-size: 0.875rem; }
-.optional-step strong { font-weight: 600; }
+.pipeline-diagram { margin: 0 0 28px; }
+.pipeline-diagram > a { display: block; border-radius: 12px; }
+.pipeline-diagram img { display: block; width: 100%; height: auto; border-radius: 12px; }
+.pipeline-diagram figcaption { margin-top: 12px; font-size: 0.875rem; }
+.pipeline-diagram figcaption a { display: inline-flex; align-items: center; min-height: 44px; }
 
 .pipeline-details { border-top: 1px solid var(--pipeline-border); }
 .pipeline-details details { border-bottom: 1px solid var(--pipeline-border); }
@@ -85,9 +77,7 @@
     .pipeline-intro { margin-bottom: 24px; }
     .pipeline-intro h1 { font-size: 1.75rem; }
     .pipeline-intro > p:not([class]) { font-size: 1rem; }
-    .pipeline-steps { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-    .pipeline-step { padding: 16px; }
-    .step-number { margin-bottom: 8px; }
+    .pipeline-diagram { margin-bottom: 24px; }
     .pipeline-defaults > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
     .pipeline-results th,
     .pipeline-results td { padding: 8px 4px; font-size: 0.875rem; }

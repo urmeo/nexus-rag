@@ -97,7 +97,7 @@ Vector index read failures return HTTP **503**. They do not count as an empty co
 
 | Diagram | Figma source | Editable SVG |
 | --- | --- | --- |
-| Overview | [Pipeline](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) | [pipeline.svg](../assets/figures/pipeline.svg) |
+| Overview | [Pipeline](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2) | [pipeline.svg](../assets/figures/pipeline.svg) |
 | Retrieval | [Retrieval](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2) | [retrieval-flow.svg](../assets/figures/retrieval-flow.svg) |
 | Answer checks | [Answer checks](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20) | [answer-checks.svg](../assets/figures/answer-checks.svg) |
 

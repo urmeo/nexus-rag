@@ -1,8 +1,10 @@
-![NexusRAG pipeline: index uploaded documents, retrieve passages, generate an answer and return sources.](assets/figures/pipeline.svg)
+# NexusRAG
 
-![Retrieval: combine meaning and keyword rankings, optionally search once more, then select passages.](assets/figures/retrieval-flow.svg)
+NexusRAG is a Python app for searching research documents. It combines BGE-small vector search and BM25, then uses Ollama to answer questions with numbered source passages.
 
-![Answer checks: build numbered sources, generate with Ollama and validate citation numbers. Sentence grounding is optional and off by default.](assets/figures/answer-checks.svg)
+[![NexusRAG pipeline: index documents, search passages, generate an answer and check source numbers.](assets/figures/pipeline.svg)](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2)
+
+[Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2) · [Run locally](CONTRIBUTING.md#run-the-application)
 
 ![Recorded NexusRAG interface with a fictional document indexed into six passages.](assets/figures/interface-desktop.png)
 
