@@ -3,6 +3,7 @@
 import json
 import time
 from collections.abc import Generator
+from threading import Lock
 
 import httpx
 
@@ -26,15 +27,17 @@ class LLMClient:
         self.max_retries = max_retries
         self.backoff = backoff
         self._client: httpx.Client | None = None
+        self._client_lock = Lock()
 
     @property
     def client(self) -> httpx.Client:
-        if self._client is None:
-            self._client = httpx.Client(
-                base_url=self.base_url,
-                timeout=httpx.Timeout(self.timeout),
-            )
-        return self._client
+        with self._client_lock:
+            if self._client is None:
+                self._client = httpx.Client(
+                    base_url=self.base_url,
+                    timeout=httpx.Timeout(self.timeout),
+                )
+            return self._client
 
     def _where(self) -> str:
         """Context string for error messages."""
@@ -171,9 +174,10 @@ class LLMClient:
             return False
 
     def close(self) -> None:
-        if self._client:
-            self._client.close()
-            self._client = None
+        with self._client_lock:
+            if self._client is not None:
+                self._client.close()
+                self._client = None
 
     def __del__(self) -> None:
         self.close()

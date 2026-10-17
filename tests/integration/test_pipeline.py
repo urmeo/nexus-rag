@@ -1479,7 +1479,8 @@ class TestLazyResourceLifecycle:
         assert rag.bm25.count() == 0
 
     @pytest.mark.parametrize(
-        "resource,factory_name", [("embedder", "Embedder"), ("vector_store", "VectorStore")]
+        "resource,factory_name",
+        [("embedder", "Embedder"), ("vector_store", "VectorStore"), ("llm", "LLMClient")],
     )
     def test_concurrent_first_access_constructs_one_handle(
         self, test_settings, mock_embedder, monkeypatch, resource, factory_name
@@ -1518,15 +1519,22 @@ class TestLazyResourceLifecycle:
             factory.assert_called_once_with(
                 model_name="test-model", device="cpu", revision="a" * 40
             )
-        else:
+        elif resource == "vector_store":
             factory.assert_called_once_with(
                 path=test_settings.storage.lancedb_path,
                 table_name=test_settings.storage.table_name,
                 embedding_config=mock_embedder.embedding_config,
             )
+        else:
+            factory.assert_called_once_with(
+                model=test_settings.llm.model,
+                base_url=test_settings.llm.base_url,
+                timeout=test_settings.llm.timeout,
+            )
 
     @pytest.mark.parametrize(
-        "resource,factory_name", [("embedder", "Embedder"), ("vector_store", "VectorStore")]
+        "resource,factory_name",
+        [("embedder", "Embedder"), ("vector_store", "VectorStore"), ("llm", "LLMClient")],
     )
     def test_failed_constructor_can_retry(
         self, test_settings, mock_embedder, monkeypatch, resource, factory_name
@@ -1547,23 +1555,28 @@ class TestLazyResourceLifecycle:
         assert getattr(rag, resource) is handle
         assert factory.call_count == 2
 
-    def test_unload_waits_for_lazy_embedder_construction(self, test_settings, monkeypatch):
+    @pytest.mark.parametrize(
+        "resource,factory_name", [("embedder", "Embedder"), ("llm", "LLMClient")]
+    )
+    def test_unload_waits_for_lazy_handle_construction(
+        self, test_settings, monkeypatch, resource, factory_name
+    ):
         rag = NexusRAG(test_settings)
         lock = _ObservedWriteLock()
         rag._write_lock = lock
         constructing = Event()
         release = Event()
-        original_embedder, fresh_embedder = MagicMock(), MagicMock()
+        original_handle, fresh_handle = MagicMock(), MagicMock()
 
         def construct(**_kwargs):
             constructing.set()
             assert release.wait(timeout=5)
-            return original_embedder
+            return original_handle
 
         factory = MagicMock(side_effect=construct)
-        monkeypatch.setattr("scinexusrag.pipeline.Embedder", factory)
+        monkeypatch.setattr("scinexusrag.pipeline." + factory_name, factory)
         with ThreadPoolExecutor(max_workers=2) as workers:
-            loading = workers.submit(lambda: rag.embedder)
+            loading = workers.submit(lambda: getattr(rag, resource))
             try:
                 assert constructing.wait(timeout=5)
                 lock.wait_for_attempts(1)
@@ -1572,18 +1585,22 @@ class TestLazyResourceLifecycle:
                 assert not unloading.done()
             finally:
                 release.set()
-            assert loading.result(timeout=5) is original_embedder
+            assert loading.result(timeout=5) is original_handle
             unloading.result(timeout=5)
 
-        original_embedder.unload.assert_called_once()
+        if resource == "embedder":
+            original_handle.unload.assert_called_once()
+        else:
+            original_handle.close.assert_called_once()
         assert rag._embedder is None
+        assert rag._llm is None
         assert rag._orchestrator is None
         assert rag._vector_store is None
         assert rag._bm25 is None
         factory.side_effect = None
-        factory.return_value = fresh_embedder
-        assert rag.embedder is fresh_embedder
-        assert rag.embedder is fresh_embedder
+        factory.return_value = fresh_handle
+        assert getattr(rag, resource) is fresh_handle
+        assert getattr(rag, resource) is fresh_handle
         assert factory.call_count == 2
 
 

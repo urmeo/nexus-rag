@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from threading import Lock
 from typing import Any, Literal
 
 from scinexusrag.config import HF_REVISIONS
@@ -45,23 +46,26 @@ class GroundingVerifier:
         self.device = device
         self.revision = revision or HF_REVISIONS.get(model_name)
         self._model: Any = None
+        self._model_lock = Lock()
         self.entail_idx = 1
         self.contra_idx = 0
 
     @property
     def model(self) -> Any:
-        if self._model is None:
-            from sentence_transformers import CrossEncoder
+        with self._model_lock:
+            if self._model is None:
+                from sentence_transformers import CrossEncoder
 
-            self._model = CrossEncoder(self.model_name, device=self.device, revision=self.revision)
-            id2label = getattr(self._model.model.config, "id2label", {})
-            for idx, label in id2label.items():
-                label = str(label).lower()
-                if label.startswith("entail"):
-                    self.entail_idx = int(idx)
-                elif label.startswith("contra"):
-                    self.contra_idx = int(idx)
-        return self._model
+                model = CrossEncoder(self.model_name, device=self.device, revision=self.revision)
+                id2label = getattr(model.model.config, "id2label", {})
+                for idx, label in id2label.items():
+                    label = str(label).lower()
+                    if label.startswith("entail"):
+                        self.entail_idx = int(idx)
+                    elif label.startswith("contra"):
+                        self.contra_idx = int(idx)
+                self._model = model
+            return self._model
 
     def class_probs(self, pairs: list[tuple[str, str]]) -> Any:
         """Return NLI class probabilities with shape (N, num_classes)."""

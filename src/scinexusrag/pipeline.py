@@ -132,13 +132,14 @@ class NexusRAG:
 
     @property
     def llm(self) -> LLMClient:
-        if self._llm is None:
-            self._llm = LLMClient(
-                model=self.settings.llm.model,
-                base_url=self.settings.llm.base_url,
-                timeout=self.settings.llm.timeout,
-            )
-        return self._llm
+        with self._write_lock:
+            if self._llm is None:
+                self._llm = LLMClient(
+                    model=self.settings.llm.model,
+                    base_url=self.settings.llm.base_url,
+                    timeout=self.settings.llm.timeout,
+                )
+            return self._llm
 
     @property
     def orchestrator(self) -> Orchestrator:
