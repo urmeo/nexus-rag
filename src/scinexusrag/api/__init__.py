@@ -95,17 +95,10 @@ def create_app() -> FastAPI:
     app.include_router(router)
 
     if FRONTEND_DIR.exists():
-        css_dir = FRONTEND_DIR / "css"
-        if css_dir.exists():
-            app.mount("/css", StaticFiles(directory=css_dir), name="css")
-
-        js_dir = FRONTEND_DIR / "js"
-        if js_dir.exists():
-            app.mount("/js", StaticFiles(directory=js_dir), name="js")
-
-        images_dir = FRONTEND_DIR / "images"
-        if images_dir.exists():
-            app.mount("/images", StaticFiles(directory=images_dir), name="images")
+        for name in ("css", "js", "images"):
+            directory = FRONTEND_DIR / name
+            if directory.exists():
+                app.mount(f"/{name}", StaticFiles(directory=directory), name=name)
 
         @app.get("/")
         async def serve_frontend() -> FileResponse:

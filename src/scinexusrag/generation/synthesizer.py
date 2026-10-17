@@ -61,6 +61,16 @@ SOURCES:
 
 Answer using only the sources above. Cite with [1], [2], etc."""
 
+_QUERY_TYPE_HINTS = {
+    QueryType.COMPARISON: "Structure as a comparison, highlighting similarities and differences.",
+    QueryType.METHODOLOGY: "Explain step by step.",
+    QueryType.DEFINITION: "Begin with a clear definition, then elaborate.",
+    QueryType.LIST: "Present as a numbered list.",
+    QueryType.SUMMARY: "Provide a concise summary of key points.",
+    QueryType.CAUSAL: "Explain the causal relationship clearly.",
+    QueryType.TEMPORAL: "Present in chronological order.",
+}
+
 
 class Synthesizer:
     """Build cited-source prompts and call the LLM."""
@@ -83,23 +93,11 @@ class Synthesizer:
         """Scale the response budget with source count, capped by config."""
         return min(self.max_tokens, 256 + 100 * len(sources))
 
-    def _get_type_hint(self, query_type: QueryType) -> str | None:
-        hints = {
-            QueryType.COMPARISON: "Structure as a comparison, highlighting similarities and differences.",
-            QueryType.METHODOLOGY: "Explain step by step.",
-            QueryType.DEFINITION: "Begin with a clear definition, then elaborate.",
-            QueryType.LIST: "Present as a numbered list.",
-            QueryType.SUMMARY: "Provide a concise summary of key points.",
-            QueryType.CAUSAL: "Explain the causal relationship clearly.",
-            QueryType.TEMPORAL: "Present in chronological order.",
-        }
-        return hints.get(query_type)
-
     def _build_prompt(self, query: str, sources: list[Source], query_type: QueryType | None) -> str:
         formatted_sources = self._format_sources_for_llm(sources)
         prompt = USER_PROMPT_TEMPLATE.format(question=query, formatted_sources=formatted_sources)
         if query_type is not None:
-            hint = self._get_type_hint(query_type)
+            hint = _QUERY_TYPE_HINTS.get(query_type)
             if hint:
                 prompt += f"\n\nInstruction: {hint}"
         return prompt

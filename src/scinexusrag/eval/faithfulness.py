@@ -270,9 +270,9 @@ def main() -> None:
     for name, m in res["methods"].items():
         print(f"{name:16s} AUROC={m['roc_auc']:.3f}  AP={m['pr_auc']:.3f}  F1={m['f1']:.3f}")
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     tag = "sample" if args.sample else "dev"
     out = Path(args.out) if args.out else RESULTS_DIR / f"faithfulness_{tag}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as f:
         json.dump(res, f, indent=2)
     print(f"Saved: {out}")

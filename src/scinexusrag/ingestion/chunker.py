@@ -59,6 +59,11 @@ class _TextSpan:
         )
 
 
+def _generate_chunk_id(document_id: str, index: int, content: str) -> str:
+    hash_input = f"{document_id}:{index}:{content[:100]}"
+    return hashlib.sha256(hash_input.encode()).hexdigest()[:12]
+
+
 def _join_spans(spans: list[_TextSpan], separator: str, prefix: str = "") -> _TextSpan:
     return _TextSpan(
         prefix + separator.join(span.text for span in spans), spans[0].start, spans[-1].end
@@ -170,12 +175,6 @@ class HierarchicalChunker:
         return [
             self._create_chunk(document, index, span.text, doc_name, "", None, span.start, span.end)
             for index, span in enumerate(spans)
-        ]
-
-    def _pack_paragraphs(self, paragraphs: list[str], header_prefix: str) -> list[str]:
-        return [
-            span.text
-            for span in self._pack_spans([_TextSpan(text) for text in paragraphs], header_prefix)
         ]
 
     def _pack_spans(self, paragraphs: list[_TextSpan], header_prefix: str) -> list[_TextSpan]:
@@ -359,10 +358,8 @@ class HierarchicalChunker:
         start_offset: int | None = None,
         end_offset: int | None = None,
     ) -> Chunk:
-        chunk_id = self._generate_chunk_id(document.id, index, content)
-
         return Chunk(
-            id=chunk_id,
+            id=_generate_chunk_id(document.id, index, content),
             content=content,
             document_id=document.id,
             document_name=doc_name,
@@ -382,11 +379,6 @@ class HierarchicalChunker:
                 "end_offset": end_offset,
             },
         )
-
-    def _generate_chunk_id(self, document_id: str, index: int, content: str) -> str:
-        """Generate deterministic chunk ID."""
-        hash_input = f"{document_id}:{index}:{content[:100]}"
-        return hashlib.sha256(hash_input.encode()).hexdigest()[:12]
 
 
 class FixedSizeChunker:
@@ -417,12 +409,9 @@ class FixedSizeChunker:
 
         chunks: list[Chunk] = []
         for index, content in enumerate(self._split_text(text)):
-            chunk_id = hashlib.sha256(
-                f"{document.id}:{index}:{content[:100]}".encode()
-            ).hexdigest()[:12]
             chunks.append(
                 Chunk(
-                    id=chunk_id,
+                    id=_generate_chunk_id(document.id, index, content),
                     content=content.strip(),
                     document_id=document.id,
                     document_name=doc_name,

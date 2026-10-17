@@ -217,10 +217,8 @@ class TestGetChunker:
         assert isinstance(chunker, SemanticChunker)
 
 
-class TestPackParagraphs:
-    """Branch-level tests for the shared paragraph packer."""
-
-    def _chunker(self, **overrides) -> HierarchicalChunker:
+class TestParagraphChunking:
+    def _texts(self, paragraphs, section_title="", **overrides):
         params = {
             "min_chunk_size": 20,
             "target_chunk_size": 80,
@@ -229,25 +227,29 @@ class TestPackParagraphs:
             "include_context": False,
         }
         params.update(overrides)
-        return HierarchicalChunker(**params)
+        content = "\n\n".join(paragraphs)
+        document = ParsedDocument(id="paragraphs", content=content)
+        if section_title:
+            document.sections = [Section(title=section_title, content=content)]
+        return [chunk.content for chunk in HierarchicalChunker(**params).chunk(document)]
 
     def test_small_paragraphs_pack_into_one_chunk(self):
-        packer = self._chunker(min_chunk_size=5)
-        assert packer._pack_paragraphs(["one two", "three four"], "") == ["one two\n\nthree four"]
+        assert self._texts(["one two", "three four"], min_chunk_size=5) == ["one two\n\nthree four"]
 
     def test_empty_paragraphs_skipped(self):
-        packer = self._chunker(min_chunk_size=5)
-        assert packer._pack_paragraphs(["", "  ", "real content here"], "") == ["real content here"]
+        assert self._texts(["", "  ", "real content here"], min_chunk_size=5) == [
+            "real content here"
+        ]
 
     def test_header_prefix_on_every_emitted_chunk(self):
         paras = ["a" * 50, "b" * 50, "c" * 50]
-        texts = self._chunker(overlap_size=10)._pack_paragraphs(paras, "[Methods]\n\n")
+        texts = self._texts(paras, section_title="Methods", overlap_size=10)
         assert len(texts) > 1
         assert all(t.startswith("[Methods]\n\n") for t in texts)
 
     def test_target_overflow_starts_new_chunk_with_overlap(self):
         paras = ["a" * 50, "b" * 50, "c" * 50]
-        texts = self._chunker()._pack_paragraphs(paras, "")
+        texts = self._texts(paras)
 
         assert texts[0] == "a" * 50
         assert texts[1].startswith("a" * 50)
@@ -256,7 +258,7 @@ class TestPackParagraphs:
     def test_oversized_paragraph_split_by_sentences(self):
         big = " ".join(f"Sentence number {i} is here." for i in range(20))
         assert len(big) > 120
-        texts = self._chunker()._pack_paragraphs([big], "")
+        texts = self._texts([big])
         assert len(texts) > 1
         assert all(len(t) <= 120 for t in texts)
         assert all(len(t) >= 20 for t in texts)
@@ -264,30 +266,31 @@ class TestPackParagraphs:
     def test_boundaryless_oversized_paragraph_bounded_by_max(self):
 
         giant = "word " * 200
-        texts = self._chunker()._pack_paragraphs([giant.strip()], "")
+        texts = self._texts([giant.strip()])
         assert texts and all(len(t) <= 120 for t in texts)
 
     def test_short_tail_merges_into_same_batch_chunk(self):
 
-        texts = self._chunker()._pack_paragraphs(["a" * 100, "zz"], "")
+        texts = self._texts(["a" * 100, "zz"])
         assert len(texts) == 1
         assert texts[0].startswith("a" * 100)
         assert texts[0].endswith("zz")
 
     def test_sole_short_content_still_emitted(self):
 
-        assert self._chunker()._pack_paragraphs(["tiny note"], "") == ["tiny note"]
+        assert self._texts(["tiny note"]) == ["tiny note"]
 
     def test_oversized_paragraph_flushes_pending_content_first(self):
         big = " ".join(f"Sentence number {i} is here." for i in range(20))
-        texts = self._chunker()._pack_paragraphs(["preamble text first", big], "")
+        texts = self._texts(["preamble text first", big])
         assert texts[0] == "preamble text first"
 
     def test_oversized_paragraph_short_trailing_sentence_not_dropped(self):
 
-        ch = self._chunker(min_chunk_size=60, target_chunk_size=90, max_chunk_size=120)
         big = "This is a long lead sentence that fills the budget nicely here. " * 3
-        texts = ch._pack_paragraphs([big + "Short unique CONTENTX."], "")
+        texts = self._texts(
+            [big + "Short unique CONTENTX."], min_chunk_size=60, target_chunk_size=90
+        )
         assert any("CONTENTX" in t for t in texts)
 
 

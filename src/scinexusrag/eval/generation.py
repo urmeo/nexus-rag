@@ -158,8 +158,8 @@ def main() -> None:
     print(f"corrective faithfulness = {res['corrective_faithfulness']:.3f}")
     print(f"improvement             = {res['improvement']:+.3f}")
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out = Path(args.out) if args.out else RESULTS_DIR / "generation_sample.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as f:
         json.dump(res, f, indent=2)
     print(f"Saved: {out}")

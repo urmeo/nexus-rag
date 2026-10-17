@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-import yaml
 
 
 class TestSettings:
@@ -140,8 +139,6 @@ class TestSettings:
 
 
 class TestConfigPrecedence:
-    """Config is environment-variable driven; configs/default.yaml is a reference."""
-
     def test_env_var_overrides_default(self, monkeypatch):
         from scinexusrag.config import Settings
 
@@ -163,33 +160,6 @@ class TestConfigPrecedence:
         s = LLMSettings()
         assert s.temperature == 0.7
         assert s.timeout == 33
-
-    def test_yaml_is_not_a_runtime_source(self, monkeypatch):
-
-        from scinexusrag.config import Settings
-
-        monkeypatch.delenv("LLM_MODEL", raising=False)
-        assert Settings().llm.model == "llama3.2:3b"
-
-
-class TestYAMLDocMatchesSettings:
-    "default.yaml is a reference doc, not loaded at runtime; guard only that"
-
-    def test_documented_sections_match_settings_submodels(self):
-        from pydantic import BaseModel
-
-        from scinexusrag.config import Settings
-
-        with open("configs/default.yaml") as f:
-            documented = set(yaml.safe_load(f))
-
-        real = {
-            name
-            for name, field in Settings.model_fields.items()
-            if isinstance(field.annotation, type) and issubclass(field.annotation, BaseModel)
-        }
-
-        assert documented - {"logging"} == real
 
 
 class TestConfigValidation:

@@ -101,4 +101,6 @@ Vector index read failures return HTTP **503**. They do not count as an empty co
 | Retrieval | [Retrieval](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2) | [retrieval-flow.svg](../assets/figures/retrieval-flow.svg) |
 | Answer checks | [Answer checks](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20) | [answer-checks.svg](../assets/figures/answer-checks.svg) |
 
-The linked Figma frames match the SVG diagrams. Keep them in sync when editing. The SVGs include accessible titles, descriptions and font fallbacks.
+Keep the linked Figma frames and SVGs in sync. The [packaged pipeline SVG](../src/scinexusrag/web/images/pipeline.svg) must match the README diagram. Update the [Figma layout snapshot](../assets/figma/pipeline.json) when the unified frame changes; it records editable text, shapes, connectors and frame dimensions. The SVGs include accessible titles, descriptions and font fallbacks.
+
+The earlier [overview frame](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=8-2) remains in the same Figma file.

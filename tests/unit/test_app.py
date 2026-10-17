@@ -46,9 +46,6 @@ class TestPipelinePresentation:
         [
             ("/css/pipeline.css", "text/css"),
             ("/images/pipeline.svg", "image/svg+xml"),
-            ("/images/pipeline-upload-arrow.svg", "image/svg+xml"),
-            ("/images/pipeline-question-arrow.svg", "image/svg+xml"),
-            ("/images/pipeline-index-arrow.svg", "image/svg+xml"),
         ],
     )
     def test_pipeline_assets_are_served(self, path: str, content_type: str) -> None:

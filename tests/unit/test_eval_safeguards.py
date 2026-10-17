@@ -1,6 +1,7 @@
 """Offline regressions for benchmark provenance and held-out evaluation."""
 
 import csv
+import json
 import sys
 import tarfile
 import urllib.error
@@ -222,6 +223,51 @@ def test_csv_rejects_scores_without_matching_query_ids(monkeypatch, tmp_path: Pa
             {"query_ids": ["q"], "per_query_ndcg": {"BM25": [0.1, 0.2]}}, "scores.csv"
         )
     assert not (tmp_path / "scores.csv").exists()
+
+
+@pytest.mark.parametrize(
+    "module,result",
+    [
+        (run, {}),
+        (corrective, {"tau_sweep": [], "best_tau": 0.5, "base_ndcg": 0.5}),
+        (
+            faithfulness,
+            {"num_claims": 1, "num_candidates": 2, "gold_base_rate": 0.5, "methods": {}},
+        ),
+        (
+            generation,
+            {
+                "generator": "fixture",
+                "num_queries": 1,
+                "num_corrected": 0,
+                "baseline_faithfulness": 0.5,
+                "corrective_faithfulness": 0.5,
+                "improvement": 0.0,
+            },
+        ),
+        (
+            ragtruth,
+            {
+                "num_responses": 2,
+                "hallucination_rate": 0.5,
+                "roc_auc": 0.5,
+                "risk_coverage_auc": 0.5,
+            },
+        ),
+    ],
+    ids=["retrieval", "corrective", "evidence", "generation", "ragtruth"],
+)
+def test_cli_creates_only_the_requested_output_directory(monkeypatch, tmp_path, module, result):
+    default_dir = tmp_path / "generated"
+    output = tmp_path / "exports" / "results.json"
+    monkeypatch.setattr(module, "RESULTS_DIR", default_dir)
+    monkeypatch.setattr(module, "evaluate", lambda **kwargs: result)
+    monkeypatch.setattr(sys, "argv", [module.__name__, "--out", str(output)])
+
+    module.main()
+
+    assert json.loads(output.read_text()) == result
+    assert not default_dir.exists()
 
 
 def test_report_accepts_corrective_results_without_reranker() -> None:

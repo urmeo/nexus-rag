@@ -37,7 +37,7 @@ class LLMSettings(BaseSettings):
 class EmbeddingSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="EMBEDDING_")
 
-    model: str = Field(default="BAAI/bge-small-en-v1.5")
+    model: str = "BAAI/bge-small-en-v1.5"
     revision: str | None = None
     device: Literal["cpu", "cuda", "mps"] = "cpu"
     batch_size: int = Field(default=32, gt=0)
@@ -74,7 +74,7 @@ class RetrievalSettings(BaseSettings):
 
 
 class SelfCorrectionSettings(BaseSettings):
-    """Confidence-gated corrective re-retrieval settings."""
+    """Settings for feedback retrieval and optional sentence grounding."""
 
     model_config = SettingsConfigDict(env_prefix="SELF_CORRECTION_")
 

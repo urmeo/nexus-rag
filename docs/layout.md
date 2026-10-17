@@ -3,9 +3,9 @@
 ```text
 nexus-rag/
 ├── assets/
+│   ├── figma/              Figma pipeline snapshot
 │   ├── figures/            Diagrams, charts and interface screenshots
 │   └── media/              Interface recordings
-├── configs/                Configuration reference
 ├── docs/                   Pipeline, evaluation, media and layout guides
 ├── notebooks/              Python quickstart
 ├── outputs/
@@ -33,6 +33,6 @@ nexus-rag/
 | `src/scinexusrag/eval/data/` | Small datasets and thresholds that must be included in the installed package |
 | `src/scinexusrag/web/` | Interface files that must be included in the installed package |
 
-Root files contain package and check settings, the license, citation information and Docker setup. Application data defaults to `data/`, which is ignored by Git. [configs/default.yaml](../configs/default.yaml) documents settings; the application reads environment variables and `.env`.
+Root files contain package and check settings, the license, citation information and Docker setup. Application data defaults to `data/`, which is ignored by Git. Settings come from environment variables and `.env`; defaults are in [config.py](../src/scinexusrag/config.py).
 
 Run commands from the repository root so relative data and result paths resolve consistently. Store published figures in `assets/figures/`; keep scratch work outside the repository. [Regenerate the charts](evaluation.md#regenerate-the-charts) from the committed measurements.

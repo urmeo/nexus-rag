@@ -221,8 +221,8 @@ def main() -> None:
         )
     print(f"best tau={res['best_tau']}  base nDCG={res['base_ndcg']:.3f}")
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out = Path(args.out) if args.out else RESULTS_DIR / f"corrective_{args.dataset}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as f:
         json.dump(res, f, indent=2)
     print(f"Saved: {out}")

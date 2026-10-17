@@ -37,8 +37,6 @@ ALLOWED_CONTENT_TYPES = {
 MAGIC_BYTES: dict[str, tuple[bytes, ...]] = {
     ".pdf": (b"%PDF",),
     ".docx": (b"PK\x03\x04", b"PK\x05\x06"),
-    ".txt": (),
-    ".md": (),
 }
 
 
@@ -48,8 +46,6 @@ SNIFFED_MIME: dict[str, set[str]] = {
         "application/zip",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     },
-    ".txt": {"text/plain", "application/csv", "text/csv", "inode/x-empty"},
-    ".md": {"text/plain", "text/markdown", "inode/x-empty"},
 }
 
 

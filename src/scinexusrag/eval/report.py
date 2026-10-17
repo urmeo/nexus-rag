@@ -60,7 +60,7 @@ def _p_vs_baseline(res: dict[str, Any], baseline: str = "BM25") -> dict[str, flo
     }
 
 
-def _fmt_p(p: float, significant: bool) -> str:
+def _fmt_p(p: float, significant: bool = False) -> str:
     star = "*" if significant else ""
     return ("$<$0.001" if p < 1e-3 else f"{p:.3f}") + star
 
@@ -532,10 +532,10 @@ def build_macros(
         _macro("EvalSeed", str(sci.get("seed", 0))),
         _macro("SciBM", nd(sci, "BM25")),
         _macro("SciDense", nd(sci, "Dense")),
-        _macro("SciHybridP", _fmt_p(sci_p["Hybrid (RRF)"], True).replace("*", "")),
+        _macro("SciHybridP", _fmt_p(sci_p["Hybrid (RRF)"])),
         _macro("SciHybridDelta", f"{sci_hd[0]:+.3f}"),
         _macro("SciHybridDeltaCI", f"[{sci_hd[1]:+.3f}, {sci_hd[2]:+.3f}]"),
-        _macro("NFhybridP", _fmt_p(nf_p["Hybrid (RRF)"], True).replace("*", "")),
+        _macro("NFhybridP", _fmt_p(nf_p["Hybrid (RRF)"])),
         _macro("NFhybridDelta", f"{nf_hd[0]:+.3f}"),
         _macro("NFhybridDeltaCI", f"[{nf_hd[1]:+.3f}, {nf_hd[2]:+.3f}]"),
     ]
@@ -550,9 +550,7 @@ def build_macros(
             _macro("SciEmbGain", f"{gain:+.3f}"),
             _macro(
                 "SciEmbP",
-                _fmt_p(paired_randomization_test(bge, ml, seed=sci.get("seed", 0)), True).replace(
-                    "*", ""
-                ),
+                _fmt_p(paired_randomization_test(bge, ml, seed=sci.get("seed", 0))),
             ),
         ]
     if corr_sci:

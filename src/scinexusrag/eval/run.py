@@ -163,9 +163,9 @@ def main() -> None:
         embedding_model=args.embedding_model,
     )
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     tag = "sample" if args.sample else args.split
     path = Path(args.out) if args.out else RESULTS_DIR / f"{args.dataset}_{tag}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(out, f, indent=2)
     print(f"\nSaved: {path}")

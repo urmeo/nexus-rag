@@ -44,7 +44,7 @@ python -m uvicorn scinexusrag.api:app --host 127.0.0.1 --port 8000
 
 ## Configuration
 
-Set environment variables or create `.env` in the repository root with the settings you need. [configs/default.yaml](configs/default.yaml) is a reference and is not loaded by the application. Never commit secrets.
+Set environment variables or create `.env` in the repository root with the settings you need. Defaults are defined in [config.py](src/scinexusrag/config.py). Never commit secrets.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -60,9 +60,9 @@ Set environment variables or create `.env` in the repository root with the setti
 | `NEXUSRAG_API_KEY` | Empty | Require an API key on `/api` routes |
 | `NEXUSRAG_FRONTEND_DIR` | Packaged `web/` directory | Serve a different interface directory |
 
-Each persistent table binds a versioned embedding configuration: model, revision, exact query and document prefixes, normalization, and vector dimension. Legacy tables without this binding and any configuration mismatch are rejected, including empty tables. Custom Hugging Face models require a full 40-character commit SHA in `EMBEDDING_REVISION`. Local model paths are not accepted for persistent indexes.
+Indexes store their embedding model, revision, exact query and document prefixes, normalization and vector dimension. Opening an index with missing or different settings fails, even if it is empty. Custom Hugging Face models require a full 40-character commit SHA in `EMBEDDING_REVISION`. Persistent indexes do not support local model paths.
 
-To keep an existing collection, restore its original embedding settings. To use a different configuration, choose new `DATA_DIR` and `LANCEDB_PATH` directories and re-upload the original documents. `NexusRAG.clear_all()` or `DELETE /api/documents` explicitly deletes the current collection; use it only for an intentional reset before reingestion. Existing data is not automatically deleted, relabeled, or rebuilt.
+To keep an existing collection, restore its original embedding settings. To use different settings, choose new `DATA_DIR` and `LANCEDB_PATH` directories and re-upload the original documents. To reset the current collection, delete it with `NexusRAG.clear_all()` or `DELETE /api/documents` before reingestion.
 
 When a server key is configured, enter it through **API key** in the interface. Interactive API documentation is disabled when a key is set. Without a key, `/docs` is available unless `API_DOCS_ENABLED=false`.
 
