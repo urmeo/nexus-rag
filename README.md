@@ -8,6 +8,8 @@ NexusRAG is a Python app for searching research documents. It combines BGE-small
 
 ![Recorded NexusRAG interface with a fictional document indexed into six passages.](assets/figures/interface-desktop.png)
 
+Retrieval scores use the full BEIR test splits: 300 SciFact queries and 323 NFCorpus queries.
+
 | System | SciFact nDCG@10 | NFCorpus nDCG@10 |
 | --- | ---: | ---: |
 | Dense · MiniLM | 0.648 | 0.318 |
@@ -19,6 +21,8 @@ NexusRAG is a Python app for searching research documents. It combines BGE-small
 
 ![Recorded retrieval scores on SciFact and NFCorpus, with 95% query-bootstrap intervals.](assets/figures/retrieval-comparison.svg)
 
+The timing comparison uses the first 120 SciFact test queries and excludes indexing and answer generation.
+
 | System | nDCG@10 | Milliseconds per query |
 | --- | ---: | ---: |
 | Adaptive hybrid | 0.734 | 16.9 |
@@ -26,6 +30,8 @@ NexusRAG is a Python app for searching research documents. It combines BGE-small
 | Cross-encoder reranking | 0.702 | 1318.9 |
 
 ![Recorded SciFact threshold sweep: retrieval quality and the percentage of queries that triggered a feedback search.](assets/figures/corrective-sweep.svg)
+
+Evidence-sentence detection uses 188 annotated SciFact development claims. See the [evaluation protocols](docs/evaluation.md).
 
 | Scorer | ROC-AUC | Average precision | F1 |
 | --- | ---: | ---: | ---: |
