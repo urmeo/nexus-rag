@@ -8,7 +8,7 @@ const webDir = join(__dirname, '..', 'src', 'scinexusrag', 'web');
 const html = readFileSync(join(webDir, 'index.html'), 'utf8');
 const script = readFileSync(join(webDir, 'js', 'app.js'), 'utf8');
 
-function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
+function createApp(fetch, { storageBlocked = false, clipboardApi, reducedMotion = false } = {}) {
     const clipboard = [];
     const storage = new Map();
     const timers = new Map();
@@ -106,7 +106,7 @@ function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
                 documentListeners.set(name, [...(documentListeners.get(name) || []), handler]);
             }
         },
-        window: {},
+        window: { matchMedia: () => ({ matches: reducedMotion }) },
         navigator: {
             clipboard: clipboardApi === undefined
                 ? { writeText: async text => clipboard.push(text) }
@@ -119,6 +119,7 @@ function createApp(fetch, { storageBlocked = false, clipboardApi } = {}) {
         },
         FormData: class { constructor() { this.files = []; } append(name, value) { this.files.push(value); } },
         setTimeout: (callback, delay) => { timers.set(++timerId, { callback, delay }); return timerId; },
+        requestAnimationFrame: callback => { timers.set(++timerId, { callback, delay: 'frame' }); return timerId; },
         clearTimeout: id => timers.delete(id),
         setInterval() { throw new Error('Progress should be indeterminate, not a fabricated percentage.'); },
         clearInterval() {},
@@ -476,6 +477,28 @@ test('keyboard users can open, expand and close sources and return to the answer
     assert(!app.get('sourcesPanel').classList.contains('open'));
     assert.equal(app.document.activeElement, button);
     assert.equal(app.get('messages').querySelector('.citation').getAttribute('aria-label'), 'Open source 1: paper.txt');
+});
+
+test('sources receive focus without a transition when reduced motion is enabled', async () => {
+    const app = createApp(async () => response({
+        answer: 'Finding [1]', sources: [{ filename: 'paper.txt', content: 'Evidence.' }]
+    }), { reducedMotion: true });
+    await app.api.init();
+    app.api.state.documents = documents(1);
+    app.get('chatInput').value = 'Question';
+    await app.api.sendMessage();
+    const button = app.get('messages').querySelector('.sources-link');
+    button.focus();
+    await button.click();
+
+    app.runTimers('frame');
+    assert.equal(app.document.activeElement, app.get('closeSources'));
+    await app.dispatchDocument('keydown', { key: 'Escape' });
+    assert.equal(app.document.activeElement, button);
+    await button.click();
+    app.get('chatInput').focus();
+    app.runTimers('frame');
+    assert.equal(app.document.activeElement, app.get('chatInput'));
 });
 
 test('opening sources preserves focus when the user moves to another control', async () => {

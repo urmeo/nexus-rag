@@ -702,7 +702,15 @@ function openSources() {
     const wasOpen = el.sourcesPanel.classList.contains('open');
     if (!wasOpen) sourceTrigger = document.activeElement;
     el.sourcesPanel.classList.add('open');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (wasOpen) el.closeSources.focus();
+    else if (reducedMotion) {
+        requestAnimationFrame(() => {
+            if (el.sourcesPanel.classList.contains('open') && document.activeElement === sourceTrigger) {
+                el.closeSources.focus();
+            }
+        });
+    }
 }
 
 function closeSources() {
