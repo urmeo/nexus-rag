@@ -1,0 +1,15 @@
+"run","split","tau","ndcg","trigger_rate","triggered_n","triggered_base_ndcg","triggered_corr_ndcg","triggered_delta","triggered_p"
+"corrective_scifact","test",0.4,0.703165265539515,0.0,0,"","","",""
+"corrective_scifact","test",0.45,0.703165265539515,0.0,0,"","","",""
+"corrective_scifact","test",0.5,0.703165265539515,0.0,0,"","","",""
+"corrective_scifact","test",0.55,0.703165265539515,0.0,0,"","","",""
+"corrective_scifact","test",0.6,0.703165265539515,0.0,0,"","","",""
+"corrective_scifact","test",0.65,0.7000372865783312,0.006666666666666667,2,1.0,0.5308031558224253,-0.4691968441775747,0.4881511848815118
+"corrective_scifact","test",0.7,0.6950230465436268,0.06,18,0.5335299551034386,0.39782630517196865,-0.13570364993146994,0.09519048095190481
+"corrective_scifact","tune",0.4,0.7328966931690332,0.0,0,"","","",""
+"corrective_scifact","tune",0.45,0.7328966931690332,0.0,0,"","","",""
+"corrective_scifact","tune",0.5,0.7328966931690332,0.0,0,"","","",""
+"corrective_scifact","tune",0.55,0.7328966931690332,0.0,0,"","","",""
+"corrective_scifact","tune",0.6,0.7328966931690332,0.0,0,"","","",""
+"corrective_scifact","tune",0.65,0.7328966931690332,0.004,1,1.0,1.0,0.0,1.0
+"corrective_scifact","tune",0.7,0.7328966931690332,0.044,11,0.5834375907957157,0.5834375907957157,0.0,1.0

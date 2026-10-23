@@ -1,0 +1,1399 @@
+{
+  "name": "NexusRAG",
+  "width": 1280,
+  "height": 1550,
+  "background": "#121A20",
+  "figma": {
+    "fileKey": "bRUVlmkQKApYB2bWdHiblv",
+    "nodeId": "29:2"
+  },
+  "elements": [
+    {
+      "type": "text",
+      "name": "Figure title",
+      "section": "header",
+      "text": "NexusRAG",
+      "x": 48,
+      "y": 30,
+      "size": 36,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:2"
+    },
+    {
+      "type": "path",
+      "name": "Title rule",
+      "section": "header",
+      "points": [
+        [
+          48,
+          92
+        ],
+        [
+          1232,
+          92
+        ]
+      ],
+      "stroke": "#546B78",
+      "dashed": false,
+      "nodeId": "30:3"
+    },
+    {
+      "type": "text",
+      "name": "Upload lane",
+      "section": "upload",
+      "text": "1 · INDEX DOCUMENTS ONCE",
+      "x": 48,
+      "y": 124,
+      "size": 23,
+      "color": "#62D5ED",
+      "weight": 600,
+      "nodeId": "30:4"
+    },
+    {
+      "type": "rect",
+      "name": "Documents",
+      "section": "upload",
+      "x": 48,
+      "y": 170,
+      "width": 312,
+      "height": 178,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#546B78",
+      "dashed": false,
+      "nodeId": "30:5"
+    },
+    {
+      "type": "text",
+      "name": "Documents title",
+      "section": "upload",
+      "text": "Upload documents",
+      "x": 72,
+      "y": 192,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:6"
+    },
+    {
+      "type": "text",
+      "name": "Documents detail 1",
+      "section": "upload",
+      "text": "PDF · DOCX",
+      "x": 72,
+      "y": 238,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:7"
+    },
+    {
+      "type": "text",
+      "name": "Documents detail 2",
+      "section": "upload",
+      "text": "Markdown · UTF-8 text",
+      "x": 72,
+      "y": 270,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:8"
+    },
+    {
+      "type": "rect",
+      "name": "Text and passages",
+      "section": "upload",
+      "x": 432,
+      "y": 170,
+      "width": 360,
+      "height": 178,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#546B78",
+      "dashed": false,
+      "nodeId": "30:9"
+    },
+    {
+      "type": "text",
+      "name": "Text and passages title",
+      "section": "upload",
+      "text": "Read + split",
+      "x": 456,
+      "y": 192,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:10"
+    },
+    {
+      "type": "text",
+      "name": "Text and passages detail 1",
+      "section": "upload",
+      "text": "Text + source offsets",
+      "x": 456,
+      "y": 238,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:11"
+    },
+    {
+      "type": "text",
+      "name": "Text and passages detail 2",
+      "section": "upload",
+      "text": "1,200-char passage target",
+      "x": 456,
+      "y": 270,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:12"
+    },
+    {
+      "type": "text",
+      "name": "Text and passages detail 3",
+      "section": "upload",
+      "text": "Up to 300-char overlap",
+      "x": 456,
+      "y": 302,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:13"
+    },
+    {
+      "type": "rect",
+      "name": "Passage stores",
+      "section": "upload",
+      "x": 856,
+      "y": 170,
+      "width": 376,
+      "height": 178,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:14"
+    },
+    {
+      "type": "text",
+      "name": "Passage stores title",
+      "section": "upload",
+      "text": "Build search stores",
+      "x": 880,
+      "y": 192,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:15"
+    },
+    {
+      "type": "text",
+      "name": "Passage stores detail 1",
+      "section": "upload",
+      "text": "BGE-small → LanceDB",
+      "x": 880,
+      "y": 238,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:16"
+    },
+    {
+      "type": "text",
+      "name": "Passage stores detail 2",
+      "section": "upload",
+      "text": "BM25 keywords → memory",
+      "x": 880,
+      "y": 270,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:17"
+    },
+    {
+      "type": "text",
+      "name": "Passage stores detail 3",
+      "section": "upload",
+      "text": "Save parsed document JSON",
+      "x": 880,
+      "y": 302,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:18"
+    },
+    {
+      "type": "path",
+      "name": "Upload to parsing",
+      "section": "upload",
+      "points": [
+        [
+          362,
+          258
+        ],
+        [
+          420,
+          258
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:19"
+    },
+    {
+      "type": "polygon",
+      "name": "Upload to parsing arrowhead",
+      "section": "upload",
+      "points": [
+        [
+          420,
+          258
+        ],
+        [
+          408,
+          264
+        ],
+        [
+          408,
+          252
+        ]
+      ],
+      "fill": "#62D5ED",
+      "nodeId": "30:20"
+    },
+    {
+      "type": "path",
+      "name": "Passages to stores",
+      "section": "upload",
+      "points": [
+        [
+          794,
+          258
+        ],
+        [
+          844,
+          258
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:21"
+    },
+    {
+      "type": "polygon",
+      "name": "Passages to stores arrowhead",
+      "section": "upload",
+      "points": [
+        [
+          844,
+          258
+        ],
+        [
+          832,
+          264
+        ],
+        [
+          832,
+          252
+        ]
+      ],
+      "fill": "#62D5ED",
+      "nodeId": "30:22"
+    },
+    {
+      "type": "path",
+      "name": "Stored passages to search",
+      "section": "upload",
+      "points": [
+        [
+          1044,
+          350
+        ],
+        [
+          1044,
+          394
+        ],
+        [
+          612,
+          394
+        ],
+        [
+          612,
+          466
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:23"
+    },
+    {
+      "type": "polygon",
+      "name": "Stored passages to search arrowhead",
+      "section": "upload",
+      "points": [
+        [
+          612,
+          466
+        ],
+        [
+          606,
+          454
+        ],
+        [
+          618,
+          454
+        ]
+      ],
+      "fill": "#62D5ED",
+      "nodeId": "30:24"
+    },
+    {
+      "type": "text",
+      "name": "Reuse label",
+      "section": "upload",
+      "text": "reuse saved passages",
+      "x": 716,
+      "y": 364,
+      "size": 22,
+      "color": "#62D5ED",
+      "weight": 400,
+      "nodeId": "30:25"
+    },
+    {
+      "type": "text",
+      "name": "Question lane",
+      "section": "retrieval",
+      "text": "2 · FIND PASSAGES FOR EACH QUESTION",
+      "x": 48,
+      "y": 424,
+      "size": 23,
+      "color": "#62D5ED",
+      "weight": 600,
+      "nodeId": "30:26"
+    },
+    {
+      "type": "rect",
+      "name": "Question",
+      "section": "retrieval",
+      "x": 48,
+      "y": 520,
+      "width": 312,
+      "height": 168,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#546B78",
+      "dashed": false,
+      "nodeId": "30:27"
+    },
+    {
+      "type": "text",
+      "name": "Question title",
+      "section": "retrieval",
+      "text": "Ask a question",
+      "x": 72,
+      "y": 542,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:28"
+    },
+    {
+      "type": "text",
+      "name": "Question detail 1",
+      "section": "retrieval",
+      "text": "Search your documents",
+      "x": 72,
+      "y": 588,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:29"
+    },
+    {
+      "type": "rect",
+      "name": "Parallel search",
+      "section": "retrieval",
+      "x": 432,
+      "y": 470,
+      "width": 360,
+      "height": 232,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:30"
+    },
+    {
+      "type": "text",
+      "name": "Search title",
+      "section": "retrieval",
+      "text": "Search two ways",
+      "x": 456,
+      "y": 488,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:31"
+    },
+    {
+      "type": "text",
+      "name": "Dense label",
+      "section": "retrieval",
+      "text": "Dense · cosine similarity",
+      "x": 456,
+      "y": 534,
+      "size": 24,
+      "color": "#F0F5F7",
+      "weight": 400,
+      "nodeId": "30:32"
+    },
+    {
+      "type": "text",
+      "name": "Dense depth",
+      "section": "retrieval",
+      "text": "BGE-small · up to 50",
+      "x": 456,
+      "y": 568,
+      "size": 23,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:33"
+    },
+    {
+      "type": "path",
+      "name": "Search divider",
+      "section": "retrieval",
+      "points": [
+        [
+          456,
+          610
+        ],
+        [
+          768,
+          610
+        ]
+      ],
+      "stroke": "#546B78",
+      "dashed": false,
+      "nodeId": "30:34"
+    },
+    {
+      "type": "text",
+      "name": "BM25 label",
+      "section": "retrieval",
+      "text": "BM25 · keyword matches",
+      "x": 456,
+      "y": 624,
+      "size": 24,
+      "color": "#F0F5F7",
+      "weight": 400,
+      "nodeId": "30:35"
+    },
+    {
+      "type": "text",
+      "name": "BM25 depth",
+      "section": "retrieval",
+      "text": "Up to 50 passages",
+      "x": 456,
+      "y": 658,
+      "size": 23,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:36"
+    },
+    {
+      "type": "rect",
+      "name": "Rank fusion",
+      "section": "retrieval",
+      "x": 856,
+      "y": 520,
+      "width": 376,
+      "height": 168,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:37"
+    },
+    {
+      "type": "text",
+      "name": "Rank fusion title",
+      "section": "retrieval",
+      "text": "Combine rankings",
+      "x": 880,
+      "y": 542,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:38"
+    },
+    {
+      "type": "text",
+      "name": "Rank fusion detail 1",
+      "section": "retrieval",
+      "text": "Adaptive RRF · k=60",
+      "x": 880,
+      "y": 588,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:39"
+    },
+    {
+      "type": "text",
+      "name": "Rank fusion detail 2",
+      "section": "retrieval",
+      "text": "Keep top-ranked passages",
+      "x": 880,
+      "y": 620,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:40"
+    },
+    {
+      "type": "path",
+      "name": "Question to search",
+      "section": "retrieval",
+      "points": [
+        [
+          362,
+          604
+        ],
+        [
+          420,
+          604
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:41"
+    },
+    {
+      "type": "polygon",
+      "name": "Question to search arrowhead",
+      "section": "retrieval",
+      "points": [
+        [
+          420,
+          604
+        ],
+        [
+          408,
+          610
+        ],
+        [
+          408,
+          598
+        ]
+      ],
+      "fill": "#62D5ED",
+      "nodeId": "30:42"
+    },
+    {
+      "type": "path",
+      "name": "Dense to fusion",
+      "section": "retrieval",
+      "points": [
+        [
+          794,
+          566
+        ],
+        [
+          820,
+          566
+        ],
+        [
+          820,
+          604
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:43"
+    },
+    {
+      "type": "path",
+      "name": "BM25 to fusion",
+      "section": "retrieval",
+      "points": [
+        [
+          794,
+          654
+        ],
+        [
+          820,
+          654
+        ],
+        [
+          820,
+          604
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:44"
+    },
+    {
+      "type": "path",
+      "name": "Search ranks to fusion",
+      "section": "retrieval",
+      "points": [
+        [
+          820,
+          604
+        ],
+        [
+          844,
+          604
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:45"
+    },
+    {
+      "type": "polygon",
+      "name": "Search ranks to fusion arrowhead",
+      "section": "retrieval",
+      "points": [
+        [
+          844,
+          604
+        ],
+        [
+          832,
+          610
+        ],
+        [
+          832,
+          598
+        ]
+      ],
+      "fill": "#62D5ED",
+      "nodeId": "30:46"
+    },
+    {
+      "type": "text",
+      "name": "Feedback status",
+      "section": "retrieval",
+      "text": "CONDITIONAL · ENABLED BY DEFAULT",
+      "x": 432,
+      "y": 724,
+      "size": 19,
+      "color": "#F59A87",
+      "weight": 600,
+      "nodeId": "30:47"
+    },
+    {
+      "type": "rect",
+      "name": "Feedback search",
+      "section": "retrieval",
+      "x": 432,
+      "y": 764,
+      "width": 360,
+      "height": 178,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#F59A87",
+      "dashed": true,
+      "nodeId": "30:48"
+    },
+    {
+      "type": "text",
+      "name": "Feedback search title",
+      "section": "retrieval",
+      "text": "One feedback search",
+      "x": 456,
+      "y": 786,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:49"
+    },
+    {
+      "type": "text",
+      "name": "Feedback search detail 1",
+      "section": "retrieval",
+      "text": "Best dense cosine < 0.55",
+      "x": 456,
+      "y": 832,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:50"
+    },
+    {
+      "type": "text",
+      "name": "Feedback search detail 2",
+      "section": "retrieval",
+      "text": "Expand → search again",
+      "x": 456,
+      "y": 864,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:51"
+    },
+    {
+      "type": "text",
+      "name": "Feedback search detail 3",
+      "section": "retrieval",
+      "text": "Merge both result rankings",
+      "x": 456,
+      "y": 896,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:52"
+    },
+    {
+      "type": "path",
+      "name": "Conditional feedback",
+      "section": "retrieval",
+      "points": [
+        [
+          1044,
+          690
+        ],
+        [
+          1044,
+          754
+        ],
+        [
+          612,
+          754
+        ],
+        [
+          612,
+          762
+        ]
+      ],
+      "stroke": "#F59A87",
+      "dashed": true,
+      "nodeId": "30:53"
+    },
+    {
+      "type": "polygon",
+      "name": "Conditional feedback arrowhead",
+      "section": "retrieval",
+      "points": [
+        [
+          612,
+          762
+        ],
+        [
+          606,
+          750
+        ],
+        [
+          618,
+          750
+        ]
+      ],
+      "fill": "#F59A87",
+      "nodeId": "30:54"
+    },
+    {
+      "type": "path",
+      "name": "Main selected route",
+      "section": "retrieval",
+      "points": [
+        [
+          1044,
+          690
+        ],
+        [
+          1044,
+          976
+        ],
+        [
+          204,
+          976
+        ],
+        [
+          204,
+          1016
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:55"
+    },
+    {
+      "type": "polygon",
+      "name": "Main selected route arrowhead",
+      "section": "retrieval",
+      "points": [
+        [
+          204,
+          1016
+        ],
+        [
+          198,
+          1004
+        ],
+        [
+          210,
+          1004
+        ]
+      ],
+      "fill": "#62D5ED",
+      "nodeId": "30:56"
+    },
+    {
+      "type": "path",
+      "name": "Merged feedback route",
+      "section": "retrieval",
+      "points": [
+        [
+          794,
+          852
+        ],
+        [
+          1042,
+          852
+        ]
+      ],
+      "stroke": "#F59A87",
+      "dashed": true,
+      "nodeId": "30:57"
+    },
+    {
+      "type": "polygon",
+      "name": "Merged feedback route arrowhead",
+      "section": "retrieval",
+      "points": [
+        [
+          1042,
+          852
+        ],
+        [
+          1030,
+          858
+        ],
+        [
+          1030,
+          846
+        ]
+      ],
+      "fill": "#F59A87",
+      "nodeId": "30:58"
+    },
+    {
+      "type": "text",
+      "name": "Selected passage label",
+      "section": "retrieval",
+      "text": "up to 8 passages",
+      "x": 856,
+      "y": 932,
+      "size": 22,
+      "color": "#62D5ED",
+      "weight": 400,
+      "nodeId": "30:59"
+    },
+    {
+      "type": "text",
+      "name": "Answer lane",
+      "section": "generation",
+      "text": "3 · WRITE + CHECK THE ANSWER",
+      "x": 48,
+      "y": 944,
+      "size": 23,
+      "color": "#62D5ED",
+      "weight": 600,
+      "nodeId": "30:60"
+    },
+    {
+      "type": "rect",
+      "name": "Numbered sources",
+      "section": "generation",
+      "x": 48,
+      "y": 1030,
+      "width": 312,
+      "height": 178,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#546B78",
+      "dashed": false,
+      "nodeId": "30:61"
+    },
+    {
+      "type": "text",
+      "name": "Numbered sources title",
+      "section": "generation",
+      "text": "Number sources",
+      "x": 72,
+      "y": 1052,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:62"
+    },
+    {
+      "type": "text",
+      "name": "Numbered sources detail 1",
+      "section": "generation",
+      "text": "Up to 5 full passages",
+      "x": 72,
+      "y": 1098,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:63"
+    },
+    {
+      "type": "text",
+      "name": "Numbered sources detail 2",
+      "section": "generation",
+      "text": "≤6,000 formatted chars",
+      "x": 72,
+      "y": 1130,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:64"
+    },
+    {
+      "type": "rect",
+      "name": "Ollama generation",
+      "section": "generation",
+      "x": 432,
+      "y": 1030,
+      "width": 360,
+      "height": 178,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:66"
+    },
+    {
+      "type": "text",
+      "name": "Ollama generation title",
+      "section": "generation",
+      "text": "Generate an answer",
+      "x": 456,
+      "y": 1052,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:67"
+    },
+    {
+      "type": "text",
+      "name": "Ollama generation detail 1",
+      "section": "generation",
+      "text": "Local Ollama · llama3.2:3b",
+      "x": 456,
+      "y": 1098,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:68"
+    },
+    {
+      "type": "text",
+      "name": "Ollama generation detail 2",
+      "section": "generation",
+      "text": "Question + sources",
+      "x": 456,
+      "y": 1130,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:69"
+    },
+    {
+      "type": "rect",
+      "name": "Citation checks",
+      "section": "generation",
+      "x": 856,
+      "y": 1030,
+      "width": 376,
+      "height": 178,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#546B78",
+      "dashed": false,
+      "nodeId": "30:70"
+    },
+    {
+      "type": "text",
+      "name": "Citation checks title",
+      "section": "generation",
+      "text": "Check citations",
+      "x": 880,
+      "y": 1052,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:71"
+    },
+    {
+      "type": "text",
+      "name": "Citation checks detail 1",
+      "section": "generation",
+      "text": "Remove invalid source [n]",
+      "x": 880,
+      "y": 1098,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:72"
+    },
+    {
+      "type": "text",
+      "name": "Citation checks detail 2",
+      "section": "generation",
+      "text": "Warn about missing [n]",
+      "x": 880,
+      "y": 1130,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:73"
+    },
+    {
+      "type": "path",
+      "name": "Sources to Ollama",
+      "section": "generation",
+      "points": [
+        [
+          362,
+          1118
+        ],
+        [
+          420,
+          1118
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:74"
+    },
+    {
+      "type": "polygon",
+      "name": "Sources to Ollama arrowhead",
+      "section": "generation",
+      "points": [
+        [
+          420,
+          1118
+        ],
+        [
+          408,
+          1124
+        ],
+        [
+          408,
+          1112
+        ]
+      ],
+      "fill": "#62D5ED",
+      "nodeId": "30:75"
+    },
+    {
+      "type": "path",
+      "name": "Answer to citation checks",
+      "section": "generation",
+      "points": [
+        [
+          794,
+          1118
+        ],
+        [
+          844,
+          1118
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:76"
+    },
+    {
+      "type": "polygon",
+      "name": "Answer to citation checks arrowhead",
+      "section": "generation",
+      "points": [
+        [
+          844,
+          1118
+        ],
+        [
+          832,
+          1124
+        ],
+        [
+          832,
+          1112
+        ]
+      ],
+      "fill": "#62D5ED",
+      "nodeId": "30:77"
+    },
+    {
+      "type": "text",
+      "name": "NLI status",
+      "section": "generation",
+      "text": "OPTIONAL NLI · OFF BY DEFAULT",
+      "x": 432,
+      "y": 1240,
+      "size": 19,
+      "color": "#F59A87",
+      "weight": 600,
+      "nodeId": "30:78"
+    },
+    {
+      "type": "rect",
+      "name": "Sentence support",
+      "section": "generation",
+      "x": 432,
+      "y": 1276,
+      "width": 360,
+      "height": 144,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#F59A87",
+      "dashed": true,
+      "nodeId": "30:79"
+    },
+    {
+      "type": "text",
+      "name": "Sentence support title",
+      "section": "generation",
+      "text": "Sentence support",
+      "x": 456,
+      "y": 1298,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:80"
+    },
+    {
+      "type": "text",
+      "name": "Sentence support detail 1",
+      "section": "generation",
+      "text": "Across all supplied sources",
+      "x": 456,
+      "y": 1344,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:81"
+    },
+    {
+      "type": "text",
+      "name": "Sentence support detail 2",
+      "section": "generation",
+      "text": "Confidence + warnings",
+      "x": 456,
+      "y": 1376,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:82"
+    },
+    {
+      "type": "rect",
+      "name": "Response",
+      "section": "generation",
+      "x": 856,
+      "y": 1276,
+      "width": 376,
+      "height": 144,
+      "radius": 10,
+      "fill": "#1B2831",
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:83"
+    },
+    {
+      "type": "text",
+      "name": "Response title",
+      "section": "generation",
+      "text": "Answer + sources",
+      "x": 880,
+      "y": 1298,
+      "size": 28,
+      "color": "#F0F5F7",
+      "weight": 600,
+      "nodeId": "30:84"
+    },
+    {
+      "type": "text",
+      "name": "Response detail 1",
+      "section": "generation",
+      "text": "Excerpts + confidence",
+      "x": 880,
+      "y": 1344,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:85"
+    },
+    {
+      "type": "text",
+      "name": "Response detail 2",
+      "section": "generation",
+      "text": "Warnings",
+      "x": 880,
+      "y": 1376,
+      "size": 24,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:86"
+    },
+    {
+      "type": "path",
+      "name": "Verified answer to response",
+      "section": "generation",
+      "points": [
+        [
+          1044,
+          1210
+        ],
+        [
+          1044,
+          1272
+        ]
+      ],
+      "stroke": "#62D5ED",
+      "dashed": false,
+      "nodeId": "30:87"
+    },
+    {
+      "type": "polygon",
+      "name": "Verified answer to response arrowhead",
+      "section": "generation",
+      "points": [
+        [
+          1044,
+          1272
+        ],
+        [
+          1038,
+          1260
+        ],
+        [
+          1050,
+          1260
+        ]
+      ],
+      "fill": "#62D5ED",
+      "nodeId": "30:88"
+    },
+    {
+      "type": "path",
+      "name": "Optional support branch",
+      "section": "generation",
+      "points": [
+        [
+          854,
+          1170
+        ],
+        [
+          824,
+          1170
+        ],
+        [
+          824,
+          1320
+        ],
+        [
+          794,
+          1320
+        ]
+      ],
+      "stroke": "#F59A87",
+      "dashed": true,
+      "nodeId": "30:89"
+    },
+    {
+      "type": "polygon",
+      "name": "Optional support branch arrowhead",
+      "section": "generation",
+      "points": [
+        [
+          794,
+          1320
+        ],
+        [
+          806,
+          1314
+        ],
+        [
+          806,
+          1326
+        ]
+      ],
+      "fill": "#F59A87",
+      "nodeId": "30:90"
+    },
+    {
+      "type": "path",
+      "name": "Support scores to response",
+      "section": "generation",
+      "points": [
+        [
+          794,
+          1384
+        ],
+        [
+          844,
+          1384
+        ]
+      ],
+      "stroke": "#F59A87",
+      "dashed": true,
+      "nodeId": "30:91"
+    },
+    {
+      "type": "polygon",
+      "name": "Support scores to response arrowhead",
+      "section": "generation",
+      "points": [
+        [
+          844,
+          1384
+        ],
+        [
+          832,
+          1390
+        ],
+        [
+          832,
+          1378
+        ]
+      ],
+      "fill": "#F59A87",
+      "nodeId": "30:92"
+    },
+    {
+      "type": "text",
+      "name": "Scope note",
+      "section": "footer",
+      "text": "Source numbers and confidence do not establish factual support.",
+      "x": 48,
+      "y": 1460,
+      "size": 22,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:93"
+    },
+    {
+      "type": "text",
+      "name": "Operating note",
+      "section": "footer",
+      "text": "Defaults shown · PDF needs embedded text · DOCX tables become text · One app worker",
+      "x": 48,
+      "y": 1496,
+      "size": 20,
+      "color": "#B7C9D2",
+      "weight": 400,
+      "nodeId": "30:94"
+    }
+  ]
+}

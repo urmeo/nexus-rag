@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1550" viewBox="0 0 1280 1550" role="img" aria-labelledby="pipeline-title pipeline-description">
+<title id="pipeline-title">NexusRAG</title>
+<desc id="pipeline-description">Upload documents, extract overlapping passages and save BGE-small vectors in LanceDB and BM25 keywords in memory. Search both indexes, fuse rankings and optionally run one feedback search before selecting numbered sources. Ollama generates an answer; citation checks remove invalid source numbers. Optional NLI sentence-support checks are off by default. Return the answer, sources, confidence and warnings. These checks do not establish factual correctness.</desc>
+<style>text { font-family: Inter, Arial, sans-serif; }</style>
+<rect width="1280" height="1550" fill="#121A20"/>
+<text data-name="Figure title" x="48" y="66" font-size="36" font-weight="600" fill="#F0F5F7">NexusRAG</text>
+<path data-name="Title rule" d="M48 92 L1232 92" fill="none" stroke="#546B78" stroke-width="2.5" stroke-linejoin="round"/>
+<text data-name="Upload lane" x="48" y="147" font-size="23" font-weight="600" fill="#62D5ED">1 · INDEX DOCUMENTS ONCE</text>
+<rect data-name="Documents" x="48" y="170" width="312" height="178" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+<text data-name="Documents title" x="72" y="220" font-size="28" font-weight="600" fill="#F0F5F7">Upload documents</text>
+<text data-name="Documents detail 1" x="72" y="262" font-size="24" font-weight="400" fill="#B7C9D2">PDF · DOCX</text>
+<text data-name="Documents detail 2" x="72" y="294" font-size="24" font-weight="400" fill="#B7C9D2">Markdown · UTF-8 text</text>
+<rect data-name="Text and passages" x="432" y="170" width="360" height="178" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+<text data-name="Text and passages title" x="456" y="220" font-size="28" font-weight="600" fill="#F0F5F7">Read + split</text>
+<text data-name="Text and passages detail 1" x="456" y="262" font-size="24" font-weight="400" fill="#B7C9D2">Text + source offsets</text>
+<text data-name="Text and passages detail 2" x="456" y="294" font-size="24" font-weight="400" fill="#B7C9D2">1,200-char passage target</text>
+<text data-name="Text and passages detail 3" x="456" y="326" font-size="24" font-weight="400" fill="#B7C9D2">Up to 300-char overlap</text>
+<rect data-name="Passage stores" x="856" y="170" width="376" height="178" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+<text data-name="Passage stores title" x="880" y="220" font-size="28" font-weight="600" fill="#F0F5F7">Build search stores</text>
+<text data-name="Passage stores detail 1" x="880" y="262" font-size="24" font-weight="400" fill="#B7C9D2">BGE-small → LanceDB</text>
+<text data-name="Passage stores detail 2" x="880" y="294" font-size="24" font-weight="400" fill="#B7C9D2">BM25 keywords → memory</text>
+<text data-name="Passage stores detail 3" x="880" y="326" font-size="24" font-weight="400" fill="#B7C9D2">Save parsed document JSON</text>
+<path data-name="Upload to parsing" d="M362 258 L420 258" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon data-name="Upload to parsing arrowhead" points="420,258 408,264 408,252" fill="#62D5ED"/>
+<path data-name="Passages to stores" d="M794 258 L844 258" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon data-name="Passages to stores arrowhead" points="844,258 832,264 832,252" fill="#62D5ED"/>
+<path data-name="Stored passages to search" d="M1044 350 L1044 394 L612 394 L612 466" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon data-name="Stored passages to search arrowhead" points="612,466 606,454 618,454" fill="#62D5ED"/>
+<text data-name="Reuse label" x="716" y="386" font-size="22" font-weight="400" fill="#62D5ED">reuse saved passages</text>
+<text data-name="Question lane" x="48" y="447" font-size="23" font-weight="600" fill="#62D5ED">2 · FIND PASSAGES FOR EACH QUESTION</text>
+<rect data-name="Question" x="48" y="520" width="312" height="168" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+<text data-name="Question title" x="72" y="570" font-size="28" font-weight="600" fill="#F0F5F7">Ask a question</text>
+<text data-name="Question detail 1" x="72" y="612" font-size="24" font-weight="400" fill="#B7C9D2">Search your documents</text>
+<rect data-name="Parallel search" x="432" y="470" width="360" height="232" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+<text data-name="Search title" x="456" y="516" font-size="28" font-weight="600" fill="#F0F5F7">Search two ways</text>
+<text data-name="Dense label" x="456" y="558" font-size="24" font-weight="400" fill="#F0F5F7">Dense · cosine similarity</text>
+<text data-name="Dense depth" x="456" y="591" font-size="23" font-weight="400" fill="#B7C9D2">BGE-small · up to 50</text>
+<path data-name="Search divider" d="M456 610 L768 610" fill="none" stroke="#546B78" stroke-width="2.5" stroke-linejoin="round"/>
+<text data-name="BM25 label" x="456" y="648" font-size="24" font-weight="400" fill="#F0F5F7">BM25 · keyword matches</text>
+<text data-name="BM25 depth" x="456" y="681" font-size="23" font-weight="400" fill="#B7C9D2">Up to 50 passages</text>
+<rect data-name="Rank fusion" x="856" y="520" width="376" height="168" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+<text data-name="Rank fusion title" x="880" y="570" font-size="28" font-weight="600" fill="#F0F5F7">Combine rankings</text>
+<text data-name="Rank fusion detail 1" x="880" y="612" font-size="24" font-weight="400" fill="#B7C9D2">Adaptive RRF · k=60</text>
+<text data-name="Rank fusion detail 2" x="880" y="644" font-size="24" font-weight="400" fill="#B7C9D2">Keep top-ranked passages</text>
+<path data-name="Question to search" d="M362 604 L420 604" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon data-name="Question to search arrowhead" points="420,604 408,610 408,598" fill="#62D5ED"/>
+<path data-name="Dense to fusion" d="M794 566 L820 566 L820 604" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<path data-name="BM25 to fusion" d="M794 654 L820 654 L820 604" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<path data-name="Search ranks to fusion" d="M820 604 L844 604" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon data-name="Search ranks to fusion arrowhead" points="844,604 832,610 832,598" fill="#62D5ED"/>
+<text data-name="Feedback status" x="432" y="743" font-size="19" font-weight="600" fill="#F59A87">CONDITIONAL · ENABLED BY DEFAULT</text>
+<rect data-name="Feedback search" x="432" y="764" width="360" height="178" rx="10" fill="#1B2831" stroke="#F59A87" stroke-width="2" stroke-dasharray="8 7"/>
+<text data-name="Feedback search title" x="456" y="814" font-size="28" font-weight="600" fill="#F0F5F7">One feedback search</text>
+<text data-name="Feedback search detail 1" x="456" y="856" font-size="24" font-weight="400" fill="#B7C9D2">Best dense cosine &lt; 0.55</text>
+<text data-name="Feedback search detail 2" x="456" y="888" font-size="24" font-weight="400" fill="#B7C9D2">Expand → search again</text>
+<text data-name="Feedback search detail 3" x="456" y="920" font-size="24" font-weight="400" fill="#B7C9D2">Merge both result rankings</text>
+<path data-name="Conditional feedback" d="M1044 690 L1044 754 L612 754 L612 762" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<polygon data-name="Conditional feedback arrowhead" points="612,762 606,750 618,750" fill="#F59A87"/>
+<path data-name="Main selected route" d="M1044 690 L1044 976 L204 976 L204 1016" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon data-name="Main selected route arrowhead" points="204,1016 198,1004 210,1004" fill="#62D5ED"/>
+<path data-name="Merged feedback route" d="M794 852 L1042 852" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<polygon data-name="Merged feedback route arrowhead" points="1042,852 1030,858 1030,846" fill="#F59A87"/>
+<text data-name="Selected passage label" x="856" y="954" font-size="22" font-weight="400" fill="#62D5ED">up to 8 passages</text>
+<text data-name="Answer lane" x="48" y="967" font-size="23" font-weight="600" fill="#62D5ED">3 · WRITE + CHECK THE ANSWER</text>
+<rect data-name="Numbered sources" x="48" y="1030" width="312" height="178" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+<text data-name="Numbered sources title" x="72" y="1080" font-size="28" font-weight="600" fill="#F0F5F7">Number sources</text>
+<text data-name="Numbered sources detail 1" x="72" y="1122" font-size="24" font-weight="400" fill="#B7C9D2">Up to 5 full passages</text>
+<text data-name="Numbered sources detail 2" x="72" y="1154" font-size="24" font-weight="400" fill="#B7C9D2">≤6,000 formatted chars</text>
+<rect data-name="Ollama generation" x="432" y="1030" width="360" height="178" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+<text data-name="Ollama generation title" x="456" y="1080" font-size="28" font-weight="600" fill="#F0F5F7">Generate an answer</text>
+<text data-name="Ollama generation detail 1" x="456" y="1122" font-size="24" font-weight="400" fill="#B7C9D2">Local Ollama · llama3.2:3b</text>
+<text data-name="Ollama generation detail 2" x="456" y="1154" font-size="24" font-weight="400" fill="#B7C9D2">Question + sources</text>
+<rect data-name="Citation checks" x="856" y="1030" width="376" height="178" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+<text data-name="Citation checks title" x="880" y="1080" font-size="28" font-weight="600" fill="#F0F5F7">Check citations</text>
+<text data-name="Citation checks detail 1" x="880" y="1122" font-size="24" font-weight="400" fill="#B7C9D2">Remove invalid source [n]</text>
+<text data-name="Citation checks detail 2" x="880" y="1154" font-size="24" font-weight="400" fill="#B7C9D2">Warn about missing [n]</text>
+<path data-name="Sources to Ollama" d="M362 1118 L420 1118" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon data-name="Sources to Ollama arrowhead" points="420,1118 408,1124 408,1112" fill="#62D5ED"/>
+<path data-name="Answer to citation checks" d="M794 1118 L844 1118" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon data-name="Answer to citation checks arrowhead" points="844,1118 832,1124 832,1112" fill="#62D5ED"/>
+<text data-name="NLI status" x="432" y="1259" font-size="19" font-weight="600" fill="#F59A87">OPTIONAL NLI · OFF BY DEFAULT</text>
+<rect data-name="Sentence support" x="432" y="1276" width="360" height="144" rx="10" fill="#1B2831" stroke="#F59A87" stroke-width="2" stroke-dasharray="8 7"/>
+<text data-name="Sentence support title" x="456" y="1326" font-size="28" font-weight="600" fill="#F0F5F7">Sentence support</text>
+<text data-name="Sentence support detail 1" x="456" y="1368" font-size="24" font-weight="400" fill="#B7C9D2">Across all supplied sources</text>
+<text data-name="Sentence support detail 2" x="456" y="1400" font-size="24" font-weight="400" fill="#B7C9D2">Confidence + warnings</text>
+<rect data-name="Response" x="856" y="1276" width="376" height="144" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+<text data-name="Response title" x="880" y="1326" font-size="28" font-weight="600" fill="#F0F5F7">Answer + sources</text>
+<text data-name="Response detail 1" x="880" y="1368" font-size="24" font-weight="400" fill="#B7C9D2">Excerpts + confidence</text>
+<text data-name="Response detail 2" x="880" y="1400" font-size="24" font-weight="400" fill="#B7C9D2">Warnings</text>
+<path data-name="Verified answer to response" d="M1044 1210 L1044 1272" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon data-name="Verified answer to response arrowhead" points="1044,1272 1038,1260 1050,1260" fill="#62D5ED"/>
+<path data-name="Optional support branch" d="M854 1170 L824 1170 L824 1320 L794 1320" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<polygon data-name="Optional support branch arrowhead" points="794,1320 806,1314 806,1326" fill="#F59A87"/>
+<path data-name="Support scores to response" d="M794 1384 L844 1384" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+<polygon data-name="Support scores to response arrowhead" points="844,1384 832,1390 832,1378" fill="#F59A87"/>
+<text data-name="Scope note" x="48" y="1482" font-size="22" font-weight="400" fill="#B7C9D2">Source numbers and confidence do not establish factual support.</text>
+<text data-name="Operating note" x="48" y="1516" font-size="20" font-weight="400" fill="#B7C9D2">Defaults shown · PDF needs embedded text · DOCX tables become text · One app worker</text>
+</svg>

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1208" viewBox="0 0 1280 1208" role="img" aria-labelledby="answer-checks-title answer-checks-description">
+  <title id="answer-checks-title">How NexusRAG builds and checks an answer</title>
+  <desc id="answer-checks-description">Build at most five numbered source passages after deduplicating passage IDs. Include complete formatted source blocks within six thousand characters, stopping before a block exceeds that limit. The question and instructions sit outside the limit. If no passage fits, return a message without generation. Ollama generates with llama3.2:3b. Errors or blank output return sources, zero confidence and a warning, bypassing answer checks. Successful output has invalid citation indices removed and warnings added. Citation and NLI checks use only sources supplied to generation. With NLI disabled by default, confidence equally weights mean normalized source scores and distinct cited-source coverage. With NLI enabled, every sentence is compared with every supplied source; best entailment of at least 0.5 counts as grounded, and confidence is the fraction grounded. NLI does not rewrite or regenerate the answer. The API returns answer, source excerpts, confidence, warnings and processing time. Valid citation indices and confidence scores do not establish correctness.</desc>
+  <defs>
+    <style>text { font-family: Inter, Arial, sans-serif; } .mono { font-family: "IBM Plex Mono", "Courier New", monospace; }</style>
+  </defs>
+  <rect width="1280" height="1208" fill="#121A20"/>
+  <text data-name="Figure title" x="56" y="66" font-size="36" font-weight="600" fill="#F0F5F7">Answer checks</text>
+  <path data-name="Title rule" d="M56 94 L1224 94" fill="none" stroke="#546B78" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect id="answer-checks-shape-2" data-name="Numbered sources" x="56" y="152" width="336" height="224" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+  <text data-name="Numbered sources title" x="80" y="190" font-size="28" font-weight="600" fill="#F0F5F7">Build sources</text>
+  <text data-name="Numbered sources detail 1" x="80" y="232" font-size="25" font-weight="400" fill="#B7C9D2">Deduplicate passage IDs</text>
+  <text data-name="Numbered sources detail 2" x="80" y="266" font-size="25" font-weight="400" fill="#B7C9D2">≤5 numbered passages</text>
+  <text data-name="Numbered sources detail 3" x="80" y="300" font-size="25" font-weight="400" fill="#B7C9D2">Source context:</text>
+  <text data-name="Numbered sources detail 4" x="80" y="334" font-size="25" font-weight="400" fill="#B7C9D2">≤6,000 chars</text>
+  <rect id="answer-checks-shape-8" data-name="Ollama generation" x="456" y="152" width="336" height="224" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="Ollama generation title" x="480" y="190" font-size="28" font-weight="600" fill="#F0F5F7">Generate answer</text>
+  <text data-name="Ollama generation detail 1" x="480" y="232" font-size="25" font-weight="400" fill="#B7C9D2">Ollama · llama3.2:3b</text>
+  <text data-name="Ollama generation detail 2" x="480" y="266" font-size="25" font-weight="400" fill="#B7C9D2">Numbered-source prompt</text>
+  <text data-name="Ollama generation detail 3" x="480" y="300" font-size="25" font-weight="400" fill="#B7C9D2">Question-format hint</text>
+  <rect id="answer-checks-shape-13" data-name="Citation index checks" x="856" y="152" width="368" height="224" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="Citation index checks title" x="880" y="190" font-size="28" font-weight="600" fill="#F0F5F7">Check citation indices</text>
+  <text data-name="Citation index checks detail 1" x="880" y="232" font-size="25" font-weight="400" fill="#B7C9D2">Remove out-of-range [n]</text>
+  <text data-name="Citation index checks detail 2" x="880" y="266" font-size="25" font-weight="400" fill="#B7C9D2">Warn if invalid or missing</text>
+  <path data-name="Sources to generation" d="M394 264 L444 264" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="444,264 432,258 432,270" fill="#62D5ED"/>
+  <path data-name="Generated text to citations" d="M794 264 L844 264" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="844,264 832,258 832,270" fill="#62D5ED"/>
+  <rect id="answer-checks-shape-19" data-name="Generation failure" x="56" y="448" width="336" height="184" rx="10" fill="#1B2831" stroke="#F59A87" stroke-width="2"/>
+  <text data-name="Generation failure title" x="80" y="486" font-size="28" font-weight="600" fill="#F0F5F7">Generation failed</text>
+  <text data-name="Generation failure detail 1" x="80" y="528" font-size="25" font-weight="400" fill="#B7C9D2">Keep sources</text>
+  <text data-name="Generation failure detail 2" x="80" y="562" font-size="25" font-weight="400" fill="#B7C9D2">Confidence 0 + warning</text>
+  <text data-name="Generation failure detail 3" x="80" y="596" font-size="25" font-weight="400" fill="#B7C9D2">Skip answer checks</text>
+  <text data-name="Failure condition" x="56" y="408" font-size="24" font-weight="400" fill="#F59A87" class="mono">Error or empty output</text>
+  <path data-name="Generation error branch" d="M624 378 L624 424 L224 424 L224 436" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <polygon points="224,436 218,424 230,424" fill="#F59A87"/>
+  <rect id="answer-checks-shape-26" data-name="Grounding setting" x="856" y="448" width="368" height="104" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="Grounding setting title" x="880" y="486" font-size="28" font-weight="600" fill="#F0F5F7">NLI enabled?</text>
+  <text data-name="Grounding setting detail 1" x="880" y="528" font-size="25" font-weight="400" fill="#B7C9D2">Off by default</text>
+  <path data-name="Citations to confidence choice" d="M1040 378 L1040 436" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="1040,436 1034,424 1046,424" fill="#62D5ED"/>
+  <rect id="answer-checks-shape-30" data-name="Default heuristic" x="456" y="664" width="360" height="218" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+  <text data-name="Default heuristic title" x="480" y="702" font-size="28" font-weight="600" fill="#F0F5F7">Heuristic confidence</text>
+  <text data-name="Default heuristic detail 1" x="480" y="744" font-size="25" font-weight="400" fill="#B7C9D2">Mean normalized score</text>
+  <text data-name="Default heuristic detail 2" x="480" y="778" font-size="25" font-weight="400" fill="#B7C9D2">+ cited-source coverage</text>
+  <text data-name="Default heuristic detail 3" x="480" y="812" font-size="25" font-weight="400" fill="#B7C9D2">Equal weights · 50:50</text>
+  <rect id="answer-checks-shape-35" data-name="Optional NLI" x="872" y="664" width="352" height="218" rx="10" fill="#1B2831" stroke="#F59A87" stroke-width="2"/>
+  <text data-name="Optional NLI title" x="896" y="702" font-size="28" font-weight="600" fill="#F0F5F7">Sentence support</text>
+  <text data-name="Optional NLI detail 1" x="896" y="744" font-size="25" font-weight="400" fill="#B7C9D2">Each sentence ×</text>
+  <text data-name="Optional NLI detail 2" x="896" y="778" font-size="25" font-weight="400" fill="#B7C9D2">all source passages</text>
+  <text data-name="Optional NLI detail 3" x="896" y="812" font-size="25" font-weight="400" fill="#B7C9D2">Best entailment ≥0.5</text>
+  <text data-name="Optional NLI detail 4" x="896" y="846" font-size="25" font-weight="400" fill="#B7C9D2">Fraction grounded</text>
+  <path data-name="Default confidence path" d="M854 500 L824 500 L824 610 L636 610 L636 652" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="636,652 630,640 642,640" fill="#62D5ED"/>
+  <text data-name="Disabled label" x="688" y="592" font-size="24" font-weight="400" fill="#62D5ED" class="mono">off</text>
+  <path data-name="Optional NLI path" d="M1040 554 L1040 652" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <polygon points="1040,652 1034,640 1046,640" fill="#F59A87"/>
+  <text data-name="Enabled label" x="1056" y="608" font-size="24" font-weight="400" fill="#F59A87" class="mono">on</text>
+  <path data-name="Heuristic result" d="M636 884 L636 916 L840 916" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <path data-name="NLI result" d="M1048 884 L1048 916 L840 916" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <path data-name="Selected confidence to response" d="M840 916 L840 940" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="840,940 834,928 846,928" fill="#62D5ED"/>
+  <rect id="answer-checks-shape-48" data-name="API response" x="456" y="952" width="768" height="144" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="API response title" x="480" y="990" font-size="28" font-weight="600" fill="#F0F5F7">Return response</text>
+  <text data-name="API response detail 1" x="480" y="1032" font-size="25" font-weight="400" fill="#B7C9D2">Answer + source excerpts</text>
+  <text data-name="API response detail 2" x="480" y="1066" font-size="25" font-weight="400" fill="#B7C9D2">Confidence · warnings · processing time</text>
+  <path data-name="Failure response bypass" d="M224 634 L224 1024 L444 1024" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <polygon points="444,1024 432,1018 432,1030" fill="#F59A87"/>
+  <text data-name="Citation limitation" x="56" y="1148" font-size="23" font-weight="400" fill="#B7C9D2">Valid source numbers do not establish factual support.</text>
+  <text data-name="Confidence limitation" x="56" y="1184" font-size="23" font-weight="400" fill="#B7C9D2">Confidence does not guarantee correctness. NLI does not rewrite answers.</text>
+</svg>

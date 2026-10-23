@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusRAG - Pipeline guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/pipeline.css">
+</head>
+<body class="pipeline-page">
+    <nav class="pipeline-navigation" aria-label="Pipeline navigation">
+        <a href="/">Back to papers</a>
+        <span>How it works</span>
+    </nav>
+
+    <main class="pipeline-canvas">
+        <header class="pipeline-intro">
+            <p class="pipeline-eyebrow">NexusRAG / Pipeline guide</p>
+            <h1>From documents to cited answers</h1>
+            <p>Documents become searchable passages. Each question retrieves passages, generates an answer with Ollama and checks its source numbers.</p>
+            <p class="pipeline-note">This guide explains the default settings. It does not show a live run.</p>
+        </header>
+
+        <figure class="pipeline-diagram">
+            <a href="/images/pipeline.svg" target="_blank" rel="noopener" aria-label="Open the full-size NexusRAG pipeline diagram">
+                <img src="/images/pipeline.svg" width="1280" height="1550" alt="NexusRAG pipeline: extract and split documents, index passages in LanceDB and BM25, retrieve and fuse rankings, optionally search once more, generate with Ollama and check citations before returning the answer and sources. NLI sentence checks are optional.">
+            </a>
+            <figcaption><a href="/images/pipeline.svg" target="_blank" rel="noopener">Open the full-size pipeline to zoom</a></figcaption>
+        </figure>
+
+        <div class="pipeline-details">
+            <details>
+                <summary>Default settings and checks</summary>
+                <dl class="pipeline-defaults">
+                    <div>
+                        <dt>Documents</dt>
+                        <dd>PDF parsing reads text without OCR. DOCX parsing reads body paragraphs and tables, including nested table text, in document order. Headers, footers and image text are not extracted; table layout is not preserved. Parsed documents and passage vectors are saved; BM25 stays in memory, so run one application worker.</dd>
+                    </div>
+                    <div>
+                        <dt>Retrieval</dt>
+                        <dd>Each search returns up to 50 candidates. Rank fusion uses fixed query-shape weights and selects up to eight passages. Feedback is enabled by default: when results exist and the best dense cosine score is below 0.55, up to ten frequent non-query terms from the first five passages expand the question. If new terms are found, both searches run once more and both passes are merged before generation. Otherwise, the first results are kept.</dd>
+                    </div>
+                    <div>
+                        <dt>Generation</dt>
+                        <dd>The default Ollama model is <code>llama3.2:3b</code>. Remove duplicate passage IDs, then include up to five complete source passages within a 6,000-character formatted context limit. Stop before the first passage that does not fit. The question and instructions sit outside that limit. Empty indexes, no matches or no passages that fit return a message without calling Ollama. Generation failures retain supplied sources with zero confidence and a warning; answer checks are skipped.</dd>
+                    </div>
+                    <div>
+                        <dt>Citations and confidence</dt>
+                        <dd>Citation checks warn about missing or invalid citations. They validate source numbers, not factual support. Default confidence combines normalized retrieval scores and the fraction of sources cited. It does not establish correctness.</dd>
+                    </div>
+                    <div>
+                        <dt>Optional NLI</dt>
+                        <dd>Natural language inference compares each answer sentence with every supplied source. A best entailment score of at least 0.5 counts as grounded; confidence becomes the fraction of grounded sentences. NLI reports scores and warnings without rewriting the answer or running generation again. It does not verify each inline citation. Enable it with <code>SELF_CORRECTION_GROUNDING_ENABLED=true</code>.</dd>
+                    </div>
+                </dl>
+            </details>
+
+            <details>
+                <summary>Recorded retrieval results</summary>
+                <div class="pipeline-results">
+                    <table>
+                        <caption>Recorded nDCG@10 with BGE-small. Higher scores are better.</caption>
+                        <thead>
+                            <tr><th scope="col">Method</th><th scope="col">SciFact</th><th scope="col">NFCorpus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><th scope="row">Dense</th><td>0.708</td><td>0.341</td></tr>
+                            <tr><th scope="row">Hybrid RRF</th><td>0.704</td><td>0.352</td></tr>
+                            <tr><th scope="row">Corrective PRF</th><td>0.703</td><td>0.346</td></tr>
+                        </tbody>
+                    </table>
+                    <p>Fusion can help or hurt. These scores measure retrieval quality; answer accuracy was not measured here.</p>
+                    <p class="pipeline-note">Full BEIR test: 300 SciFact and 323 NFCorpus queries. Each benchmark document is one passage. Exact NumPy CPU search, without a reranker, is used here; the app searches LanceDB.</p>
+                    <a href="https://github.com/urmeo/nexus-rag/blob/main/docs/evaluation.md">Evaluation conditions</a>
+                </div>
+            </details>
+        </div>
+    </main>
+
+    <footer class="pipeline-footer">
+        <a href="https://github.com/urmeo/nexus-rag/blob/main/docs/pipeline.md">Pipeline details</a>
+        <a href="https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2">Figma source</a>
+    </footer>
+</body>
+</html>

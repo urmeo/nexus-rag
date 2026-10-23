@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1000" viewBox="0 0 1280 1000" role="img" aria-labelledby="retrieval-flow-title retrieval-flow-description">
+  <title id="retrieval-flow-title">How NexusRAG retrieves passages</title>
+  <desc id="retrieval-flow-description">The question is trimmed and the index is checked before fixed question rules. Dense cosine search and BM25 each return up to fifty candidates. Adaptive weighted reciprocal rank fusion uses k=60. If feedback is enabled, first-pass results exist and the best dense cosine is below 0.55, up to ten frequent non-query terms from the first five fused passages are added. Dense search, BM25 and adaptive fusion run once more. Equal-weight RRF merges original and feedback rankings, bypassing the gate, before returning up to eight passages. Empty indexes and empty matches return a message without Ollama.</desc>
+  <defs>
+    <style>text { font-family: Inter, Arial, sans-serif; } .mono { font-family: "IBM Plex Mono", "Courier New", monospace; }</style>
+  </defs>
+  <rect width="1280" height="1000" fill="#121A20"/>
+  <text data-name="Figure title" x="56" y="66" font-size="36" font-weight="600" fill="#F0F5F7">Retrieval</text>
+  <path data-name="Title rule" d="M56 94 L1224 94" fill="none" stroke="#546B78" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect id="retrieval-flow-shape-2" data-name="Question preparation" x="56" y="244" width="208" height="184" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="Question preparation title" x="80" y="282" font-size="28" font-weight="600" fill="#F0F5F7">Question</text>
+  <text data-name="Question preparation detail 1" x="80" y="324" font-size="25" font-weight="400" fill="#B7C9D2">Index check</text>
+  <text data-name="Question preparation detail 2" x="80" y="358" font-size="25" font-weight="400" fill="#B7C9D2">Fixed rules</text>
+  <rect id="retrieval-flow-shape-6" data-name="Dense search" x="320" y="152" width="280" height="164" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+  <text data-name="Dense search title" x="344" y="190" font-size="28" font-weight="600" fill="#F0F5F7">Dense search</text>
+  <text data-name="Dense search detail 1" x="344" y="232" font-size="25" font-weight="400" fill="#B7C9D2">Embed question</text>
+  <text data-name="Dense search detail 2" x="344" y="266" font-size="25" font-weight="400" fill="#B7C9D2">Cosine similarity</text>
+  <text data-name="Dense search detail 3" x="344" y="300" font-size="25" font-weight="400" fill="#B7C9D2">≤50 candidates</text>
+  <rect id="retrieval-flow-shape-11" data-name="Keyword search" x="320" y="348" width="280" height="164" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+  <text data-name="Keyword search title" x="344" y="386" font-size="28" font-weight="600" fill="#F0F5F7">BM25 search</text>
+  <text data-name="Keyword search detail 1" x="344" y="428" font-size="25" font-weight="400" fill="#B7C9D2">Keyword ranking</text>
+  <text data-name="Keyword search detail 2" x="344" y="462" font-size="25" font-weight="400" fill="#B7C9D2">≤50 candidates</text>
+  <rect id="retrieval-flow-shape-15" data-name="Adaptive fusion" x="656" y="244" width="288" height="184" rx="10" fill="#1B2831" stroke="#62D5ED" stroke-width="2"/>
+  <text data-name="Adaptive fusion title" x="680" y="282" font-size="28" font-weight="600" fill="#F0F5F7">Fuse rankings</text>
+  <text data-name="Adaptive fusion detail 1" x="680" y="324" font-size="25" font-weight="400" fill="#B7C9D2">Adaptive weights</text>
+  <text data-name="Adaptive fusion detail 2" x="680" y="358" font-size="25" font-weight="400" fill="#B7C9D2">RRF · k = 60</text>
+  <text data-name="Adaptive fusion detail 3" x="680" y="392" font-size="25" font-weight="400" fill="#B7C9D2">Keep first ranking</text>
+  <rect id="retrieval-flow-shape-20" data-name="Final passage selection" x="1000" y="244" width="224" height="184" rx="10" fill="#1B2831" stroke="#546B78" stroke-width="2"/>
+  <text data-name="Final passage selection title" x="1024" y="282" font-size="28" font-weight="600" fill="#F0F5F7">≤8 passages</text>
+  <text data-name="Final passage selection detail 1" x="1024" y="324" font-size="25" font-weight="400" fill="#B7C9D2">Final ranking</text>
+  <text data-name="Final passage selection detail 2" x="1024" y="358" font-size="25" font-weight="400" fill="#B7C9D2">Sources next</text>
+  <path data-name="Question split" d="M266 336 L292 336 L292 234 L308 234" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="308,234 296,228 296,240" fill="#62D5ED"/>
+  <path data-name="Question to BM25" d="M292 336 L292 430 L308 430" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="308,430 296,424 296,436" fill="#62D5ED"/>
+  <path data-name="Dense ranking to fusion" d="M602 234 L628 234 L628 336" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <path data-name="BM25 ranking to fusion" d="M602 430 L628 430 L628 336 L644 336" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="644,336 632,330 632,342" fill="#62D5ED"/>
+  <path data-name="First pass to selection" d="M946 336 L988 336" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="988,336 976,330 976,342" fill="#62D5ED"/>
+  <text data-name="Feedback condition" x="56" y="592" font-size="25" font-weight="400" fill="#F59A87">Enabled + first results</text>
+  <text data-name="Dense gate" x="56" y="626" font-size="24" font-weight="400" fill="#F59A87" class="mono">Best dense cosine &lt;0.55</text>
+  <path data-name="Conditional feedback branch" d="M800 430 L800 642 L240 642 L240 660" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <polygon points="240,660 234,648 246,648" fill="#F59A87"/>
+  <rect id="retrieval-flow-shape-32" data-name="Feedback terms" x="56" y="672" width="368" height="184" rx="10" fill="#1B2831" stroke="#F59A87" stroke-width="2"/>
+  <text data-name="Feedback terms title" x="80" y="710" font-size="28" font-weight="600" fill="#F0F5F7">Expand question</text>
+  <text data-name="Feedback terms detail 1" x="80" y="752" font-size="25" font-weight="400" fill="#B7C9D2">≤10 frequent new terms</text>
+  <text data-name="Feedback terms detail 2" x="80" y="786" font-size="25" font-weight="400" fill="#B7C9D2">from first 5 passages</text>
+  <rect id="retrieval-flow-shape-36" data-name="Feedback search" x="480" y="672" width="336" height="184" rx="10" fill="#1B2831" stroke="#F59A87" stroke-width="2"/>
+  <text data-name="Feedback search title" x="504" y="710" font-size="28" font-weight="600" fill="#F0F5F7">Search once more</text>
+  <text data-name="Feedback search detail 1" x="504" y="752" font-size="25" font-weight="400" fill="#B7C9D2">Repeat dense + BM25</text>
+  <text data-name="Feedback search detail 2" x="504" y="786" font-size="25" font-weight="400" fill="#B7C9D2">Use adaptive RRF</text>
+  <rect id="retrieval-flow-shape-40" data-name="Merge passes" x="872" y="672" width="352" height="184" rx="10" fill="#1B2831" stroke="#F59A87" stroke-width="2"/>
+  <text data-name="Merge passes title" x="896" y="710" font-size="28" font-weight="600" fill="#F0F5F7">Merge both passes</text>
+  <text data-name="Merge passes detail 1" x="896" y="752" font-size="25" font-weight="400" fill="#B7C9D2">Original + feedback</text>
+  <text data-name="Merge passes detail 2" x="896" y="786" font-size="25" font-weight="400" fill="#B7C9D2">Equal-weight RRF</text>
+  <text data-name="Merge passes detail 3" x="896" y="820" font-size="25" font-weight="400" fill="#B7C9D2">k = 60</text>
+  <path data-name="Terms to second search" d="M426 764 L468 764" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <polygon points="468,764 456,758 456,770" fill="#F59A87"/>
+  <path data-name="Second search to merge" d="M818 764 L860 764" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <polygon points="860,764 848,758 848,770" fill="#F59A87"/>
+  <path data-name="Original ranking input" d="M876 430 L876 608 L1048 608 L1048 660" fill="none" stroke="#62D5ED" stroke-width="2.5" stroke-linejoin="round"/>
+  <polygon points="1048,660 1042,648 1054,648" fill="#62D5ED"/>
+  <text data-name="Original ranking label" x="896" y="592" font-size="23" font-weight="400" fill="#62D5ED" class="mono">first ranking</text>
+  <path data-name="Merged ranking bypasses gate" d="M1170 670 L1170 468 L972 468 L972 336" fill="none" stroke="#F59A87" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 7"/>
+  <polygon points="972,336 966,348 978,348" fill="#F59A87"/>
+  <text data-name="Empty cases" x="56" y="928" font-size="25" font-weight="400" fill="#B7C9D2">Empty index or no matches → message; no Ollama call.</text>
+  <text data-name="Gate scope" x="56" y="972" font-size="23" font-weight="400" fill="#B7C9D2">The feedback gate uses dense similarity, not answer confidence.</text>
+</svg>

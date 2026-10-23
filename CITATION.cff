@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "Cite NexusRAG using this metadata."
+type: software
+title: NexusRAG
+version: 1.0.2
+date-released: "2026-07-12"
+repository-code: "https://github.com/urmeo/nexus-rag"
+license: MIT
+authors:
+  - given-names: urme
+keywords:
+  - retrieval-augmented-generation
+  - information-retrieval
+  - scientific-papers
+abstract: >-
+  Searches research documents with vector embeddings and BM25, then generates
+  answers with numbered sources using Ollama.
