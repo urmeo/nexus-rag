@@ -1,5 +1,3 @@
-"""Evaluation reports."""
-
 from __future__ import annotations
 
 import argparse
@@ -184,7 +182,7 @@ def _check_evidence_methods(methods: dict[str, Any]) -> None:
 def binary_curve_points(
     scores: Sequence[float], labels: Sequence[int]
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
-    """Threshold curves."""
+    """ROC and precision-recall points, one per distinct score threshold."""
     values, truth = binary_inputs(scores, labels)
     positives = int(truth.sum())
     negatives = truth.size - positives

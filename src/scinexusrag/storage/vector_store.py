@@ -1,5 +1,3 @@
-"""Vector storage."""
-
 import json
 import re
 import threading
@@ -27,7 +25,7 @@ SCAN_PAGE_SIZE = 10_000
 
 
 class VectorStoreError(RuntimeError):
-    """Storage failure."""
+    """The vector index cannot be read, decoded or updated."""
 
 
 def _sanitize_id(value: str) -> str:
@@ -83,15 +81,11 @@ def _metadata_json(metadata: dict[str, Any]) -> str:
 
 @dataclass
 class SearchResult:
-    """Retrieved passage."""
-
     chunk: Chunk
     score: float
 
 
 class VectorStore:
-    """Passage vectors."""
-
     def __init__(
         self,
         path: str | Path = "./data/lancedb",
@@ -111,7 +105,6 @@ class VectorStore:
 
     @property
     def db(self) -> lancedb.DBConnection:
-        """Database connection."""
         with self._init_lock:
             if self._db is None:
                 self.path.mkdir(parents=True, exist_ok=True)
@@ -120,7 +113,6 @@ class VectorStore:
 
     @property
     def table(self) -> lancedb.table.Table:
-        """Passage table."""
         with self._access("Cannot open or read the vector index."):
             table = self._table
             if table is None:
@@ -178,7 +170,6 @@ class VectorStore:
         _ = self.table
 
     def _table_exists(self) -> bool:
-        """Locate table."""
         list_tables = getattr(self.db, "list_tables", None)
         if list_tables is None:
             return self.table_name in self.db.table_names()
@@ -367,7 +358,7 @@ class VectorStore:
     def _read_rows(
         self, columns: list[str], filter_expr: str | None = None
     ) -> Iterator[dict[str, Any]]:
-        """Snapshot scan."""
+        """Page through one pinned table version so concurrent writes cannot shift offsets."""
         with self._access("Cannot read passages from the vector index."):
             table = self.table
             completed = False

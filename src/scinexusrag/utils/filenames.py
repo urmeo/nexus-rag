@@ -1,5 +1,3 @@
-"""Display names."""
-
 from collections.abc import Mapping
 
 

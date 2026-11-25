@@ -1,5 +1,3 @@
-"""Vector retrieval."""
-
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -16,8 +14,6 @@ class RetrievalResult:
 
 
 class DenseSearcher(Protocol):
-    """Vector search."""
-
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]: ...
 
 

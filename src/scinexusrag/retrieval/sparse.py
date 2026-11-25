@@ -1,5 +1,3 @@
-"""Sparse retrieval."""
-
 import re
 from copy import deepcopy
 from dataclasses import dataclass
@@ -32,8 +30,6 @@ class BM25Index:
 
 
 class BM25Retriever:
-    """BM25 retrieval."""
-
     def __init__(self, stopwords: set[str] | frozenset[str] | None = None):
         self._index: BM25Index | None = None
         self._stopwords = STOP_WORDS if stopwords is None else frozenset(stopwords)

@@ -1,5 +1,3 @@
-"""Runtime checks."""
-
 from __future__ import annotations
 
 import asyncio
@@ -4979,8 +4977,6 @@ def _consume_stream(chunks: list[str]) -> tuple[str, list[dict[str, Any]]]:
 
 
 class StubLLM:
-    """Fixed output."""
-
     def __init__(self, answer: str) -> None:
         self.answer = answer
         self.calls = 0
@@ -4991,8 +4987,6 @@ class StubLLM:
 
 
 class StubRetriever:
-    """Fixed retrieval."""
-
     def __init__(self, results: list[RetrievalResult]) -> None:
         self.results = results
 
@@ -5001,8 +4995,6 @@ class StubRetriever:
 
 
 class StubGrounding:
-    """Fixed grounding."""
-
     def __init__(self, faithfulness: float, unsupported: list[str]) -> None:
         self.report = GroundingReport(
             faithfulness=faithfulness, sentences=[], unsupported=unsupported
@@ -10825,8 +10817,6 @@ def test_legacy_connection_can_create_reopen_and_clear_tables(
         )
 
     class LegacyConnection:
-        """Legacy interface."""
-
         def __init__(self, connection):
             self.connection = connection
 

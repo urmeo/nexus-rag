@@ -1,5 +1,3 @@
-"""SPLADE retrieval."""
-
 from __future__ import annotations
 
 from copy import deepcopy
@@ -17,8 +15,6 @@ DEFAULT_MODEL = "naver/splade-cocondenser-ensembledistil"
 
 
 class SpladeRetriever:
-    """Sparse retrieval."""
-
     def __init__(
         self,
         chunks: list[Chunk],

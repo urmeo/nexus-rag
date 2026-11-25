@@ -1,5 +1,3 @@
-"""Document workflow."""
-
 import gc
 import logging
 import threading

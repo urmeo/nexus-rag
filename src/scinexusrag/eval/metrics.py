@@ -1,5 +1,3 @@
-"""Ranking metrics."""
-
 from __future__ import annotations
 
 import math
@@ -64,7 +62,7 @@ def average_precision(ranked: Sequence[str], relevant: Relevance) -> float:
 
 
 def ndcg_at_k(ranked: Sequence[str], relevant: Relevance, k: int) -> float:
-    """Linear gains."""
+    """nDCG@k with linear gains: grade / log2(rank + 1)."""
     relevant = _positive_relevance(relevant)
     if k <= 0:
         return 0.0
@@ -128,7 +126,7 @@ def binary_inputs(
 
 
 def roc_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
-    """Rank-sum AUROC."""
+    """Tie-aware rank-sum (Mann-Whitney) AUROC; NaN when either class is absent."""
     s, y = binary_inputs(scores, labels)
     n_pos = int((y == 1).sum())
     n_neg = int((y == 0).sum())
@@ -139,7 +137,7 @@ def roc_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
 
 
 def pr_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
-    """Average precision."""
+    """Tie-aware average precision; NaN without positives."""
     s, y = binary_inputs(scores, labels)
     n_pos = int((y == 1).sum())
     if n_pos == 0:
@@ -156,7 +154,7 @@ def pr_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
 
 
 def risk_coverage_auc(confidence: ArrayLike, correct: ArrayLike) -> float:
-    """Tie-averaged risk."""
+    """Mean risk over all coverage levels, spreading errors evenly within confidence ties."""
     conf, labels = binary_inputs(confidence, correct)
     err = 1 - labels
     if conf.size == 0:
@@ -181,7 +179,6 @@ def risk_coverage_auc(confidence: ArrayLike, correct: ArrayLike) -> float:
 def bootstrap_ci(
     values: ArrayLike, n_boot: int = 10000, ci: float = 0.95, seed: int = 0
 ) -> tuple[float, float, float]:
-    """Bootstrap interval."""
     arr = np.asarray(values, dtype=np.float64)
     if arr.ndim != 1 or not np.all(np.isfinite(arr)):
         raise ValueError("values must be a finite one-dimensional sequence")
@@ -200,7 +197,6 @@ def bootstrap_ci(
 def paired_delta_ci(
     a: Sequence[float], b: Sequence[float], n_boot: int = 10000, ci: float = 0.95, seed: int = 0
 ) -> tuple[float, float, float]:
-    """Paired interval."""
     return bootstrap_ci(_paired_difference(a, b), n_boot=n_boot, ci=ci, seed=seed)
 
 
@@ -216,7 +212,6 @@ def _paired_difference(a: Sequence[float], b: Sequence[float]) -> NDArray[np.flo
 def paired_randomization_test(
     a: Sequence[float], b: Sequence[float], n_perm: int = 10000, seed: int = 0
 ) -> float:
-    """Paired randomization."""
     diff = _paired_difference(a, b)
     if n_perm <= 0:
         raise ValueError("paired scores must be finite and n_perm must be positive")
@@ -230,7 +225,6 @@ def paired_randomization_test(
 
 
 def holm_correction(pvalues: dict[str, float]) -> dict[str, float]:
-    """Holm correction."""
     if any(not math.isfinite(p) or not 0 <= p <= 1 for p in pvalues.values()):
         raise ValueError("p-values must be finite and between 0 and 1")
     ordered = sorted(pvalues.items(), key=lambda kv: kv[1])

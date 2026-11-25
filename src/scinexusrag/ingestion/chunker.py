@@ -1,5 +1,3 @@
-"""Document chunking."""
-
 import hashlib
 import logging
 import re
@@ -14,8 +12,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Chunk:
-    """Text passage."""
-
     id: str
     content: str
     document_id: str
@@ -93,7 +89,7 @@ def _word_windows(source: _TextSpan, width: int) -> list[_TextSpan]:
 
 
 class HierarchicalChunker:
-    """Section-aware chunking."""
+    """Packs section paragraphs into passages, splitting long ones by sentence, then word."""
 
     DEFAULT_TARGET_SIZE = 1200
     DEFAULT_MAX_SIZE = 1500

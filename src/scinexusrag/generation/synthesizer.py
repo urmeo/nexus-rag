@@ -1,5 +1,3 @@
-"""Answer synthesis."""
-
 import logging
 import math
 from collections.abc import Generator

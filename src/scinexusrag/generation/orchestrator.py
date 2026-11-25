@@ -1,5 +1,3 @@
-"""Answer orchestration."""
-
 import json
 import logging
 import time
@@ -104,7 +102,7 @@ class Orchestrator:
         )
 
     def query_streaming(self, question: str) -> Generator[str, None, None]:
-        """Verified stream."""
+        """Yield provisional answer tokens, then SSE events carrying the verified answer."""
         query_type, question = self._prepare_question(question)
         results = self.retriever.retrieve(question, top_k=self.top_k)
         doc_names = self._document_names(results)

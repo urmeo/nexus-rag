@@ -1,5 +1,3 @@
-"""Corrective retrieval."""
-
 from __future__ import annotations
 
 from collections import Counter
@@ -10,7 +8,7 @@ from scinexusrag.retrieval.hybrid import HybridRetriever, search_requested, rrf_
 
 
 class CorrectiveRetriever:
-    """Conditional feedback."""
+    """Searches again with feedback terms from top passages when dense similarity is below tau."""
 
     def __init__(
         self,

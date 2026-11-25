@@ -1,5 +1,3 @@
-"""Shared fixtures."""
-
 import asyncio
 from pathlib import Path
 from queue import Queue

@@ -1,5 +1,3 @@
-"""Answer verification."""
-
 from dataclasses import dataclass
 
 from scinexusrag.generation.citations import (

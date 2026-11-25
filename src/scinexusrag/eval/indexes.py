@@ -1,5 +1,3 @@
-"""Exact retrieval."""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -24,7 +22,7 @@ def corpus_to_chunks(corpus_text: dict[str, str]) -> list[Chunk]:
 
 
 class ExactDenseRetriever:
-    """Cosine search."""
+    """Exact cosine search over an in-memory corpus, used by benchmarks instead of LanceDB."""
 
     def __init__(self, embedder: Embedder, chunks: list[Chunk], batch_size: int = 64):
         if not embedder.normalize:

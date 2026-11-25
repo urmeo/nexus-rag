@@ -1,5 +1,3 @@
-"""Query analysis."""
-
 import re
 from enum import Enum
 

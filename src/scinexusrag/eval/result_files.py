@@ -1,5 +1,3 @@
-"""Result tables."""
-
 from __future__ import annotations
 
 import csv
@@ -179,7 +177,6 @@ def _reject_constant(value: str) -> NoReturn:
 
 
 def load_result(name: str, results_dir: Path) -> dict[str, Any] | None:
-    """Load measurements."""
     run = _stem(name)
     json_path = results_dir / f"{run}.json"
     if json_path.is_file():
@@ -402,7 +399,6 @@ def _load_faithfulness(result: dict[str, Any], directory: Path, run: str) -> Non
 
 
 def write_csv_results(results: Mapping[str, dict[str, Any]], output_dir: Path) -> None:
-    """Export measurements."""
     if not results:
         raise ValueError("No result runs to export")
     tables: dict[str, list[dict[str, Any]]] = {name: [] for name in SCHEMAS}

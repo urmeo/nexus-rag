@@ -1,5 +1,3 @@
-"""Text embeddings."""
-
 import gc
 import re
 import threading
@@ -18,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class EmbeddingConfigError(RuntimeError):
-    """Incompatible embeddings."""
+    """The embedding configuration is invalid, unpinned or differs from the vector index."""
 
 
 def _pinned_revision(revision: str | None) -> str:
@@ -89,8 +87,6 @@ def _embedding_array(values: Any, shape: tuple[int, ...]) -> NDArray[np.float32]
 
 
 class Embedder:
-    """Sentence embeddings."""
-
     def __init__(
         self,
         model_name: str = "BAAI/bge-small-en-v1.5",

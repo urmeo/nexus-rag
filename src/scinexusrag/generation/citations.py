@@ -1,5 +1,3 @@
-"""Citation parsing."""
-
 from __future__ import annotations
 
 import re
@@ -17,7 +15,6 @@ def _citation_number(digits: str) -> int | None:
 
 
 def extract_citations(text: str) -> list[int]:
-    """Citation numbers."""
     return [
         number
         for digits in _CITATION.findall(text)
@@ -30,7 +27,7 @@ def count_unparseable_citations(text: str) -> int:
 
 
 def strip_citations(text: str, keep: set[int]) -> str:
-    """Preserve layout."""
+    """Remove citations not in `keep` without disturbing spacing or Markdown line breaks."""
 
     def replace(match: re.Match[str]) -> str:
         if _citation_number(match.group(1)) in keep:

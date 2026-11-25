@@ -1,5 +1,3 @@
-"""Sentence splitting."""
-
 import re
 
 SENTENCE_BOUNDARY = re.compile(
