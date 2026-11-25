@@ -8289,7 +8289,6 @@ def pipeline(monkeypatch):
         processing_time_ms=12.36,
         warnings=["Check the cited passage."],
     )
-    pipeline.list_documents.return_value = []
     monkeypatch.setattr(routes, "get_scinexusrag", lambda: pipeline)
     return pipeline
 
@@ -8301,37 +8300,25 @@ def source_client(pipeline, local_settings):
 
 
 @pytest.mark.parametrize(
-    "metadata,source_name,expected",
+    "source_name,expected",
     [
-        (
-            [{"id": "doc", "original_filename": "papers/metadata.pdf", "filename": "stored.pdf"}],
-            "embedded.pdf",
-            "metadata.pdf",
-        ),
-        (
-            [{"id": "doc", "filename": r"C:\papers\metadata.pdf"}],
-            "embedded.pdf",
-            "metadata.pdf",
-        ),
-        ([], "papers/embedded.pdf", "embedded.pdf"),
-        ([], r"C:\papers/mixed\embedded.pdf", "embedded.pdf"),
-        ([{"id": "doc"}], "embedded.pdf", "embedded.pdf"),
-        ([{"id": "doc", "original_filename": ""}], "embedded.pdf", "embedded.pdf"),
-        ([{"id": "doc", "original_filename": "/"}], "embedded.pdf", "embedded.pdf"),
-        ([{"id": "doc", "filename": "\\"}], "/", "Unknown"),
-        ([], "", "Unknown"),
+        ("embedded.pdf", "embedded.pdf"),
+        ("papers/embedded.pdf", "embedded.pdf"),
+        (r"C:\papers/mixed\embedded.pdf", "embedded.pdf"),
+        ("/", "Unknown"),
+        ("", "Unknown"),
     ],
 )
-def test_source_filename_uses_metadata_then_embedded_name(
-    source_client, pipeline, metadata, source_name, expected
+def test_source_filename_is_the_basename_of_the_resolved_document_name(
+    source_client, pipeline, source_name, expected
 ):
-    pipeline.list_documents.return_value = metadata
     pipeline.query.return_value.sources[0].document_name = source_name
 
     response = source_client.post("/api/query", json={"question": "Evidence?"})
 
     assert response.status_code == 200
     assert response.json()["sources"][0]["filename"] == expected
+    pipeline.list_documents.assert_not_called()
 
 
 @pytest.mark.parametrize("length", [500, 501])
@@ -8391,39 +8378,6 @@ def test_sources_keep_sparse_citation_indices_and_page_aliases(source_client, pi
     assert [source["index"] for source in data["sources"]] == [2, 4]
     assert data["sources"][1]["page"] == data["sources"][1]["page_number"] == 7
     assert data["sources"][1]["section_title"] == "Results"
-
-
-def test_metadata_read_failure_keeps_answer_and_embedded_source_name(source_client, pipeline):
-    pipeline.list_documents.side_effect = OSError("private metadata details")
-    pipeline.query.return_value.sources[0].document_name = r"C:\papers\embedded.pdf"
-
-    response = source_client.post("/api/query", json={"question": "Evidence?"})
-
-    assert response.status_code == 200
-    assert response.json()["answer"] == "Answer [2]."
-    assert response.json()["sources"][0]["filename"] == "embedded.pdf"
-    assert response.json()["warnings"] == ["Check the cited passage."]
-    assert "private metadata details" not in response.text
-
-
-@pytest.mark.parametrize(
-    "error,status_code,detail",
-    [
-        (EmbeddingConfigError("private metadata details"), 409, "EMBEDDING_REVISION"),
-        (VectorStoreError("private metadata details"), 503, "vector index is unavailable"),
-    ],
-)
-def test_metadata_storage_failures_are_not_hidden(
-    source_client, pipeline, error, status_code, detail
-):
-    pipeline.list_documents.side_effect = error
-
-    response = source_client.post("/api/query", json={"question": "Evidence?"})
-
-    assert response.status_code == status_code
-    assert detail in response.json()["detail"]
-    assert "answer" not in response.json()
-    assert "private metadata details" not in response.text
 
 
 @pytest.fixture
@@ -8796,9 +8750,6 @@ class TestQueryDocuments:
             confidence=0.92,
             processing_time_ms=150.5,
         )
-        route_rag.list_documents.return_value = [
-            {"id": "doc_123", "filename": "test.pdf", "original_filename": "test.pdf"}
-        ]
 
         response = route_client.post(
             "/api/query", json={"question": "What is the capital of France?"}
@@ -8822,7 +8773,6 @@ class TestQueryDocuments:
             processing_time_ms=12.0,
             warnings=["answer cites no sources"],
         )
-        route_rag.list_documents.return_value = []
 
         data = route_client.post("/api/query", json={"question": "q?"}).json()
 
@@ -8867,7 +8817,6 @@ class TestQueryDocuments:
             confidence=0.0,
             processing_time_ms=10.0,
         )
-        route_rag.list_documents.return_value = []
 
         response = route_client.post("/api/query", json={"question": "What is the answer?"})
 
@@ -8907,10 +8856,6 @@ class TestQueryDocuments:
             confidence=0.91,
             processing_time_ms=200.0,
         )
-        route_rag.list_documents.return_value = [
-            {"id": "doc_1", "filename": "paper1.pdf", "original_filename": "paper1.pdf"},
-            {"id": "doc_2", "filename": "paper2.pdf", "original_filename": "paper2.pdf"},
-        ]
 
         response = route_client.post("/api/query", json={"question": "What did the research show?"})
 
@@ -8951,7 +8896,6 @@ class TestQueryDocuments:
             confidence=0.9,
             processing_time_ms=100.0,
         )
-        route_rag.list_documents.return_value = []
 
         response = route_client.post("/api/query", json={"question": "What is this?"})
 
@@ -9234,14 +9178,10 @@ class TestEmbeddingConfigErrors:
 
         self.assert_conflict(application_client.get(path))
 
-    @pytest.mark.parametrize("failed_method", ["query", "list_documents"])
     def test_query_conflict_is_actionable_and_does_not_expose_metadata(
-        self, application_client, route_rag, failed_method
+        self, application_client, route_rag
     ):
-        route_rag.query.return_value = RAGResponse("Answer.", [], 0.0)
-        getattr(route_rag, failed_method).side_effect = EmbeddingConfigError(
-            "private embedding metadata"
-        )
+        route_rag.query.side_effect = EmbeddingConfigError("private embedding metadata")
 
         response = application_client.post("/api/query", json={"question": "What was measured?"})
 

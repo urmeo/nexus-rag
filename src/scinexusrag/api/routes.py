@@ -45,14 +45,12 @@ def _basename(filename: str) -> str:
 
 
 @contextmanager
-def _api_errors(detail: str, *, keep_http: bool = False) -> Iterator[None]:
+def _api_errors(detail: str) -> Iterator[None]:
     try:
         yield
-    except (EmbeddingConfigError, VectorStoreError):
+    except (EmbeddingConfigError, VectorStoreError, HTTPException):
         raise
-    except Exception as error:
-        if keep_http and isinstance(error, HTTPException):
-            raise
+    except Exception:
         logger.exception(detail)
         raise HTTPException(status_code=500, detail=detail) from None
 
@@ -85,8 +83,8 @@ class SourceResponse(BaseModel):
     score: float
 
     @classmethod
-    def from_source(cls, source: Source, document_name: str = "") -> Self:
-        filename = _basename(document_name) or _basename(source.document_name) or "Unknown"
+    def from_source(cls, source: Source) -> Self:
+        filename = _basename(source.document_name) or "Unknown"
         truncated = len(source.content) > _SOURCE_PREVIEW_CHARS
         content = source.content[:_SOURCE_PREVIEW_CHARS] + ("..." if truncated else "")
         return cls(
@@ -254,7 +252,7 @@ async def _ingest_upload(file: UploadFile) -> UploadResponse:
 
     max_mb = get_settings().api.max_upload_mb
     max_bytes = max_mb * 1024 * 1024
-    with _api_errors("Failed to process document", keep_http=True):
+    with _api_errors("Failed to process document"):
         content = await file.read(max_bytes + 1)
         if len(content) > max_bytes:
             raise HTTPException(status_code=413, detail=f"File too large. Maximum size: {max_mb}MB")
@@ -280,30 +278,17 @@ async def _ingest_upload(file: UploadFile) -> UploadResponse:
 )
 @limiter.limit(query_limit)
 async def query_documents(request: Request, payload: QueryRequest) -> QueryResponse:
-    with _api_errors("Failed to process query", keep_http=True):
+    with _api_errors("Failed to process query"):
         rag = get_scinexusrag()
         started = time.monotonic()
         response = await asyncio.to_thread(rag.query, payload.question)
         elapsed_ms = (time.monotonic() - started) * 1000
         get_metrics_collector().record_query(elapsed_ms)
 
-        doc_names: dict[str, str] = {}
-        try:
-            docs = await asyncio.to_thread(rag.list_documents)
-            for doc in docs:
-                doc_names[doc.get("id", "")] = resolve_display_name(doc, fallback="")
-        except (EmbeddingConfigError, VectorStoreError):
-            raise
-        except Exception:
-            logger.debug("Could not load source filenames", exc_info=True)
-
         return QueryResponse(
             answer=response.answer,
             confidence=response.confidence,
-            sources=[
-                SourceResponse.from_source(source, doc_names.get(source.document_id, ""))
-                for source in response.sources
-            ],
+            sources=[SourceResponse.from_source(source) for source in response.sources],
             processing_time_ms=round(response.processing_time_ms, 1),
             warnings=response.warnings,
         )
@@ -364,7 +349,7 @@ async def delete_document(document_id: str) -> DeleteResponse:
     ):
         raise HTTPException(status_code=400, detail="Invalid document ID")
 
-    with _api_errors("Failed to delete document", keep_http=True):
+    with _api_errors("Failed to delete document"):
         rag = get_scinexusrag()
         success = await asyncio.to_thread(rag.delete_document, document_id)
 
