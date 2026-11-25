@@ -29,6 +29,7 @@ from scinexusrag.storage.vector_store import VectorStore, VectorStoreError
 logger = logging.getLogger(__name__)
 
 _EMPTY_INDEX_ANSWER = "No documents have been uploaded yet. Please upload research papers first."
+_CHUNK_SIZE_SLACK = 300
 
 
 @dataclass
@@ -86,13 +87,12 @@ class NexusRAG:
     @property
     def chunker(self) -> HierarchicalChunker:
         if self._chunker is None:
+            ingestion = self.settings.ingestion
             self._chunker = HierarchicalChunker(
-                min_chunk_size=self.settings.ingestion.min_chunk_size,
-                target_chunk_size=self.settings.ingestion.chunk_size,
-                max_chunk_size=self.settings.ingestion.chunk_size + 300,
-                overlap_size=self.settings.ingestion.chunk_overlap,
-                include_context=True,
-                context_chars=150,
+                min_chunk_size=ingestion.min_chunk_size,
+                target_chunk_size=ingestion.chunk_size,
+                max_chunk_size=ingestion.chunk_size + _CHUNK_SIZE_SLACK,
+                overlap_size=ingestion.chunk_overlap,
             )
         return self._chunker
 
@@ -150,7 +150,7 @@ class NexusRAG:
         with self._write_lock:
             if self._orchestrator is None:
                 dense = DenseRetriever(self.embedder, self.vector_store)
-                hybrid = AdaptiveHybridRetriever(dense, self.bm25, 0.5, 0.5)
+                hybrid = AdaptiveHybridRetriever(dense, self.bm25)
                 sc = self.settings.self_correction
                 retriever = CorrectiveRetriever(
                     hybrid,
