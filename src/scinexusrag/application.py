@@ -15,7 +15,7 @@ from numpy.typing import NDArray
 
 from scinexusrag.generation.llm import LLMClient
 from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
-from scinexusrag.ingestion.chunker import Chunk, SemanticChunker
+from scinexusrag.ingestion.chunker import Chunk, HierarchicalChunker
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfigError
 from scinexusrag.ingestion.formats import DOCUMENT_FORMATS
 from scinexusrag.ingestion.parser import DocumentParseError, DocumentParser, ParsedDocument
@@ -68,7 +68,7 @@ class NexusRAG:
         self._write_lock = threading.RLock()
 
         self._parser: DocumentParser | None = None
-        self._chunker: SemanticChunker | None = None
+        self._chunker: HierarchicalChunker | None = None
         self._embedder: Embedder | None = None
         self._vector_store: VectorStore | None = None
         self._document_store: DocumentStore | None = None
@@ -83,9 +83,9 @@ class NexusRAG:
         return self._parser
 
     @property
-    def chunker(self) -> SemanticChunker:
+    def chunker(self) -> HierarchicalChunker:
         if self._chunker is None:
-            self._chunker = SemanticChunker(
+            self._chunker = HierarchicalChunker(
                 min_chunk_size=self.settings.ingestion.min_chunk_size,
                 target_chunk_size=self.settings.ingestion.chunk_size,
                 max_chunk_size=self.settings.ingestion.chunk_size + 300,

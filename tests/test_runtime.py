@@ -68,13 +68,7 @@ from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
 from scinexusrag.generation.query_analyzer import QueryAnalyzer, QueryType
 from scinexusrag.generation.synthesizer import Source, Synthesizer
 from scinexusrag.generation.verifier import AnswerVerifier
-from scinexusrag.ingestion.chunker import (
-    Chunk,
-    FixedSizeChunker,
-    HierarchicalChunker,
-    SemanticChunker,
-    get_chunker,
-)
+from scinexusrag.ingestion.chunker import Chunk, HierarchicalChunker
 from scinexusrag.ingestion.embedder import (
     Embedder,
     EmbeddingConfig,
@@ -2286,82 +2280,7 @@ class TestFrontendConfiguration:
             assert "Private document contents" not in response.text
 
 
-class TestFixedSizeChunker:
-    def test_fixed_size_chunker_basic(self, parsed_document):
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(parsed_document)
-
-        assert len(chunks) > 0
-        assert all(isinstance(c, Chunk) for c in chunks)
-
-    def test_chunk_size_respected(self, parsed_document):
-        chunk_size = 200
-        chunker = FixedSizeChunker(chunk_size=chunk_size, chunk_overlap=20)
-        chunks = chunker.chunk(parsed_document)
-
-        assert chunks
-        assert all(len(chunk.content) <= chunk_size for chunk in chunks)
-
-    def test_chunk_overlap(self):
-        content = " ".join(f"w{i}" for i in range(60))
-        doc = ParsedDocument(id="test", content=content, metadata={}, sections=[])
-
-        chunker = FixedSizeChunker(chunk_size=20, chunk_overlap=5, length_function="words")
-        chunks = chunker.chunk(doc)
-
-        assert len(chunks) >= 2
-
-        assert chunks[0].content.split()[-5:] == chunks[1].content.split()[:5]
-
-    def test_chunk_ids_unique(self, parsed_document):
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(parsed_document)
-
-        ids = [c.id for c in chunks]
-        assert ids
-        assert len(ids) == len(set(ids))
-
-    def test_chunk_metadata_preserved(self, parsed_document):
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(parsed_document)
-
-        for i, chunk in enumerate(chunks):
-            assert chunk.document_id == parsed_document.id
-            assert chunk.metadata["chunk_index"] == i
-            assert "filename" in chunk.metadata
-
-    def test_word_based_chunking(self, parsed_document):
-        chunker = FixedSizeChunker(chunk_size=20, chunk_overlap=5, length_function="words")
-        chunks = chunker.chunk(parsed_document)
-
-        assert len(chunks) > 0
-        for chunk in chunks:
-            word_count = len(chunk.content.split())
-            assert 0 < word_count <= 20
-
-    def test_overlap_validation(self):
-        with pytest.raises(ValueError):
-            FixedSizeChunker(chunk_size=100, chunk_overlap=100)
-
-        with pytest.raises(ValueError):
-            FixedSizeChunker(chunk_size=100, chunk_overlap=150)
-
-    def test_empty_document(self):
-        doc = ParsedDocument(id="empty", content="", metadata={}, sections=[])
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(doc)
-
-        assert chunks == []
-
-    def test_whitespace_only_document(self):
-        doc = ParsedDocument(id="ws", content="   \n\n   ", metadata={}, sections=[])
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(doc)
-
-        assert chunks == []
-
-
-class TestSemanticChunker:
+class TestHierarchicalChunker:
     @pytest.mark.parametrize(
         "overrides",
         [
@@ -2397,8 +2316,8 @@ class TestSemanticChunker:
         assert chunks[0].context_before == ""
         assert chunks[0].context_after == ""
 
-    def test_semantic_chunker_basic(self, parsed_document):
-        chunker = SemanticChunker(min_chunk_size=50, max_chunk_size=500)
+    def test_hierarchical_chunker_basic(self, parsed_document):
+        chunker = HierarchicalChunker(min_chunk_size=50, max_chunk_size=500)
         chunks = chunker.chunk(parsed_document)
 
         assert len(chunks) > 0
@@ -2417,7 +2336,7 @@ class TestSemanticChunker:
             sections=sections,
         )
 
-        chunker = SemanticChunker(min_chunk_size=10, max_chunk_size=500)
+        chunker = HierarchicalChunker(min_chunk_size=10, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
         assert len(chunks) >= len(sections)
@@ -2431,7 +2350,7 @@ class TestSemanticChunker:
         ]
         doc = ParsedDocument(id="test", content="Content", metadata={}, sections=sections)
 
-        chunker = SemanticChunker(min_chunk_size=10, max_chunk_size=500)
+        chunker = HierarchicalChunker(min_chunk_size=10, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
         methods_chunks = [c for c in chunks if c.metadata.get("section_title") == "Methods"]
@@ -2443,7 +2362,7 @@ class TestSemanticChunker:
         sections = [Section(title="Large", content=large_content, level=1)]
         doc = ParsedDocument(id="large", content=large_content, metadata={}, sections=sections)
 
-        chunker = SemanticChunker(min_chunk_size=50, max_chunk_size=200)
+        chunker = HierarchicalChunker(min_chunk_size=50, max_chunk_size=200)
         chunks = chunker.chunk(doc)
 
         assert len(chunks) > 1
@@ -2456,7 +2375,7 @@ Second paragraph here.
 Third paragraph follows."""
 
         doc = ParsedDocument(id="paras", content=content, metadata={}, sections=[])
-        chunker = SemanticChunker(min_chunk_size=10, max_chunk_size=500)
+        chunker = HierarchicalChunker(min_chunk_size=10, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
         assert len(chunks) >= 1
@@ -2465,31 +2384,17 @@ Third paragraph follows."""
         content = "A.\n\nB.\n\nC.\n\nD.\n\nE."
         doc = ParsedDocument(id="small", content=content, metadata={}, sections=[])
 
-        chunker = SemanticChunker(min_chunk_size=20, max_chunk_size=500)
+        chunker = HierarchicalChunker(min_chunk_size=20, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
         assert [chunk.content for chunk in chunks] == [content]
 
     def test_empty_document(self):
         doc = ParsedDocument(id="empty", content="", metadata={}, sections=[])
-        chunker = SemanticChunker()
+        chunker = HierarchicalChunker()
         chunks = chunker.chunk(doc)
 
         assert chunks == []
-
-
-class TestGetChunker:
-    def test_get_fixed_chunker(self):
-        chunker = get_chunker("fixed", chunk_size=200, chunk_overlap=30)
-        assert isinstance(chunker, FixedSizeChunker)
-
-    def test_get_semantic_chunker(self):
-        chunker = get_chunker("semantic", max_chunk_size=500)
-        assert isinstance(chunker, SemanticChunker)
-
-    def test_default_is_semantic(self):
-        chunker = get_chunker()
-        assert isinstance(chunker, SemanticChunker)
 
 
 class TestParagraphChunking:
@@ -2573,7 +2478,7 @@ class TestChunkerNoDataLoss:
     def test_short_document_yields_a_chunk(self):
         doc = ParsedDocument(id="d", content="A short valid note.", metadata={})
         doc.sections = [Section(title="", content="A short valid note.", level=0)]
-        chunks = SemanticChunker(include_context=False).chunk(doc)
+        chunks = HierarchicalChunker(include_context=False).chunk(doc)
         assert len(chunks) == 1
         assert "short valid note" in chunks[0].content
 
@@ -2583,7 +2488,7 @@ class TestChunkerNoDataLoss:
             Section(title="Alpha", content="alpha " * 300, level=0, page_number=1),
             Section(title="Beta", content="short beta note.", level=0, page_number=2),
         ]
-        chunks = SemanticChunker(include_context=False).chunk(doc)
+        chunks = HierarchicalChunker(include_context=False).chunk(doc)
         beta = [c for c in chunks if c.section_title == "Beta"]
         assert beta and beta[0].page_number == 2
 
@@ -2612,7 +2517,7 @@ def test_heading_only_documents_produce_chunks_with_exact_source_spans(extension
         data = "\n\n".join(expected).encode()
     document = DocumentParser().parse_bytes(data, "readings" + extension, extension)
 
-    chunks = SemanticChunker(context_chars=12).chunk(document)
+    chunks = HierarchicalChunker(context_chars=12).chunk(document)
 
     assert [chunk.content for chunk in chunks] == expected
     assert [chunk.section_title for chunk in chunks] == headings
@@ -2629,7 +2534,7 @@ def test_body_and_empty_final_heading_are_chunked_once_with_their_own_metadata()
     source = "# Methods\nMeasured current: 42 mA.\n\n## CALIBRATION PASSED."
     document = DocumentParser().parse_bytes(source.encode(), "readings.md", ".md")
 
-    chunks = SemanticChunker(context_chars=16).chunk(document)
+    chunks = HierarchicalChunker(context_chars=16).chunk(document)
 
     assert [chunk.content for chunk in chunks] == [
         "[Methods]\n\nMeasured current: 42 mA.",
@@ -2649,7 +2554,7 @@ def test_empty_sections_fall_back_to_original_text_with_exact_source_offsets(sec
         sections=[Section(title=section_title, content=""), Section(title="", content="  ")],
     )
 
-    chunks = SemanticChunker(context_chars=10).chunk(document)
+    chunks = HierarchicalChunker(context_chars=10).chunk(document)
 
     assert len(chunks) == 1
     chunk = chunks[0]
@@ -2665,7 +2570,7 @@ def test_short_tail_does_not_overflow_full_chunk(content, sectioned):
     document = ParsedDocument(id="tail", content=content)
     if sectioned:
         document.sections = [Section(title="Methods", content=content, level=1, page_number=4)]
-    chunker = SemanticChunker(include_context=False, overlap_size=0)
+    chunker = HierarchicalChunker(include_context=False, overlap_size=0)
 
     chunks = chunker.chunk(document)
 
@@ -2685,7 +2590,7 @@ def test_short_tail_merge_does_not_duplicate_overlap(sectioned):
     document = ParsedDocument(id="overlap-tail", content=content)
     if sectioned:
         document.sections = [Section(title="Methods", content=content, page_number=4)]
-    chunker = SemanticChunker(min_chunk_size=200, include_context=False)
+    chunker = HierarchicalChunker(min_chunk_size=200, include_context=False)
 
     chunks = chunker.chunk(document)
 
@@ -2708,7 +2613,7 @@ def test_context_matches_full_passage_when_prefixes_repeat():
         content=content,
         sections=[Section(title="First", content=first), Section(title="Second", content=second)],
     )
-    chunker = SemanticChunker(context_chars=20)
+    chunker = HierarchicalChunker(context_chars=20)
 
     chunks = chunker.chunk(document)
 
@@ -2742,7 +2647,7 @@ def test_identical_passages_get_context_from_their_document_order():
         ],
     )
 
-    chunks = SemanticChunker(context_chars=16).chunk(document)
+    chunks = HierarchicalChunker(context_chars=16).chunk(document)
 
     assert chunks[0].context_before == "First marker."
     assert chunks[1].context_before == "Middle marker."
@@ -2763,7 +2668,7 @@ def test_full_overlap_chunks_keep_context_from_the_same_source_position():
             Section(title="Results", content=results),
         ],
     )
-    chunker = SemanticChunker(min_chunk_size=200, context_chars=40)
+    chunker = HierarchicalChunker(min_chunk_size=200, context_chars=40)
 
     chunks = chunker.chunk(document)
 
@@ -2793,7 +2698,7 @@ def test_shorter_repeated_prefix_gets_context_from_its_later_occurrence():
         ],
     )
 
-    chunks = SemanticChunker(context_chars=16).chunk(document)
+    chunks = HierarchicalChunker(context_chars=16).chunk(document)
 
     assert chunks[1].context_before == "Middle marker."
     assert chunks[1].context_after == "Last marker."
@@ -2807,7 +2712,7 @@ def test_unmatched_passage_does_not_borrow_context_from_a_shared_prefix():
         sections=[Section(title="Methods", content=prefix + "A different result.")],
     )
 
-    chunk = SemanticChunker().chunk(document)[0]
+    chunk = HierarchicalChunker().chunk(document)[0]
 
     assert chunk.context_before == ""
     assert chunk.context_after == ""
@@ -2816,7 +2721,7 @@ def test_unmatched_passage_does_not_borrow_context_from_a_shared_prefix():
 def test_literal_bracketed_text_is_not_treated_as_an_added_section_header():
     content = "[Literal source label]\n\nA short document with a label in its source text."
 
-    chunk = SemanticChunker().chunk(ParsedDocument(id="literal-label", content=content))[0]
+    chunk = HierarchicalChunker().chunk(ParsedDocument(id="literal-label", content=content))[0]
 
     assert chunk.full_context == content
     assert chunk.context_before == ""
@@ -2848,7 +2753,7 @@ def test_repeated_wrapped_words_keep_their_original_whitespace_positions():
             )
         ],
     )
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=1,
         target_chunk_size=12,
         max_chunk_size=12,
@@ -2870,7 +2775,7 @@ def test_sentence_packing_keeps_source_offsets_when_separator_whitespace_changes
     second = "Second sentence."
     third = "Third sentence."
     content = first + "\t  " + second + "\n " + third
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=1,
         target_chunk_size=35,
         max_chunk_size=35,
@@ -2905,7 +2810,7 @@ def test_paragraph_overlap_keeps_source_offsets_with_headers_and_irregular_blank
             )
         ],
     )
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=1,
         target_chunk_size=35,
         max_chunk_size=70,
@@ -2944,7 +2849,7 @@ def test_explicit_section_offsets_distinguish_identical_passages():
         ],
     )
 
-    chunk = SemanticChunker(context_chars=16).chunk(document)[0]
+    chunk = HierarchicalChunker(context_chars=16).chunk(document)[0]
 
     assert chunk.content == "[Methods]\n\n" + passage
     _assert_context_span(chunk, content, start, start + len(passage), 16)
@@ -2957,7 +2862,7 @@ def test_parsed_repeated_sections_keep_context_after_whitespace_cleaning(extensi
     body = "The instrument\twas calibrated.\n\n  Measurements were recorded."
     source = headers[0] + "\n" + body + "\n\n" + headers[1] + "\n" + body
     document = DocumentParser().parse_bytes(source.encode(), "study" + extension, extension)
-    chunker = SemanticChunker(context_chars=20)
+    chunker = HierarchicalChunker(context_chars=20)
 
     chunks = chunker.chunk(document)
 
@@ -2978,7 +2883,7 @@ def test_invalid_section_offsets_do_not_borrow_context_from_matching_text_elsewh
         ],
     )
 
-    chunk = SemanticChunker().chunk(document)[0]
+    chunk = HierarchicalChunker().chunk(document)[0]
 
     assert chunk.start_offset is None
     assert chunk.end_offset is None
@@ -2995,7 +2900,7 @@ def test_legacy_section_with_repeated_body_has_no_guessed_context():
         sections=[Section(title="Methods", content=passage)],
     )
 
-    chunk = SemanticChunker().chunk(document)[0]
+    chunk = HierarchicalChunker().chunk(document)[0]
 
     assert chunk.start_offset is None
     assert chunk.end_offset is None
@@ -3008,84 +2913,13 @@ def test_short_tail_merge_extends_source_end_without_repeating_overlap():
     second = ("beta " * 10).strip()
     third = ("gamma " * 10).strip()
     content = " \t" + first + "\n \n" + second + "\n\t\n" + third + " \n"
-    chunker = SemanticChunker(min_chunk_size=200, context_chars=20)
+    chunker = HierarchicalChunker(min_chunk_size=200, context_chars=20)
 
     chunks = chunker.chunk(ParsedDocument(id="merged-tail-position", content=content))
 
     assert len(chunks) == 1
     assert chunks[0].content == first + "\n\n" + second + "\n\n" + third
     _assert_context_span(chunks[0], content, 2, len(content) - 2, 20)
-
-
-@pytest.mark.parametrize("length_function", ["chars", "words"])
-def test_negative_overlap_fails_before_it_can_skip_content(length_function):
-    with pytest.raises(ValueError, match="nonnegative"):
-        FixedSizeChunker(chunk_size=2, chunk_overlap=-1, length_function=length_function)
-
-
-@pytest.mark.parametrize("chunk_size", [0, -1])
-def test_nonpositive_chunk_size_rejected(chunk_size):
-    with pytest.raises(ValueError, match="positive"):
-        FixedSizeChunker(chunk_size=chunk_size, chunk_overlap=-2)
-
-
-@pytest.mark.parametrize(
-    "content",
-    [
-        " ".join(f"word{i}" for i in range(60)),
-        "A sentence fills this chunk. Another sentence also has enough words to overflow.",
-    ],
-)
-def test_fixed_character_budget_preserves_every_word_without_overlap(content):
-    chunker = FixedSizeChunker(chunk_size=30, chunk_overlap=0)
-    chunks = chunker.chunk(ParsedDocument(id="fixed", content=content))
-
-    assert len(chunks) > 1
-    assert all(len(chunk.content) <= 30 for chunk in chunks)
-    assert " ".join(chunk.content for chunk in chunks).split() == content.split()
-
-
-def test_fixed_character_overlap_keeps_whole_words_and_respects_the_budget():
-    content = "alpha beta gamma delta epsilon zeta"
-    chunks = FixedSizeChunker(chunk_size=22, chunk_overlap=10).chunk(
-        ParsedDocument(id="overlap", content=content)
-    )
-
-    assert [chunk.content for chunk in chunks] == [
-        "alpha beta gamma delta",
-        "delta epsilon zeta",
-    ]
-
-
-def test_fixed_character_overlap_shrinks_to_fit_the_next_word():
-    chunks = FixedSizeChunker(chunk_size=10, chunk_overlap=8).chunk(
-        ParsedDocument(id="budget", content="one two abcdefghi end")
-    )
-
-    assert [chunk.content for chunk in chunks] == ["one two", "abcdefghi", "end"]
-
-
-def test_fixed_character_chunker_rejects_an_indivisible_oversized_word():
-    with pytest.raises(ValueError, match="word length exceeds available chunk size"):
-        FixedSizeChunker(chunk_size=10, chunk_overlap=0).chunk(
-            ParsedDocument(id="word", content="valid " + "x" * 11)
-        )
-
-
-def test_fixed_chunker_rejects_an_unknown_length_unit():
-    with pytest.raises(ValueError, match="length_function"):
-        FixedSizeChunker(length_function="tokens")
-
-
-@pytest.mark.parametrize("word_count,expected_chunks", [(20, 1), (35, 2), (36, 3)])
-def test_fixed_word_chunks_do_not_emit_a_tail_made_only_of_overlap(word_count, expected_chunks):
-    content = " ".join(f"word{i}" for i in range(word_count))
-    chunks = FixedSizeChunker(chunk_size=20, chunk_overlap=5, length_function="words").chunk(
-        ParsedDocument(id="word-tail", content=content)
-    )
-
-    assert len(chunks) == expected_chunks
-    assert chunks[-1].content.split()[-1] == f"word{word_count - 1}"
 
 
 @pytest.mark.parametrize(
@@ -3098,28 +2932,10 @@ def test_hierarchical_sizes_reject_nonintegers_at_construction(option, value):
         HierarchicalChunker(**{option: value})
 
 
-@pytest.mark.parametrize("option", ["chunk_size", "chunk_overlap"])
-@pytest.mark.parametrize("value", [False, 1.5, float("nan"), float("inf"), "100"])
-def test_fixed_sizes_reject_nonintegers_before_splitting(option, value):
-    with pytest.raises(ValueError, match=rf"{option} must be an integer"):
-        FixedSizeChunker(**{option: value})
-
-
 @pytest.mark.parametrize("value", [0, 1, "false", None])
 def test_context_switch_requires_a_boolean(value):
     with pytest.raises(ValueError, match="include_context must be a boolean"):
         HierarchicalChunker(include_context=value)
-
-
-@pytest.mark.parametrize("strategy", ["", "unknown", "Fixed", None, []])
-def test_unknown_chunking_strategies_are_rejected(strategy):
-    with pytest.raises(ValueError, match="strategy must be"):
-        get_chunker(strategy)
-
-
-def test_invalid_length_unit_reports_configuration_error():
-    with pytest.raises(ValueError, match="length_function"):
-        FixedSizeChunker(length_function=[])
 
 
 @pytest.mark.parametrize("sectioned", [False, True])
@@ -4780,16 +4596,15 @@ def test_non_string_candidates_do_not_invoke_conversion_or_truthiness():
     )
 
 
-@pytest.mark.parametrize("chunker_type", [HierarchicalChunker, FixedSizeChunker])
 @pytest.mark.parametrize("invalid_name", [" \t", 42])
-def test_chunks_use_a_valid_filename_when_the_original_name_is_invalid(chunker_type, invalid_name):
+def test_chunks_use_a_valid_filename_when_the_original_name_is_invalid(invalid_name):
     document = ParsedDocument(
         "paper",
         "The measured voltage is 3.3 V.",
         {"original_filename": invalid_name, "filename": "paper.pdf"},
     )
 
-    chunks = chunker_type().chunk(document)
+    chunks = HierarchicalChunker().chunk(document)
 
     assert chunks
     assert all(chunk.document_name == "paper.pdf" for chunk in chunks)
@@ -7355,7 +7170,7 @@ class TestPdfEdgeCases:
         monkeypatch.setattr("scinexusrag.ingestion.parser.PdfReader", lambda path: reader)
         pdf_path = tmp_path / "mixed.pdf"
         pdf_path.write_bytes(b"%PDF-1.4 fake")
-        chunks = SemanticChunker().chunk(DocumentParser().parse(pdf_path))
+        chunks = HierarchicalChunker().chunk(DocumentParser().parse(pdf_path))
 
         assert any("Critical measurements" in chunk.content for chunk in chunks)
         assert (
@@ -7414,7 +7229,7 @@ class TestPreamblePreserved:
 
         txt = tmp_path / "doc.txt"
         txt.write_text("Critical preamble sentence.\n\nMETHODS\nBody under heading.\n")
-        chunks = SemanticChunker().chunk(DocumentParser().parse(txt))
+        chunks = HierarchicalChunker().chunk(DocumentParser().parse(txt))
 
         assert any("Critical preamble sentence." in chunk.content for chunk in chunks)
         assert any("Body under heading." in chunk.content for chunk in chunks)
@@ -10051,7 +9866,7 @@ def _assert_source(chunks, content, sectioned):
 @pytest.mark.parametrize("target", [1200, 2000])
 def test_small_leading_paragraph_cannot_merge_past_maximum(sectioned, target):
     content = "word " * 70 + "\n\n" + "long " * 295
-    chunker = SemanticChunker(target_chunk_size=target, overlap_size=0, include_context=False)
+    chunker = HierarchicalChunker(target_chunk_size=target, overlap_size=0, include_context=False)
     chunks = chunker.chunk(_document(content, sectioned))
     assert len(chunks) >= 2
     assert all(len(chunk.content) <= chunker.max_chunk_size for chunk in chunks)
@@ -10062,7 +9877,7 @@ def test_small_leading_paragraph_cannot_merge_past_maximum(sectioned, target):
 @pytest.mark.parametrize("leading_words", [400, 500])
 def test_default_overlap_is_dropped_when_next_paragraph_needs_the_budget(sectioned, leading_words):
     content = "a " * leading_words + "\n\n" + "b " * 100 + "\n\n" + "c " * 700
-    chunker = SemanticChunker(include_context=False)
+    chunker = HierarchicalChunker(include_context=False)
     chunks = chunker.chunk(_document(content, sectioned))
     assert all(len(chunk.content) <= chunker.max_chunk_size for chunk in chunks)
     _assert_source(chunks, content, sectioned)
@@ -10071,7 +9886,7 @@ def test_default_overlap_is_dropped_when_next_paragraph_needs_the_budget(section
 def test_overlap_is_retained_when_header_and_new_paragraph_fit():
     content = "alpha " * 10 + "\n\n" + "beta " * 10
     document = _document(content, True)
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20,
         target_chunk_size=80,
         max_chunk_size=150,
@@ -10090,7 +9905,7 @@ def test_overlap_is_retained_when_header_and_new_paragraph_fit():
 @pytest.mark.parametrize("extra", [0, 1])
 def test_exact_joined_paragraph_length_includes_header_and_separator(extra):
     content = "a" * 60 + "\n\n" + "b" * (77 + extra)
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20,
         target_chunk_size=200,
         max_chunk_size=150,
@@ -10108,7 +9923,7 @@ def test_section_header_without_any_content_budget_is_rejected(title):
     document = ParsedDocument(
         id="header", content="word", sections=[Section(title=title, content="word", level=1)]
     )
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20, target_chunk_size=100, max_chunk_size=150, overlap_size=0
     )
     with pytest.raises(ValueError, match="section header.*max_chunk_size"):
@@ -10120,7 +9935,7 @@ def test_header_and_word_can_use_exactly_the_maximum_budget():
     document = ParsedDocument(
         id="exact", content="x", sections=[Section(title=title, content="x", level=1)]
     )
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20, target_chunk_size=100, max_chunk_size=150, overlap_size=0
     )
     chunks = chunker.chunk(document)
@@ -10132,14 +9947,14 @@ def test_header_and_word_can_use_exactly_the_maximum_budget():
 @pytest.mark.parametrize("sectioned", [False, True])
 def test_indivisible_oversized_word_is_rejected_without_returning_partial_chunks(sectioned):
     content = "Valid first paragraph.\n\n" + "x" * 1501
-    chunker = SemanticChunker(include_context=False)
+    chunker = HierarchicalChunker(include_context=False)
     with pytest.raises(ValueError, match="word length exceeds available chunk size"):
         chunker.chunk(_document(content, sectioned))
 
 
 def test_header_reduces_the_available_word_budget():
     document = _document("x" * 141, True)
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20, target_chunk_size=100, max_chunk_size=150, overlap_size=0
     )
     with pytest.raises(ValueError, match="word length exceeds available chunk size"):
@@ -10902,7 +10717,7 @@ def test_existing_abbreviation_decimal_and_citation_grouping_is_preserved(text):
 def test_quoted_sentence_chunking_keeps_exact_source_offsets():
     first, second = '"First complete claim."', '"Second complete claim."'
     content = first + "  \n\t" + second
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         target_chunk_size=32,
         max_chunk_size=32,
         min_chunk_size=1,
