@@ -1,5 +1,3 @@
-"""Evaluation checks."""
-
 from __future__ import annotations
 
 import csv
@@ -43,9 +41,9 @@ from scinexusrag.eval.report import (
     write_figures,
 )
 from scinexusrag.eval.result_files import load_result, write_csv_results
+from scinexusrag.eval.splade import DEFAULT_MODEL
 from scinexusrag.ingestion.embedder import Embedder
 from scinexusrag.retrieval.dense import RetrievalResult
-from scinexusrag.retrieval.splade import DEFAULT_MODEL
 from scinexusrag.settings import HF_REVISIONS
 
 

@@ -2,7 +2,7 @@
 
 NexusRAG indexes documents, retrieves passages and sends them to Ollama for an answer with numbered sources. The app's **Pipeline** page at `/pipeline` explains the defaults; it is not a live progress view.
 
-![Document indexing, passage retrieval, answer generation and source checks.](../assets/figures/pipeline.svg)
+![Document indexing, passage retrieval, answer generation and source checks.](../src/scinexusrag/web/images/pipeline.svg)
 
 ## Documents
 
@@ -57,7 +57,7 @@ NLI receives the same complete sources as generation, including nearby context. 
 
 A caught generation failure, including blank output, returns an error answer, retained sources, zero confidence and a warning; checks are skipped. Other retrieval, storage or NLI failures can return an HTTP error. Vector-index read failures return **503**, rather than an empty-corpus message; Python raises `VectorStoreError` with the original cause.
 
-The interface calls `POST /api/query` and displays the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first 500 characters plus `...` if truncated. Internal correction state and reasoning traces are omitted.
+The interface calls `POST /api/query` and displays the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first 500 characters plus `...` if truncated.
 
 Python's `Orchestrator.query_streaming()` and `NexusRAG.query_streaming()` emit provisional text followed by:
 
@@ -68,7 +68,7 @@ Python's `Orchestrator.query_streaming()` and `NexusRAG.query_streaming()` emit 
 
 Consumers must replace provisional output with the final `answer` from the `data: {JSON}` event. Caught generation or verification failures replace it with an error message. Empty retrieval and context-limit failures also finish with an error answer and skip checks. The web interface uses the non-streaming route.
 
-Cross-encoder reranking and SPLADE are library or evaluation options, not default app stages. [Retrieval and evidence benchmarks](evaluation.md) do not establish generated-answer accuracy.
+Cross-encoder reranking (library and evaluation) and SPLADE (evaluation only) are not default app stages. [Retrieval and evidence benchmarks](evaluation.md) do not establish generated-answer accuracy.
 
 ## Implementation and diagrams
 
@@ -92,7 +92,7 @@ Tokenizers, dependencies, documents and indexes need additional space. Peak RAM 
 | Location | Contents |
 | --- | --- |
 | `src/scinexusrag/` | API, document workflow, ingestion, retrieval, generation, storage, utilities and web interface |
-| `src/scinexusrag/eval/` | Datasets, metrics, reports, sample data and regression thresholds |
+| `src/scinexusrag/eval/` | Datasets, benchmark-only retrievers such as SPLADE, metrics, reports, sample data and regression thresholds |
 | `tests/` | Python unit/integration and JavaScript interface tests |
 | `assets/` | Pipeline diagrams, Figma snapshot and upload recording |
 | `outputs/results/` | Published CSV measurements, provenance and charts |
@@ -103,11 +103,11 @@ Run commands from the repository root. Keep scratch work outside the repository.
 
 | Diagram | Figma | SVG |
 | --- | --- | --- |
-| Pipeline | [Source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2) | [pipeline.svg](../assets/figures/pipeline.svg) |
+| Pipeline | [Source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2) | [pipeline.svg](../src/scinexusrag/web/images/pipeline.svg) |
 | Retrieval | [Source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2) | [retrieval-flow.svg](../assets/figures/retrieval-flow.svg) |
 | Answer checks | [Source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20) | [answer-checks.svg](../assets/figures/answer-checks.svg) |
 
-Keep the three frames on Figma's **NexusRAG** page and their SVGs in sync. The [app SVG](../src/scinexusrag/web/images/pipeline.svg) must match the README diagram. Update the [editable layout snapshot](../assets/figma/pipeline.json) when the pipeline frame changes. SVGs include accessible titles, descriptions and font fallbacks.
+Keep the three frames on Figma's **NexusRAG** page and their SVGs in sync. Update the [editable layout snapshot](../assets/figma/pipeline.json) when the pipeline frame changes. SVGs include accessible titles, descriptions and font fallbacks.
 
 The [21.1-second upload recording](../assets/media/interface-walkthrough.mp4) used Chrome on 12 October 2026 at [609c0c8](https://github.com/urmeo/nexus-rag/commit/609c0c8472baffc65982af3c4f2021b7fa5c2f75). The real local app and API used isolated data, without mocked responses or altered interface content. A 301-word fictional document produced six BGE-small passages. It shows indexing, desktop/mobile views and a question typed without submission. Ollama was unavailable; no answer is shown. The H.264 video has no audio, uses a 1440 × 1000 canvas and preserves capture timing and viewport proportions.
 

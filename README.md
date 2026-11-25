@@ -6,7 +6,7 @@ NexusRAG is a local app for searching research documents and asking questions ab
 
 ## Pipeline
 
-![NexusRAG pipeline: index documents, retrieve passages, generate an answer and check source numbers.](assets/figures/pipeline.svg)
+![NexusRAG pipeline: index documents, retrieve passages, generate an answer and check source numbers.](src/scinexusrag/web/images/pipeline.svg)
 
 [Figma source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2)
 

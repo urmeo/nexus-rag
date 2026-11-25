@@ -1,5 +1,3 @@
-"""Dataset loaders."""
-
 from __future__ import annotations
 
 import json
@@ -55,7 +53,7 @@ def _identifier(value: Any) -> str:
     return str(value)
 
 
-def _read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
+def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
     with path.open(encoding="utf-8") as stream:
         for line in stream:
             row = json.loads(line)
@@ -121,9 +119,9 @@ def load_vendored(name: str) -> IRDataset:
     base = VENDORED_DIR / f"{name}_sample"
     dataset = _from_rows(
         name,
-        _read_jsonl(base / "corpus.jsonl"),
-        _read_jsonl(base / "queries.jsonl"),
-        _read_jsonl(base / "qrels.jsonl"),
+        read_jsonl(base / "corpus.jsonl"),
+        read_jsonl(base / "queries.jsonl"),
+        read_jsonl(base / "qrels.jsonl"),
     )
     dataset.source = "vendored"
     return dataset

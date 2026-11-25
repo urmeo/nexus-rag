@@ -1,5 +1,3 @@
-"""Operational metrics."""
-
 import threading
 import time
 from sys import float_info

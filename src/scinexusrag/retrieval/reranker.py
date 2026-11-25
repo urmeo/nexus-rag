@@ -1,5 +1,3 @@
-"""Passage reranking."""
-
 from threading import Lock
 from typing import Any, Literal
 
@@ -10,8 +8,6 @@ from scinexusrag.settings import HF_REVISIONS
 
 
 class Reranker:
-    """Cross-encoder reranking."""
-
     def __init__(
         self,
         model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",

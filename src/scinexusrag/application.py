@@ -1,7 +1,4 @@
-"""Document workflow."""
-
 import gc
-import json
 import logging
 import threading
 from collections.abc import Callable, Generator
@@ -14,9 +11,10 @@ import numpy as np
 from numpy.typing import NDArray
 
 from scinexusrag.generation.llm import LLMClient
-from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse, ReasoningStep
-from scinexusrag.ingestion.chunker import Chunk, SemanticChunker
+from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse, verification_events
+from scinexusrag.ingestion.chunker import Chunk, HierarchicalChunker
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfigError
+from scinexusrag.ingestion.formats import DOCUMENT_FORMATS
 from scinexusrag.ingestion.parser import DocumentParseError, DocumentParser, ParsedDocument
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
 from scinexusrag.retrieval.dense import DenseRetriever
@@ -27,6 +25,9 @@ from scinexusrag.storage.document_store import DocumentExistsError, DocumentStor
 from scinexusrag.storage.vector_store import VectorStore, VectorStoreError
 
 logger = logging.getLogger(__name__)
+
+_EMPTY_INDEX_ANSWER = "No documents have been uploaded yet. Please upload research papers first."
+_CHUNK_SIZE_SLACK = 300
 
 
 @dataclass
@@ -67,7 +68,7 @@ class NexusRAG:
         self._write_lock = threading.RLock()
 
         self._parser: DocumentParser | None = None
-        self._chunker: SemanticChunker | None = None
+        self._chunker: HierarchicalChunker | None = None
         self._embedder: Embedder | None = None
         self._vector_store: VectorStore | None = None
         self._document_store: DocumentStore | None = None
@@ -82,15 +83,14 @@ class NexusRAG:
         return self._parser
 
     @property
-    def chunker(self) -> SemanticChunker:
+    def chunker(self) -> HierarchicalChunker:
         if self._chunker is None:
-            self._chunker = SemanticChunker(
-                min_chunk_size=self.settings.ingestion.min_chunk_size,
-                target_chunk_size=self.settings.ingestion.chunk_size,
-                max_chunk_size=self.settings.ingestion.chunk_size + 300,
-                overlap_size=self.settings.ingestion.chunk_overlap,
-                include_context=True,
-                context_chars=150,
+            ingestion = self.settings.ingestion
+            self._chunker = HierarchicalChunker(
+                min_chunk_size=ingestion.min_chunk_size,
+                target_chunk_size=ingestion.chunk_size,
+                max_chunk_size=ingestion.chunk_size + _CHUNK_SIZE_SLACK,
+                overlap_size=ingestion.chunk_overlap,
             )
         return self._chunker
 
@@ -148,7 +148,7 @@ class NexusRAG:
         with self._write_lock:
             if self._orchestrator is None:
                 dense = DenseRetriever(self.embedder, self.vector_store)
-                hybrid = AdaptiveHybridRetriever(dense, self.bm25, 0.5, 0.5)
+                hybrid = AdaptiveHybridRetriever(dense, self.bm25)
                 sc = self.settings.self_correction
                 retriever = CorrectiveRetriever(
                     hybrid,
@@ -187,7 +187,7 @@ class NexusRAG:
             self.document_store.add(document)
             try:
                 self.vector_store.add(chunks, embeddings)
-                self.bm25.add_incremental(chunks)
+                self.bm25.add(chunks)
                 self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
                 self._assert_indexes_synced("persist")
             except Exception:
@@ -295,7 +295,7 @@ class NexusRAG:
         for file_path in sorted(path.glob(pattern)):
             if not file_path.is_file() or file_path.name.startswith("."):
                 continue
-            if file_path.suffix.lower() in self.parser.SUPPORTED_EXTENSIONS:
+            if file_path.suffix.lower() in DOCUMENT_FORMATS:
                 results.append(self.ingest(file_path))
             else:
                 skipped += 1
@@ -313,28 +313,15 @@ class NexusRAG:
     def query(self, question: str) -> RAGResponse:
         self.vector_store.validate_embedding_config(self.embedder.embedding_config)
         if self.vector_store.count() == 0:
-            return RAGResponse(
-                answer="No documents have been uploaded yet. Please upload research papers first.",
-                sources=[],
-                confidence=0.0,
-                reasoning_trace=[ReasoningStep("validation", "no documents in knowledge base")],
-            )
+            return RAGResponse(answer=_EMPTY_INDEX_ANSWER, sources=[], confidence=0.0)
 
         return self.orchestrator.query(question)
 
     def query_streaming(self, question: str) -> Generator[str, None, None]:
         self.vector_store.validate_embedding_config(self.embedder.embedding_config)
         if self.vector_store.count() == 0:
-            error = "No documents have been uploaded yet. Please upload research papers first."
-            yield error
-            verification = {
-                "event": "verification",
-                "citations_valid": [],
-                "faithfulness": None,
-                "warnings": [error],
-            }
-            yield f"\ndata: {json.dumps(verification)}\n\n"
-            yield f"\ndata: {json.dumps({'event': 'verified_answer', 'answer': error})}\n\n"
+            yield _EMPTY_INDEX_ANSWER
+            yield from verification_events(_EMPTY_INDEX_ANSWER, [], None, [_EMPTY_INDEX_ANSWER])
             return
 
         yield from self.orchestrator.query_streaming(question)
@@ -402,7 +389,7 @@ class NexusRAG:
         with self._write_lock:
             chunks = self.vector_store.get_all_chunks()
             sparse = self._bm25 if self._bm25 is not None else BM25Retriever()
-            sparse.add(chunks)
+            sparse.build(chunks)
             self._bm25 = sparse
 
     def _recover_sparse_index(self, operation: str) -> None:

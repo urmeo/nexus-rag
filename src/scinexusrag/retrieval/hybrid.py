@@ -1,5 +1,3 @@
-"""Rank fusion."""
-
 from __future__ import annotations
 
 import string
@@ -28,7 +26,7 @@ def _fusion_weights(weights: Sequence[float], k: int) -> list[float]:
     return values
 
 
-def _search_requested(query: str, top_k: int, depth: int) -> bool:
+def search_requested(query: str, top_k: int, depth: int) -> bool:
     if not isinstance(query, str):
         raise ValueError("Query must be a string.")
     if isinstance(top_k, bool) or not isinstance(top_k, int):
@@ -46,7 +44,7 @@ def rrf_fuse(
     k: int = 60,
     top_k: int | None = None,
 ) -> list[RetrievalResult]:
-    """Rank fusion."""
+    """Weighted reciprocal rank fusion; scores are rescaled so the best result scores 1."""
     values = _fusion_weights(weights, k)
     if len(ranked_lists) != len(values):
         raise ValueError("Each ranked list must have one fusion weight.")
@@ -84,8 +82,6 @@ def rrf_fuse(
 
 
 class HybridRetriever:
-    """Hybrid retrieval."""
-
     def __init__(
         self,
         dense_retriever: DenseSearcher,
@@ -105,7 +101,7 @@ class HybridRetriever:
         return self.dense_weight, self.sparse_weight
 
     def _run(self, query: str, top_k: int, depth: int) -> tuple[list[RetrievalResult], float]:
-        if not _search_requested(query, top_k, depth):
+        if not search_requested(query, top_k, depth):
             return [], 0.0
         dense_weight, sparse_weight = self._weights(query)
         dense = self.dense.retrieve(query, depth)
@@ -119,12 +115,12 @@ class HybridRetriever:
     def retrieve_with_dense_top(
         self, query: str, top_k: int = 10, depth: int = 50
     ) -> tuple[list[RetrievalResult], float]:
-        """Dense confidence."""
+        """Fused results plus the best dense similarity, which gates corrective feedback."""
         return self._run(query, top_k, depth)
 
 
 class AdaptiveHybridRetriever(HybridRetriever):
-    """Query-aware fusion."""
+    """Shifts fusion weight to BM25 for short or technical queries, to dense for long ones."""
 
     def __init__(
         self,

@@ -1,5 +1,3 @@
-"""Retrieval baselines."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -27,7 +25,7 @@ def build_systems(
 ) -> dict[str, RetrieveFn]:
     dense = ExactDenseRetriever(embedder, chunks)
     bm25 = BM25Retriever()
-    bm25.add(chunks)
+    bm25.build(chunks)
 
     hybrid = HybridRetriever(dense, bm25, 0.5, 0.5)
     adaptive = AdaptiveHybridRetriever(dense, bm25, 0.5, 0.5)
@@ -60,7 +58,7 @@ def build_systems(
         systems["+ Rerank (cross-enc)"] = with_rerank
 
     if include_splade:
-        from scinexusrag.retrieval.splade import DEFAULT_MODEL, SpladeRetriever
+        from scinexusrag.eval.splade import DEFAULT_MODEL, SpladeRetriever
 
         splade = SpladeRetriever(
             chunks,

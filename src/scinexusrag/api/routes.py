@@ -1,5 +1,3 @@
-"""API routes."""
-
 import asyncio
 import logging
 import time
@@ -25,6 +23,7 @@ from scinexusrag.api.security import (
 )
 from scinexusrag.generation.synthesizer import Source
 from scinexusrag.ingestion.embedder import EmbeddingConfigError
+from scinexusrag.ingestion.formats import DOCUMENT_FORMATS
 from scinexusrag.settings import get_settings
 from scinexusrag.storage.document_store import INDEX_STEM, MAX_ID_LENGTH, SAFE_ID_PATTERN
 from scinexusrag.storage.vector_store import VectorStoreError
@@ -36,6 +35,7 @@ router = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
 
 MAX_FILENAME_LENGTH = 255
 _SOURCE_PREVIEW_CHARS = 500
+_SUPPORTED_FORMATS = ", ".join(fmt.label for fmt in DOCUMENT_FORMATS.values())
 
 
 def _basename(filename: str) -> str:
@@ -43,14 +43,12 @@ def _basename(filename: str) -> str:
 
 
 @contextmanager
-def _api_errors(detail: str, *, keep_http: bool = False) -> Iterator[None]:
+def _api_errors(detail: str) -> Iterator[None]:
     try:
         yield
-    except (EmbeddingConfigError, VectorStoreError):
+    except (EmbeddingConfigError, VectorStoreError, HTTPException):
         raise
-    except Exception as error:
-        if keep_http and isinstance(error, HTTPException):
-            raise
+    except Exception:
         logger.exception(detail)
         raise HTTPException(status_code=500, detail=detail) from None
 
@@ -83,8 +81,8 @@ class SourceResponse(BaseModel):
     score: float
 
     @classmethod
-    def from_source(cls, source: Source, document_name: str = "") -> Self:
-        filename = _basename(document_name) or _basename(source.document_name) or "Unknown"
+    def from_source(cls, source: Source) -> Self:
+        filename = _basename(source.document_name) or "Unknown"
         truncated = len(source.content) > _SOURCE_PREVIEW_CHARS
         content = source.content[:_SOURCE_PREVIEW_CHARS] + ("..." if truncated else "")
         return cls(
@@ -243,15 +241,16 @@ async def _ingest_upload(file: UploadFile) -> UploadResponse:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
     extension = PurePosixPath(filename).suffix.lower()
-    if extension not in {".pdf", ".docx", ".txt", ".md"}:
+    if extension not in DOCUMENT_FORMATS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type: {extension or 'no extension'}. Supported: PDF, DOCX, TXT, MD",
+            detail=f"Unsupported file type: {extension or 'no extension'}. "
+            f"Supported: {_SUPPORTED_FORMATS}",
         )
 
     max_mb = get_settings().api.max_upload_mb
     max_bytes = max_mb * 1024 * 1024
-    with _api_errors("Failed to process document", keep_http=True):
+    with _api_errors("Failed to process document"):
         content = await file.read(max_bytes + 1)
         if len(content) > max_bytes:
             raise HTTPException(status_code=413, detail=f"File too large. Maximum size: {max_mb}MB")
@@ -277,30 +276,17 @@ async def _ingest_upload(file: UploadFile) -> UploadResponse:
 )
 @limiter.limit(query_limit)
 async def query_documents(request: Request, payload: QueryRequest) -> QueryResponse:
-    with _api_errors("Failed to process query", keep_http=True):
+    with _api_errors("Failed to process query"):
         rag = get_scinexusrag()
         started = time.monotonic()
         response = await asyncio.to_thread(rag.query, payload.question)
         elapsed_ms = (time.monotonic() - started) * 1000
         get_metrics_collector().record_query(elapsed_ms)
 
-        doc_names: dict[str, str] = {}
-        try:
-            docs = await asyncio.to_thread(rag.list_documents)
-            for doc in docs:
-                doc_names[doc.get("id", "")] = resolve_display_name(doc, fallback="")
-        except (EmbeddingConfigError, VectorStoreError):
-            raise
-        except Exception:
-            logger.debug("Could not load source filenames", exc_info=True)
-
         return QueryResponse(
             answer=response.answer,
             confidence=response.confidence,
-            sources=[
-                SourceResponse.from_source(source, doc_names.get(source.document_id, ""))
-                for source in response.sources
-            ],
+            sources=[SourceResponse.from_source(source) for source in response.sources],
             processing_time_ms=round(response.processing_time_ms, 1),
             warnings=response.warnings,
         )
@@ -361,7 +347,7 @@ async def delete_document(document_id: str) -> DeleteResponse:
     ):
         raise HTTPException(status_code=400, detail="Invalid document ID")
 
-    with _api_errors("Failed to delete document", keep_http=True):
+    with _api_errors("Failed to delete document"):
         rag = get_scinexusrag()
         success = await asyncio.to_thread(rag.delete_document, document_id)
 

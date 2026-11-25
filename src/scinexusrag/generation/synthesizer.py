@@ -1,5 +1,3 @@
-"""Answer synthesis."""
-
 import logging
 import math
 from collections.abc import Generator
@@ -30,9 +28,6 @@ class Source:
 class SynthesisResult:
     answer: str
     sources: list[Source]
-    confidence: float = 0.0
-    raw_response: str = ""
-    tokens_used: int = 0
     error: str | None = None
 
 
@@ -170,16 +165,7 @@ class Synthesizer:
                 error="Answer generation failed.",
             )
 
-        return SynthesisResult(answer=answer, sources=prepared.sources, raw_response=answer)
-
-    def synthesize_streaming(
-        self,
-        query: str,
-        results: list[RetrievalResult],
-        doc_names: dict[str, str] | None = None,
-        query_type: QueryType | None = None,
-    ) -> Generator[str, None, None]:
-        yield from self.stream_prepared(self.prepare(query, results, doc_names, query_type))
+        return SynthesisResult(answer=answer, sources=prepared.sources)
 
     def stream_prepared(self, prepared: SynthesisPrompt) -> Generator[str, None, None]:
         if prepared.error:

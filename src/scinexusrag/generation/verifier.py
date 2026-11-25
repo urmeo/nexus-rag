@@ -1,5 +1,3 @@
-"""Answer verification."""
-
 from dataclasses import dataclass
 
 from scinexusrag.generation.citations import (
@@ -12,7 +10,6 @@ from scinexusrag.generation.synthesizer import Source
 
 @dataclass
 class VerificationResult:
-    original_answer: str
     verified_answer: str
     citations_found: list[int]
     citations_valid: list[int]
@@ -44,7 +41,6 @@ class AnswerVerifier:
             warnings.append("answer cites no sources")
 
         return VerificationResult(
-            original_answer=answer,
             verified_answer=verified,
             citations_found=found,
             citations_valid=valid,

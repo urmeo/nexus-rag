@@ -1,5 +1,3 @@
-"""RAGTruth evaluation."""
-
 from __future__ import annotations
 
 import argparse
@@ -14,7 +12,8 @@ from scinexusrag.eval.datasets import DATASET_REVISIONS
 from scinexusrag.eval.metrics import risk_coverage_auc, roc_auc
 from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.eval.result_files import write_result
-from scinexusrag.generation.grounding import GroundingVerifier, split_sentences
+from scinexusrag.generation.grounding import GroundingVerifier
+from scinexusrag.utils.text import split_sentences
 
 RESULTS_DIR = Path("outputs/generated")
 MAX_CTX_SENTS = 50

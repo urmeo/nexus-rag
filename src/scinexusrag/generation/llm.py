@@ -1,5 +1,3 @@
-"""Ollama client."""
-
 import json
 import time
 from collections.abc import Generator
@@ -11,7 +9,7 @@ import httpx
 
 
 class LLMError(RuntimeError):
-    """Backend failure."""
+    """The Ollama backend failed or returned an unusable response."""
 
 
 class LLMClient:

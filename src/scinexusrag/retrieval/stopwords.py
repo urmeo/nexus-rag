@@ -1,5 +1,3 @@
-"""Shared stopwords."""
-
 STOP_WORDS: frozenset[str] = frozenset(
     """
     a about above after again against all although an and any are as at be because been before

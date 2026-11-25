@@ -1,5 +1,3 @@
-"""Evaluation reports."""
-
 from __future__ import annotations
 
 import argparse
@@ -12,7 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from scinexusrag.eval.metrics import (
-    _binary_inputs,
+    binary_inputs,
     holm_correction,
     paired_delta_ci,
     paired_randomization_test,
@@ -184,8 +182,8 @@ def _check_evidence_methods(methods: dict[str, Any]) -> None:
 def binary_curve_points(
     scores: Sequence[float], labels: Sequence[int]
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
-    """Threshold curves."""
-    values, truth = _binary_inputs(scores, labels)
+    """ROC and precision-recall points, one per distinct score threshold."""
+    values, truth = binary_inputs(scores, labels)
     positives = int(truth.sum())
     negatives = truth.size - positives
     if positives == 0 or negatives == 0:

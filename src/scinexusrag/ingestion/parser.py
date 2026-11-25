@@ -1,5 +1,3 @@
-"""Document parsing."""
-
 import hashlib
 import re
 from dataclasses import dataclass, field
@@ -19,15 +17,15 @@ from lxml.etree import XMLSyntaxError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
+from scinexusrag.ingestion.formats import DOCUMENT_FORMATS
+
 
 class DocumentParseError(ValueError):
-    """Parsing failed."""
+    """The file is damaged, protected, too large or has no readable text."""
 
 
 @dataclass
 class Section:
-    """Source section."""
-
     title: str
     content: str
     level: int = 0
@@ -39,8 +37,6 @@ class Section:
 
 @dataclass
 class ParsedDocument:
-    """Parsed document."""
-
     id: str
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -52,9 +48,6 @@ class ParsedDocument:
 
 
 class DocumentParser:
-    """Document parser."""
-
-    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md"}
     MAX_PDF_PAGES = 1000
     MAX_EXTRACTED_CHARS = 2_000_000
 
@@ -64,7 +57,7 @@ class DocumentParser:
             raise FileNotFoundError(f"File not found: {path}")
 
         extension = path.suffix.lower()
-        if extension not in self.SUPPORTED_EXTENSIONS:
+        if extension not in DOCUMENT_FORMATS:
             raise ValueError(f"Unsupported format: {extension}")
 
         parser_map = {
@@ -98,11 +91,10 @@ class DocumentParser:
         )
 
     def parse_bytes(self, data: bytes, filename: str, extension: str) -> ParsedDocument:
-        """Parse upload."""
         extension = extension.lower()
         if not extension.startswith("."):
             extension = f".{extension}"
-        if extension not in self.SUPPORTED_EXTENSIONS:
+        if extension not in DOCUMENT_FORMATS:
             raise ValueError(f"Unsupported format: {extension}")
 
         with TemporaryDirectory() as directory:
