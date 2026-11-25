@@ -115,7 +115,7 @@ def _avg_ranks(values: NDArray[np.float64]) -> NDArray[np.float64]:
     return np.asarray(ranks[inverse], dtype=np.float64)
 
 
-def _binary_inputs(
+def binary_inputs(
     scores: ArrayLike, labels: ArrayLike
 ) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
     s = np.asarray(scores, dtype=np.float64)
@@ -129,7 +129,7 @@ def _binary_inputs(
 
 def roc_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
     """Rank-sum AUROC."""
-    s, y = _binary_inputs(scores, labels)
+    s, y = binary_inputs(scores, labels)
     n_pos = int((y == 1).sum())
     n_neg = int((y == 0).sum())
     if n_pos == 0 or n_neg == 0:
@@ -140,7 +140,7 @@ def roc_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
 
 def pr_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
     """Average precision."""
-    s, y = _binary_inputs(scores, labels)
+    s, y = binary_inputs(scores, labels)
     n_pos = int((y == 1).sum())
     if n_pos == 0:
         return float("nan")
@@ -157,7 +157,7 @@ def pr_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
 
 def risk_coverage_auc(confidence: ArrayLike, correct: ArrayLike) -> float:
     """Tie-averaged risk."""
-    conf, labels = _binary_inputs(confidence, correct)
+    conf, labels = binary_inputs(confidence, correct)
     err = 1 - labels
     if conf.size == 0:
         return float("nan")

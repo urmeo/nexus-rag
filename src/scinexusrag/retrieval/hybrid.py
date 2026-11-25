@@ -28,7 +28,7 @@ def _fusion_weights(weights: Sequence[float], k: int) -> list[float]:
     return values
 
 
-def _search_requested(query: str, top_k: int, depth: int) -> bool:
+def search_requested(query: str, top_k: int, depth: int) -> bool:
     if not isinstance(query, str):
         raise ValueError("Query must be a string.")
     if isinstance(top_k, bool) or not isinstance(top_k, int):
@@ -105,7 +105,7 @@ class HybridRetriever:
         return self.dense_weight, self.sparse_weight
 
     def _run(self, query: str, top_k: int, depth: int) -> tuple[list[RetrievalResult], float]:
-        if not _search_requested(query, top_k, depth):
+        if not search_requested(query, top_k, depth):
             return [], 0.0
         dense_weight, sparse_weight = self._weights(query)
         dense = self.dense.retrieve(query, depth)

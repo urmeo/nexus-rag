@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from scinexusrag.eval.datasets import _read_jsonl
+from scinexusrag.eval.datasets import read_jsonl
 from scinexusrag.eval.metrics import pr_auc, roc_auc
 from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.eval.result_files import write_result
@@ -98,7 +98,7 @@ def _publish_raw(staged: Path) -> None:
 
 def _read_corpus(path: Path) -> dict[str, list[str]]:
     corpus: dict[str, list[str]] = {}
-    for row in _read_jsonl(path):
+    for row in read_jsonl(path):
         doc_id = str(row["doc_id"])
         if doc_id in corpus:
             raise ValueError(f"duplicate SciFact document: {doc_id}")
@@ -114,7 +114,7 @@ def _read_corpus(path: Path) -> dict[str, list[str]]:
 def _read_claims(path: Path, corpus: dict[str, list[str]]) -> list[Claim]:
     claims: list[Claim] = []
     seen: set[int] = set()
-    for row in _read_jsonl(path):
+    for row in read_jsonl(path):
         claim_id = row["id"]
         if isinstance(claim_id, bool) or not isinstance(claim_id, int) or claim_id in seen:
             raise ValueError(f"invalid or duplicate SciFact claim: {claim_id}")

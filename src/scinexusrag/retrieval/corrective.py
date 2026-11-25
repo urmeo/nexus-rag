@@ -6,7 +6,7 @@ from collections import Counter
 from numbers import Real
 
 from scinexusrag.retrieval.dense import RetrievalResult
-from scinexusrag.retrieval.hybrid import HybridRetriever, _search_requested, rrf_fuse
+from scinexusrag.retrieval.hybrid import HybridRetriever, search_requested, rrf_fuse
 
 
 class CorrectiveRetriever:
@@ -50,7 +50,7 @@ class CorrectiveRetriever:
     def retrieve_traced(
         self, query: str, top_k: int = 10, depth: int = 50
     ) -> tuple[list[RetrievalResult], bool]:
-        if not _search_requested(query, top_k, depth):
+        if not search_requested(query, top_k, depth):
             return [], False
         first, dense_top = self.base.retrieve_with_dense_top(query, top_k=depth, depth=depth)
         if not self.enabled or not first or dense_top >= self.tau:
