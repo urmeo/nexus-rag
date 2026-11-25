@@ -68,7 +68,7 @@ Python's `Orchestrator.query_streaming()` and `NexusRAG.query_streaming()` emit 
 
 Consumers must replace provisional output with the final `answer` from the `data: {JSON}` event. Caught generation or verification failures replace it with an error message. Empty retrieval and context-limit failures also finish with an error answer and skip checks. The web interface uses the non-streaming route.
 
-Cross-encoder reranking and SPLADE are library or evaluation options, not default app stages. [Retrieval and evidence benchmarks](evaluation.md) do not establish generated-answer accuracy.
+Cross-encoder reranking (library and evaluation) and SPLADE (evaluation only) are not default app stages. [Retrieval and evidence benchmarks](evaluation.md) do not establish generated-answer accuracy.
 
 ## Implementation and diagrams
 
@@ -92,7 +92,7 @@ Tokenizers, dependencies, documents and indexes need additional space. Peak RAM 
 | Location | Contents |
 | --- | --- |
 | `src/scinexusrag/` | API, document workflow, ingestion, retrieval, generation, storage, utilities and web interface |
-| `src/scinexusrag/eval/` | Datasets, metrics, reports, sample data and regression thresholds |
+| `src/scinexusrag/eval/` | Datasets, benchmark-only retrievers such as SPLADE, metrics, reports, sample data and regression thresholds |
 | `tests/` | Python unit/integration and JavaScript interface tests |
 | `assets/` | Pipeline diagrams, Figma snapshot and upload recording |
 | `outputs/results/` | Published CSV measurements, provenance and charts |

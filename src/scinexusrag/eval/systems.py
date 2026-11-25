@@ -60,7 +60,7 @@ def build_systems(
         systems["+ Rerank (cross-enc)"] = with_rerank
 
     if include_splade:
-        from scinexusrag.retrieval.splade import DEFAULT_MODEL, SpladeRetriever
+        from scinexusrag.eval.splade import DEFAULT_MODEL, SpladeRetriever
 
         splade = SpladeRetriever(
             chunks,

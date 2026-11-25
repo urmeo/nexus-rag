@@ -61,6 +61,7 @@ from scinexusrag.application import (
 )
 from scinexusrag.eval import datasets, run, systems
 from scinexusrag.eval.metrics import holm_correction, pr_auc, risk_coverage_auc, roc_auc
+from scinexusrag.eval.splade import DEFAULT_MODEL, SpladeRetriever
 from scinexusrag.generation.citations import extract_citations, strip_citations
 from scinexusrag.generation.grounding import GroundingReport, GroundingVerifier
 from scinexusrag.generation.llm import LLMClient, LLMError
@@ -89,7 +90,6 @@ from scinexusrag.retrieval.hybrid import (
 )
 from scinexusrag.retrieval.reranker import Reranker
 from scinexusrag.retrieval.sparse import BM25Retriever
-from scinexusrag.retrieval.splade import DEFAULT_MODEL, SpladeRetriever
 from scinexusrag.settings import (
     HF_REVISIONS,
     APISettings,
@@ -10507,7 +10507,7 @@ def test_enabled_eval_records_revision_passed_to_retriever(
         constructed.append(kwargs)
         return SimpleNamespace(retrieve=lambda *a, **k: [RetrievalResult(chunks[0], 1.0, "splade")])
 
-    monkeypatch.setattr("scinexusrag.retrieval.splade.SpladeRetriever", fake_splade)
+    monkeypatch.setattr("scinexusrag.eval.splade.SpladeRetriever", fake_splade)
 
     def splade_only(*args, **kwargs):
         built = systems.build_systems(*args, **kwargs)
