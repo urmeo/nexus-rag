@@ -4961,7 +4961,7 @@ def test_close_waits_for_http_client_construction(monkeypatch, observed_lock):
     "query", ["What is CVS?", "What is VSV infection?", "What is reasonable evidence?"]
 )
 def test_query_words_do_not_trigger_substring_instructions(query):
-    assert QueryAnalyzer().analyze(query).query_type is QueryType.FACTUAL
+    assert QueryAnalyzer().classify(query) is QueryType.FACTUAL
 
 
 @pytest.mark.parametrize(
@@ -4976,7 +4976,7 @@ def test_query_words_do_not_trigger_substring_instructions(query):
     ],
 )
 def test_comparison_and_causal_words_keep_their_meaning(query, expected):
-    assert QueryAnalyzer().analyze(query).query_type is expected
+    assert QueryAnalyzer().classify(query) is expected
 
 
 @pytest.mark.parametrize(
@@ -4987,7 +4987,6 @@ def test_vague_rewriting_normalizes_whitespace(query):
     assert analyzer.rewrite_vague_query(query) == analyzer.rewrite_vague_query(
         "tell me about this paper"
     )
-    assert analyzer.analyze(query).original == query
 
 
 def test_specific_query_is_not_rewritten():
@@ -5119,7 +5118,6 @@ def test_default_prompt_and_generation_options_are_preserved(passage):
     response = Synthesizer(llm).synthesize("What was measured?", [passage])
 
     assert response.answer == " Answer [1].\n"
-    assert response.raw_response == " Answer [1].\n"
     assert llm.generate.call_args.args == (
         "QUESTION: What was measured?\n\n"
         "SOURCES:\n"
@@ -5185,9 +5183,6 @@ class StubRetriever:
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
         return self.results
-
-    def retrieve_traced(self, query: str, top_k: int = 5) -> tuple[list[RetrievalResult], bool]:
-        return self.results, False
 
 
 class StubGrounding:
@@ -5325,7 +5320,9 @@ class TestSynthesizerFormatting:
         synth = Synthesizer(llm)
 
         response = synth.synthesize("What did the study find?", results)
-        streamed = "".join(synth.synthesize_streaming("What did the study find?", results))
+        streamed = "".join(
+            synth.stream_prepared(synth.prepare("What did the study find?", results))
+        )
 
         assert streamed == response.answer
         assert [source.chunk_id for source in response.sources] == ["c1", "c2", "c3", "c4"]
@@ -6774,7 +6771,6 @@ def orchestrator():
     ]
     retriever = Mock(spec=CorrectiveRetriever)
     retriever.retrieve.return_value = results
-    retriever.retrieve_traced.return_value = (results, False)
     llm = Mock(spec=LLMClient)
     llm.generate.return_value = "A claim [1]."
     llm.stream.return_value = iter(["A claim [1].", " Unsupported [99]."])
@@ -6834,7 +6830,7 @@ def test_nonstreaming_verification_errors_still_propagate(orchestrator, stage):
 def test_answer_confidence_stays_bounded_for_finite_ranking_scores(
     orchestrator, scores, cited, expected
 ):
-    results, _ = orchestrator.retriever.retrieve_traced.return_value
+    results = orchestrator.retriever.retrieve.return_value
     for result, score in zip(results, scores, strict=True):
         result.score = score
     orchestrator.llm.generate.return_value = "A claim [1]." if cited else "A claim."
@@ -6851,7 +6847,6 @@ def test_invalid_retrieval_limit_fails_before_models(orchestrator, top_k):
         Orchestrator(orchestrator.retriever, orchestrator.llm, top_k=top_k)
 
     orchestrator.retriever.retrieve.assert_not_called()
-    orchestrator.retriever.retrieve_traced.assert_not_called()
     orchestrator.llm.generate.assert_not_called()
     orchestrator.llm.stream.assert_not_called()
 
@@ -6867,7 +6862,6 @@ def test_invalid_question_fails_before_retrieval(orchestrator, question, streami
             orchestrator.query(question)
 
     orchestrator.retriever.retrieve.assert_not_called()
-    orchestrator.retriever.retrieve_traced.assert_not_called()
     orchestrator.llm.generate.assert_not_called()
     orchestrator.llm.stream.assert_not_called()
 
@@ -6876,12 +6870,10 @@ def test_invalid_question_fails_before_retrieval(orchestrator, question, streami
 def test_question_whitespace_is_trimmed_before_retrieval(orchestrator, streaming):
     if streaming:
         list(orchestrator.query_streaming("  What was measured? \n"))
-        retrieval = orchestrator.retriever.retrieve
     else:
         orchestrator.query("  What was measured? \n")
-        retrieval = orchestrator.retriever.retrieve_traced
 
-    retrieval.assert_called_once_with("What was measured?", top_k=5)
+    orchestrator.retriever.retrieve.assert_called_once_with("What was measured?", top_k=5)
 
 
 def test_falsey_metadata_store_still_supplies_document_names(orchestrator):

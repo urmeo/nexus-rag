@@ -57,7 +57,7 @@ NLI receives the same complete sources as generation, including nearby context. 
 
 A caught generation failure, including blank output, returns an error answer, retained sources, zero confidence and a warning; checks are skipped. Other retrieval, storage or NLI failures can return an HTTP error. Vector-index read failures return **503**, rather than an empty-corpus message; Python raises `VectorStoreError` with the original cause.
 
-The interface calls `POST /api/query` and displays the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first 500 characters plus `...` if truncated. Internal correction state and reasoning traces are omitted.
+The interface calls `POST /api/query` and displays the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first 500 characters plus `...` if truncated.
 
 Python's `Orchestrator.query_streaming()` and `NexusRAG.query_streaming()` emit provisional text followed by:
 

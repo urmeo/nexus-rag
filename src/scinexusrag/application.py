@@ -14,7 +14,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from scinexusrag.generation.llm import LLMClient
-from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse, ReasoningStep
+from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
 from scinexusrag.ingestion.chunker import Chunk, SemanticChunker
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfigError
 from scinexusrag.ingestion.formats import DOCUMENT_FORMATS
@@ -318,7 +318,6 @@ class NexusRAG:
                 answer="No documents have been uploaded yet. Please upload research papers first.",
                 sources=[],
                 confidence=0.0,
-                reasoning_trace=[ReasoningStep("validation", "no documents in knowledge base")],
             )
 
         return self.orchestrator.query(question)
