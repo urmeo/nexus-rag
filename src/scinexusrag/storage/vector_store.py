@@ -309,27 +309,17 @@ class VectorStore:
             end_offset=metadata.get("end_offset"),
         )
 
-    def search(
-        self,
-        query_embedding: NDArray[np.float32],
-        top_k: int = 5,
-        filter_expr: str | None = None,
-    ) -> list[SearchResult]:
+    def search(self, query_embedding: NDArray[np.float32], top_k: int = 5) -> list[SearchResult]:
         if type(top_k) is not int:
             raise ValueError("top_k must be an integer")
         if top_k <= 0:
             return []
         query_embedding = _cosine_vectors(query_embedding, (self.embedding_dim,))
-        if filter_expr is not None and not isinstance(filter_expr, str):
-            raise ValueError("filter_expr must be a string or None")
         with self._access("Cannot search the vector index."):
             vector_query = cast(
                 LanceVectorQueryBuilder, self.table.search(query_embedding.tolist())
             )
-            query = vector_query.metric("cosine").limit(top_k)
-            if filter_expr:
-                query = query.where(filter_expr)
-            results = query.to_list()
+            results = vector_query.metric("cosine").limit(top_k).to_list()
 
         matches = []
         for row in results:
@@ -353,28 +343,6 @@ class VectorStore:
                 )
             )
         return matches
-
-    def search_by_document(
-        self,
-        query_embedding: NDArray[np.float32],
-        document_id: str,
-        top_k: int = 5,
-    ) -> list[SearchResult]:
-        safe_doc_id = _sanitize_id(document_id)
-        return self.search(
-            query_embedding,
-            top_k=top_k,
-            filter_expr=f"document_id = '{safe_doc_id}'",
-        )
-
-    def delete(self, chunk_ids: list[str]) -> int:
-        if not isinstance(chunk_ids, list):
-            raise ValueError("chunk_ids must be a list of strings")
-        if not chunk_ids:
-            return 0
-
-        safe_ids = list(dict.fromkeys(_sanitize_id(chunk_id) for chunk_id in chunk_ids))
-        return self._delete_where(_id_filter(safe_ids))
 
     def delete_by_document(self, document_id: str) -> int:
         safe_doc_id = _sanitize_id(document_id)
@@ -423,9 +391,6 @@ class VectorStore:
                     self._table = None
                     if completed:
                         raise
-
-    def list_documents(self) -> list[str]:
-        return list(dict.fromkeys(row["document_id"] for row in self._read_rows(["document_id"])))
 
     def clear(self) -> None:
         with self._init_lock:

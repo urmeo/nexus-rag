@@ -58,10 +58,6 @@ class DocumentStore:
 
         return doc_id
 
-    @property
-    def index(self) -> dict[str, dict[str, Any]]:
-        return self.list_with_metadata()
-
     def _get_index(self) -> dict[str, dict[str, Any]]:
         if self._index is None:
             self._index = self._load_index()

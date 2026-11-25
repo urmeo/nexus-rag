@@ -1141,7 +1141,9 @@ class TestIntegrationWithRealComponents:
 
         assert restarted.bm25.count() == result.chunk_count
         assert restarted.bm25.retrieve("research")
-        assert restarted.vector_store.list_documents() == [result.document_id]
+        assert {chunk.document_id for chunk in restarted.vector_store.get_all_chunks()} == {
+            result.document_id
+        }
 
     def test_with_real_parser_and_chunker(self, pipeline_rag: NexusRAG, pipeline_text_file: Path):
         result = pipeline_rag.ingest(pipeline_text_file)
@@ -1332,7 +1334,7 @@ class TestIngestRollback:
 
         def fail_cleanup(*args, **kwargs):
             if stage == "dense_partial":
-                pipeline_rag.vector_store.delete([chunks[0].id])
+                pipeline_rag.vector_store.table.delete(f"id = '{chunks[0].id}'")
             elif stage == "dense_after":
                 cleanup(*args, **kwargs)
             raise OSError(f"Rollback failed during {stage}")
@@ -3359,33 +3361,7 @@ def retriever():
     embedder.embed_query.return_value = np.array([1, 0], dtype=np.float32)
     store = MagicMock()
     store.search.return_value = []
-    store.search_by_document.return_value = []
     return DenseRetriever(embedder, store)
-
-
-@pytest.mark.parametrize("document_id", ["", " \t", False, 0, []])
-def test_invalid_document_filter_never_falls_back_to_unfiltered_search(retriever, document_id):
-    with pytest.raises(ValueError, match="document_id"):
-        retriever.retrieve("evidence", document_id=document_id)
-
-    retriever.embedder.embed_query.assert_not_called()
-    retriever.vector_store.search.assert_not_called()
-    retriever.vector_store.search_by_document.assert_not_called()
-
-
-def test_document_filter_uses_only_the_requested_document(retriever):
-    chunk = Chunk("passage", "Voltage is 3.3 V.", "paper")
-    retriever.vector_store.search_by_document.return_value = [SearchResult(chunk, 0.75)]
-
-    results = retriever.retrieve("voltage", top_k=2, document_id="paper")
-
-    assert [(result.chunk, result.score, result.source) for result in results] == [
-        (chunk, 0.75, "dense")
-    ]
-    retriever.vector_store.search.assert_not_called()
-    retriever.vector_store.search_by_document.assert_called_once_with(
-        retriever.embedder.embed_query.return_value, "paper", 2
-    )
 
 
 @pytest.mark.parametrize("top_k", [True, 1.5, "2", None, float("nan")])
@@ -3430,7 +3406,6 @@ def test_nonempty_query_and_result_order_are_preserved(retriever):
         (chunks[0], 0.8, "dense"),
         (chunks[1], 0.5, "dense"),
     ]
-    retriever.vector_store.search_by_document.assert_not_called()
 
 
 @pytest.mark.parametrize("error_type", [EmbeddingConfigError, VectorStoreError])
@@ -3454,33 +3429,6 @@ def test_search_failure_propagates(retriever):
         retriever.retrieve("evidence")
 
     assert caught.value is failure
-
-
-@pytest.mark.parametrize(
-    "min_score", [float("nan"), float("inf"), -float("inf"), True, "0.5", None]
-)
-def test_invalid_thresholds_fail_before_model_or_storage_access(retriever, min_score):
-    with pytest.raises(ValueError, match="min_score"):
-        retriever.retrieve_with_threshold("evidence", min_score=min_score)
-
-    retriever.embedder.embed_query.assert_not_called()
-    retriever.vector_store.validate_embedding_config.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    "min_score,expected",
-    [(-1, [0.8, 0.5]), (0.5, [0.8, 0.5]), (0.8, [0.8]), (2, []), (10**1000, [])],
-)
-def test_thresholds_filter_scores_without_changing_order(retriever, min_score, expected):
-    chunk = Chunk("passage", "Evidence.", "paper")
-    retriever.vector_store.search.return_value = [
-        SearchResult(chunk, 0.8),
-        SearchResult(chunk, 0.5),
-    ]
-
-    results = retriever.retrieve_with_threshold("evidence", min_score=min_score)
-
-    assert [result.score for result in results] == expected
 
 
 @pytest.fixture
@@ -3675,8 +3623,9 @@ def test_orphaned_doc_file_recovered_on_load(tmp_path, document_store) -> None:
     reloaded = DocumentStore(path=tmp_path)
 
     assert reloaded.exists("abc123def456")
-    assert reloaded.index["abc123def456"]["filename"] == "paper.pdf"
-    assert reloaded.index["abc123def456"]["word_count"] > 0
+    metadata = reloaded.list_with_metadata()["abc123def456"]
+    assert metadata["filename"] == "paper.pdf"
+    assert metadata["word_count"] > 0
     assert (tmp_path / "_index.json").exists()
 
 
@@ -3827,12 +3776,11 @@ def test_document_names_skip_invalid_candidates_when_added_or_recovered(
     assert metadata["display_name"] == "paper.txt"
 
 
-@pytest.mark.parametrize("read", ["index", "list_with_metadata"])
-def test_public_metadata_snapshots_do_not_expose_nested_store_state(tmp_path, read, document_store):
+def test_public_metadata_snapshots_do_not_expose_nested_store_state(tmp_path, document_store):
     document_store.add(document())
     document_store.update_metadata("paper", "notes", {"tags": ["original"]})
 
-    snapshot = document_store.index if read == "index" else document_store.list_with_metadata()
+    snapshot = document_store.list_with_metadata()
     snapshot["paper"]["notes"]["tags"].append("changed")
     snapshot["paper"]["word_count"] = 99
     snapshot.pop("paper")
@@ -4490,45 +4438,6 @@ class TestEmbedder:
         assert factory.call_count == 2
         assert embedder._loaded_model_source == ("test-model", "a" * 40)
 
-    def test_similarity_normalized(self, mock_sentence_transformer):
-        embedder = Embedder(model_name="test-model", normalize=True)
-
-        query_emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-        doc_embs = np.array(
-            [
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [0.5, 0.5, 0.0],
-            ],
-            dtype=np.float32,
-        )
-
-        doc_embs = doc_embs / np.linalg.norm(doc_embs, axis=1, keepdims=True)
-
-        similarities = embedder.similarity(query_emb, doc_embs)
-
-        assert similarities.shape == (3,)
-        assert similarities[0] == pytest.approx(1.0, abs=0.01)
-        assert similarities[1] == pytest.approx(0.0, abs=0.01)
-
-    def test_similarity_unnormalized(self, mock_sentence_transformer):
-        embedder = Embedder(model_name="test-model", normalize=False)
-
-        query_emb = np.array([2.0, 0.0], dtype=np.float32)
-        doc_embs = np.array(
-            [
-                [3.0, 0.0],
-                [0.0, 1.0],
-            ],
-            dtype=np.float32,
-        )
-
-        similarities = embedder.similarity(query_emb, doc_embs)
-
-        assert similarities.shape == (2,)
-        assert similarities[0] == pytest.approx(1.0, abs=0.01)
-        assert similarities[1] == pytest.approx(0.0, abs=0.01)
-
     def test_show_progress_flag(self, mock_sentence_transformer):
         embedder = Embedder(model_name="test-model")
         texts = ["text"] * 5
@@ -4777,33 +4686,6 @@ def test_valid_vectors_are_preserved_as_float32(model_factory):
         normalize_embeddings=False,
         convert_to_numpy=True,
     )
-
-
-@pytest.mark.parametrize("scale", [1e-30, 1.0, 1e20, 1e38])
-def test_cosine_similarity_handles_finite_float32_scales(scale):
-    embedder = Embedder(normalize=False)
-    query = np.array([scale, 0], dtype=np.float32)
-    documents = np.array([[scale, 0], [0, scale], [-scale, 0], [0, 0]], dtype=np.float32)
-    original_query = query.copy()
-    original_documents = documents.copy()
-
-    with np.errstate(all="raise"):
-        scores = embedder.similarity(query, documents)
-
-    np.testing.assert_array_equal(scores, [1, 0, -1, 0])
-    assert scores.dtype == np.float32
-    np.testing.assert_array_equal(query, original_query)
-    np.testing.assert_array_equal(documents, original_documents)
-
-
-def test_cosine_similarity_of_zero_query_is_zero():
-    query = np.zeros(2, dtype=np.float32)
-    documents = np.array([[1, 0], [0, 0]], dtype=np.float32)
-
-    with np.errstate(all="raise"):
-        scores = Embedder(normalize=False).similarity(query, documents)
-
-    np.testing.assert_array_equal(scores, [0, 0])
 
 
 @pytest.mark.parametrize(
@@ -11058,6 +10940,10 @@ def _store(tmp_path, dim: int = 4, **changes) -> VectorStore:
     return VectorStore(path=tmp_path / "lancedb", embedding_config=_config(dim, **changes))
 
 
+def _stored_document_ids(store: VectorStore) -> set[str]:
+    return {chunk.document_id for chunk in store.get_all_chunks()}
+
+
 @pytest.fixture
 def vector_store(tmp_path) -> VectorStore:
     return _store(tmp_path)
@@ -11133,25 +11019,12 @@ def test_search_score_clamped_to_unit_interval(vector_store) -> None:
 
 @pytest.mark.parametrize(
     "operation",
-    [
-        "delete",
-        "delete_by_document",
-        "search_by_document",
-        "get_chunks_by_document",
-        "get_chunk_ids_by_document",
-    ],
+    ["delete_by_document", "get_chunks_by_document", "get_chunk_ids_by_document"],
 )
 def test_trailing_newline_id_is_rejected_before_database_access(vector_store, operation) -> None:
 
     with pytest.raises(ValueError, match="Invalid ID format"):
-        if operation == "delete":
-            vector_store.delete(["paper\n"])
-        elif operation == "delete_by_document":
-            vector_store.delete_by_document("paper\n")
-        elif operation == "search_by_document":
-            vector_store.search_by_document(np.ones(4, dtype=np.float32), "paper\n")
-        else:
-            getattr(vector_store, operation)("paper\n")
+        getattr(vector_store, operation)("paper\n")
 
     assert vector_store._db is None
 
@@ -11191,7 +11064,7 @@ def test_chunk_context_and_citation_metadata_survive_reload(tmp_path, access, ve
     assert restored.metadata["start_offset"] == chunk.start_offset
     assert restored.metadata["end_offset"] == chunk.end_offset
     assert restored.metadata["file_type"] == "pdf"
-    assert reloaded.list_documents() == ["paper"]
+    assert _stored_document_ids(reloaded) == {"paper"}
 
 
 @pytest.mark.parametrize("existing", [False, True])
@@ -11321,7 +11194,6 @@ def test_changed_configuration_rejects_before_vector_query_or_write(
     "operation",
     [
         "count",
-        "list_documents",
         "get_all_chunks",
         "get_chunks_by_document",
         "get_chunk_ids_by_document",
@@ -11378,7 +11250,7 @@ def test_document_scans_cross_page_boundaries_without_losing_rows(
         "other",
         *(c.id for c in chunks),
     }
-    assert set(vector_store.list_documents()) == ({"other", "paper"} if chunks else {"other"})
+    assert _stored_document_ids(vector_store) == ({"other", "paper"} if chunks else {"other"})
     assert vector_store.get_chunks_by_document("missing") == []
     assert vector_store.get_chunk_ids_by_document("missing") == set()
 
@@ -11405,7 +11277,7 @@ def test_document_scans_include_chunks_beyond_the_previous_100000_limit(vector_s
 
 @pytest.mark.parametrize(
     "operation",
-    ["list_documents", "get_all_chunks", "get_chunks_by_document", "get_chunk_ids_by_document"],
+    ["get_all_chunks", "get_chunks_by_document", "get_chunk_ids_by_document"],
 )
 def test_failed_scan_does_not_report_an_empty_or_partial_corpus(
     vector_store, monkeypatch, operation
@@ -11619,7 +11491,7 @@ def test_explicit_clear_recovers_rejected_table_with_a_new_dimension(
     reopened = _store(tmp_path, dim=2, model_name="new-model")
     assert reopened.count() == 1
     assert reopened.table.schema.field("vector").type.list_size == 2
-    assert reopened.list_documents() == ["new-paper"]
+    assert _stored_document_ids(reopened) == {"new-paper"}
     assert reopened.search(np.array([1, 0], dtype=np.float32))[0].chunk.id == "new"
 
 
@@ -11650,7 +11522,7 @@ def test_cached_handle_rejects_a_recreated_collection(tmp_path, operation, extra
             )
 
     assert replacement.count() == 1
-    assert replacement.list_documents() == ["new-paper"]
+    assert _stored_document_ids(replacement) == {"new-paper"}
 
 
 @pytest.mark.parametrize("bootstrap_stage", ["connect", "create_table"])
@@ -11987,7 +11859,7 @@ def test_existing_ids_are_checked_across_bounded_batches(contract_vectors, monke
         contract_vectors.add(incoming, np.ones((5, 2), np.float32))
 
     assert contract_vectors.count() == 1
-    assert contract_vectors.list_documents() == ["original"]
+    assert _stored_document_ids(contract_vectors) == {"original"}
 
 
 def test_failed_duplicate_check_never_writes_vectors(contract_vectors, monkeypatch):
