@@ -73,7 +73,7 @@ def evaluate(
     embedder = Embedder(device="cpu")
     dense = ExactDenseRetriever(embedder, chunks)
     bm25 = BM25Retriever()
-    bm25.add(chunks)
+    bm25.build(chunks)
     hybrid = AdaptiveHybridRetriever(dense, bm25, 0.5, 0.5)
     corrective = CorrectiveRetriever(hybrid, tau=tau)
 

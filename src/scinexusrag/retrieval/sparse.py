@@ -46,7 +46,7 @@ class BM25Retriever:
         tokens = re.findall(r"\b[a-z0-9]+\b", text.lower())
         return [token for token in tokens if token not in self.stopwords and len(token) > 1]
 
-    def add(self, chunks: list[Chunk]) -> int:
+    def build(self, chunks: list[Chunk]) -> int:
         _validate_chunks(chunks)
         if not chunks:
             self.clear()
@@ -62,7 +62,7 @@ class BM25Retriever:
         self._index = BM25Index(bm25=BM25Okapi(tokenized), chunks=indexed_chunks)
         return len(indexed_chunks)
 
-    def add_incremental(self, chunks: list[Chunk]) -> int:
+    def add(self, chunks: list[Chunk]) -> int:
         _validate_chunks(chunks)
         index = self._index
         existing_chunks = index.chunks if index is not None else []
@@ -74,7 +74,7 @@ class BM25Retriever:
                 seen_ids.add(chunk.id)
         if not fresh:
             return len(existing_chunks)
-        return self.add(existing_chunks + fresh)
+        return self.build(existing_chunks + fresh)
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
         if not isinstance(query, str):
@@ -122,7 +122,7 @@ class BM25Retriever:
         if not removed:
             return 0
 
-        self.add(remaining)
+        self.build(remaining)
         return removed
 
     def count(self) -> int:

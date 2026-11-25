@@ -27,7 +27,7 @@ def build_systems(
 ) -> dict[str, RetrieveFn]:
     dense = ExactDenseRetriever(embedder, chunks)
     bm25 = BM25Retriever()
-    bm25.add(chunks)
+    bm25.build(chunks)
 
     hybrid = HybridRetriever(dense, bm25, 0.5, 0.5)
     adaptive = AdaptiveHybridRetriever(dense, bm25, 0.5, 0.5)
