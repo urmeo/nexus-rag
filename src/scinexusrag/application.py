@@ -17,6 +17,7 @@ from scinexusrag.generation.llm import LLMClient
 from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse, ReasoningStep
 from scinexusrag.ingestion.chunker import Chunk, SemanticChunker
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfigError
+from scinexusrag.ingestion.formats import DOCUMENT_FORMATS
 from scinexusrag.ingestion.parser import DocumentParseError, DocumentParser, ParsedDocument
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
 from scinexusrag.retrieval.dense import DenseRetriever
@@ -295,7 +296,7 @@ class NexusRAG:
         for file_path in sorted(path.glob(pattern)):
             if not file_path.is_file() or file_path.name.startswith("."):
                 continue
-            if file_path.suffix.lower() in self.parser.SUPPORTED_EXTENSIONS:
+            if file_path.suffix.lower() in DOCUMENT_FORMATS:
                 results.append(self.ingest(file_path))
             else:
                 skipped += 1

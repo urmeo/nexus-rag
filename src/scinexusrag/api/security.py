@@ -6,7 +6,6 @@ import hmac
 import io
 import re
 import zipfile
-from dataclasses import dataclass
 from typing import Protocol, cast
 
 from fastapi import Header, HTTPException, Request, status
@@ -17,6 +16,7 @@ from starlette.formparsers import MultiPartException
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from scinexusrag.ingestion.formats import DOCUMENT_FORMATS, DocumentFormat
 from scinexusrag.settings import get_settings
 
 limiter = Limiter(key_func=get_remote_address)
@@ -138,25 +138,6 @@ def upload_limit() -> str:
     return f"{get_settings().api.upload_rate_per_minute}/minute"
 
 
-@dataclass(frozen=True, slots=True)
-class _UploadFormat:
-    content_types: tuple[str, ...]
-    signatures: tuple[bytes, ...] = ()
-
-
-_TEXT_FORMAT = _UploadFormat(("text/plain", "text/markdown"))
-_UPLOAD_FORMATS = {
-    ".pdf": _UploadFormat(("application/pdf",), (b"%PDF",)),
-    ".docx": _UploadFormat(
-        (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/zip",
-        ),
-        (b"PK\x03\x04", b"PK\x05\x06"),
-    ),
-    ".txt": _TEXT_FORMAT,
-    ".md": _TEXT_FORMAT,
-}
 _GENERIC_CONTENT_TYPES = frozenset({"", "application/octet-stream"})
 
 
@@ -223,7 +204,7 @@ def validate_upload(ext: str, content: str | bytes, content_type: str | None) ->
         )
 
     ext = ext.lower()
-    upload_format = _UPLOAD_FORMATS.get(ext)
+    upload_format = DOCUMENT_FORMATS.get(ext)
     if upload_format is None:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -245,7 +226,7 @@ def validate_upload(ext: str, content: str | bytes, content_type: str | None) ->
 
     _sniff_mime(ext, data, upload_format)
 
-    if ext in (".txt", ".md"):
+    if upload_format.is_text:
         try:
             data.decode("utf-8")
         except UnicodeDecodeError:
@@ -258,12 +239,12 @@ def validate_upload(ext: str, content: str | bytes, content_type: str | None) ->
         _validate_docx_size(data, settings.max_uncompressed_mb * 1024 * 1024)
 
 
-def _sniff_mime(ext: str, data: bytes, upload_format: _UploadFormat) -> None:
+def _sniff_mime(ext: str, data: bytes, upload_format: DocumentFormat) -> None:
     if _MAGIC is None:
         return
     detected = _MAGIC.from_buffer(data).lower()
 
-    if ext in (".txt", ".md"):
+    if upload_format.is_text:
         if detected.startswith("text/") or detected == "inode/x-empty":
             return
         raise HTTPException(
