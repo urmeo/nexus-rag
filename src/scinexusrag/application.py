@@ -1,7 +1,6 @@
 """Document workflow."""
 
 import gc
-import json
 import logging
 import threading
 from collections.abc import Callable, Generator
@@ -14,7 +13,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from scinexusrag.generation.llm import LLMClient
-from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
+from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse, verification_events
 from scinexusrag.ingestion.chunker import Chunk, HierarchicalChunker
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfigError
 from scinexusrag.ingestion.formats import DOCUMENT_FORMATS
@@ -28,6 +27,8 @@ from scinexusrag.storage.document_store import DocumentExistsError, DocumentStor
 from scinexusrag.storage.vector_store import VectorStore, VectorStoreError
 
 logger = logging.getLogger(__name__)
+
+_EMPTY_INDEX_ANSWER = "No documents have been uploaded yet. Please upload research papers first."
 
 
 @dataclass
@@ -314,27 +315,15 @@ class NexusRAG:
     def query(self, question: str) -> RAGResponse:
         self.vector_store.validate_embedding_config(self.embedder.embedding_config)
         if self.vector_store.count() == 0:
-            return RAGResponse(
-                answer="No documents have been uploaded yet. Please upload research papers first.",
-                sources=[],
-                confidence=0.0,
-            )
+            return RAGResponse(answer=_EMPTY_INDEX_ANSWER, sources=[], confidence=0.0)
 
         return self.orchestrator.query(question)
 
     def query_streaming(self, question: str) -> Generator[str, None, None]:
         self.vector_store.validate_embedding_config(self.embedder.embedding_config)
         if self.vector_store.count() == 0:
-            error = "No documents have been uploaded yet. Please upload research papers first."
-            yield error
-            verification = {
-                "event": "verification",
-                "citations_valid": [],
-                "faithfulness": None,
-                "warnings": [error],
-            }
-            yield f"\ndata: {json.dumps(verification)}\n\n"
-            yield f"\ndata: {json.dumps({'event': 'verified_answer', 'answer': error})}\n\n"
+            yield _EMPTY_INDEX_ANSWER
+            yield from verification_events(_EMPTY_INDEX_ANSWER, [], None, [_EMPTY_INDEX_ANSWER])
             return
 
         yield from self.orchestrator.query_streaming(question)

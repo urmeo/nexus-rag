@@ -3,7 +3,7 @@
 import json
 import logging
 import time
-from collections.abc import Generator, Mapping, Sequence
+from collections.abc import Generator, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -31,6 +31,22 @@ class RAGResponse:
     processing_time_ms: float = 0.0
     warnings: list[str] = field(default_factory=list)
     faithfulness: float | None = None
+
+
+def verification_events(
+    answer: str,
+    citations_valid: list[int],
+    faithfulness: float | None,
+    warnings: list[str],
+) -> Iterator[str]:
+    verification = {
+        "event": "verification",
+        "citations_valid": citations_valid,
+        "faithfulness": faithfulness,
+        "warnings": warnings,
+    }
+    yield f"\ndata: {json.dumps(verification)}\n\n"
+    yield f"\ndata: {json.dumps({'event': 'verified_answer', 'answer': answer})}\n\n"
 
 
 class Orchestrator:
@@ -133,16 +149,7 @@ class Orchestrator:
 
         for warning in warnings:
             logger.warning("streaming verification: %s", warning)
-
-        event = {
-            "event": "verification",
-            "citations_valid": citations_valid,
-            "faithfulness": faithfulness,
-            "warnings": warnings,
-        }
-        yield f"\ndata: {json.dumps(event)}\n\n"
-        final = {"event": "verified_answer", "answer": answer}
-        yield f"\ndata: {json.dumps(final)}\n\n"
+        yield from verification_events(answer, citations_valid, faithfulness, warnings)
 
     def _prepare_question(self, question: str) -> tuple[QueryType, str]:
         if not isinstance(question, str):
