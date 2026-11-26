@@ -304,13 +304,13 @@ test('citations and source cards preserve sparse API source indices', async () =
     assert(app.get('sourcesPanel').classList.contains('open'));
 });
 
-test('source cards preserve zero pages and accept the API page-number alias', async () => {
+test('source cards show page numbers, including page zero', async () => {
     const app = createApp(async () => response({
         answer: 'Finding [1]',
         sources: [
-            { index: 1, filename: 'first.txt', content: 'First passage.', page: 0, page_number: 7 },
-            { index: 2, filename: 'second.txt', content: 'Second passage.', page_number: 0 },
-            { index: 3, filename: 'third.txt', content: 'Third passage.', page: null, page_number: null }
+            { index: 1, filename: 'first.txt', content: 'First passage.', page_number: 0 },
+            { index: 2, filename: 'second.txt', content: 'Second passage.', page_number: 7 },
+            { index: 3, filename: 'third.txt', content: 'Third passage.', page_number: null }
         ]
     }));
     app.api.state.documents = documents(1);
@@ -320,7 +320,7 @@ test('source cards preserve zero pages and accept the API page-number alias', as
 
     const cards = app.get('sourcesList').querySelectorAll('.source-card');
     assert.equal(cards[0].querySelector('.source-page').textContent, 'Page 0');
-    assert.equal(cards[1].querySelector('.source-page').textContent, 'Page 0');
+    assert.equal(cards[1].querySelector('.source-page').textContent, 'Page 7');
     assert.equal(cards[2].querySelector('.source-page'), null);
 });
 

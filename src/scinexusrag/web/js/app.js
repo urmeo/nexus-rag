@@ -617,9 +617,9 @@ function updateSourcesPanel(sources) {
     el.sourcesList.innerHTML = sources.map((src, idx) => {
         const score = src.score || 0;
         const scoreClass = score >= 0.6 ? 'high' : score >= 0.4 ? 'medium' : 'low';
-        const content = src.content || src.text || '';
+        const content = src.content || '';
         const preview = content.substring(0, 200).replace(/\n/g, ' ');
-        const page = src.page ?? src.page_number;
+        const page = src.page_number;
 
         return `
             <div class="source-card" id="source-${idx}" role="button" tabindex="0"

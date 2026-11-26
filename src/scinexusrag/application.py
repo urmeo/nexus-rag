@@ -169,7 +169,6 @@ class NexusRAG:
                     retriever=retriever,
                     llm=self.llm,
                     top_k=self.settings.retrieval.top_k,
-                    document_store=self.document_store,
                     grounding_verifier=grounding_verifier,
                     max_tokens=self.settings.llm.max_tokens,
                     temperature=self.settings.llm.temperature,

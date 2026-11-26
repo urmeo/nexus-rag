@@ -73,29 +73,23 @@ class QueryRequest(BaseModel):
 class SourceResponse(BaseModel):
     index: int
     content: str
-    text: str
     truncated: bool
     filename: str
     document_id: str
     section_title: str
-    page: int | None
     page_number: int | None
     score: float
 
     @classmethod
-    def from_source(cls, source: Source, document_name: str = "") -> Self:
-        filename = _basename(document_name) or _basename(source.document_name) or "Unknown"
+    def from_source(cls, source: Source) -> Self:
         truncated = len(source.content) > _SOURCE_PREVIEW_CHARS
-        content = source.content[:_SOURCE_PREVIEW_CHARS] + ("..." if truncated else "")
         return cls(
             index=source.index,
-            content=content,
-            text=content,
+            content=source.content[:_SOURCE_PREVIEW_CHARS] + ("..." if truncated else ""),
             truncated=truncated,
-            filename=filename,
+            filename=_basename(source.document_name) or "Unknown",
             document_id=source.document_id,
             section_title=source.section_title or "",
-            page=source.page_number,
             page_number=source.page_number,
             score=round(source.score, 3),
         )
@@ -124,19 +118,9 @@ class _UploadRequest(BaseModel):
     )
 
 
-class StatusResponse(BaseModel):
-    total_documents: int
-    total_chunks: int
-    total_words: int
-    llm_available: bool
-    llm_model: str
-    embedding_model: str
-
-
 class DocumentInfo(BaseModel):
     id: str
     filename: str
-    original_filename: str = ""
     word_count: int
     chunk_count: int = 0
     file_type: str = ""
@@ -156,6 +140,7 @@ class HealthResponse(BaseModel):
     embedding_model: str = ""
     total_documents: int = 0
     total_chunks: int = 0
+    total_words: int = 0
 
 
 class DeleteResponse(BaseModel):
@@ -186,6 +171,7 @@ async def health_check(response: Response) -> HealthResponse:
             embedding_model=stats.embedding_model,
             total_documents=stats.total_documents,
             total_chunks=stats.total_chunks,
+            total_words=stats.total_words,
         )
     except (EmbeddingConfigError, VectorStoreError):
         raise
@@ -284,23 +270,10 @@ async def query_documents(request: Request, payload: QueryRequest) -> QueryRespo
         elapsed_ms = (time.monotonic() - started) * 1000
         get_metrics_collector().record_query(elapsed_ms)
 
-        doc_names: dict[str, str] = {}
-        try:
-            docs = await asyncio.to_thread(rag.list_documents)
-            for doc in docs:
-                doc_names[doc.get("id", "")] = resolve_display_name(doc, fallback="")
-        except (EmbeddingConfigError, VectorStoreError):
-            raise
-        except Exception:
-            logger.debug("Could not load source filenames", exc_info=True)
-
         return QueryResponse(
             answer=response.answer,
             confidence=response.confidence,
-            sources=[
-                SourceResponse.from_source(source, doc_names.get(source.document_id, ""))
-                for source in response.sources
-            ],
+            sources=[SourceResponse.from_source(source) for source in response.sources],
             processing_time_ms=round(response.processing_time_ms, 1),
             warnings=response.warnings,
         )
@@ -317,13 +290,10 @@ async def list_documents(
 
         doc_list = []
         for doc in inventory.documents[offset : offset + limit]:
-            filename = resolve_display_name(doc)
-
             doc_list.append(
                 DocumentInfo(
                     id=doc.get("id", ""),
-                    filename=filename,
-                    original_filename=doc.get("original_filename", filename),
+                    filename=resolve_display_name(doc),
                     word_count=doc.get("word_count", 0),
                     chunk_count=doc.get("chunk_count", 0),
                     file_type=doc.get("file_type", ""),
@@ -336,15 +306,6 @@ async def list_documents(
             total_documents=inventory.total_documents,
             total_chunks=inventory.total_chunks,
         )
-
-
-@router.get("/status", response_model=StatusResponse)
-async def get_status() -> StatusResponse:
-    with _api_errors("Failed to retrieve status"):
-        rag = get_scinexusrag()
-        stats = await asyncio.to_thread(rag.get_stats)
-
-        return StatusResponse.model_validate(stats, from_attributes=True)
 
 
 @router.delete(

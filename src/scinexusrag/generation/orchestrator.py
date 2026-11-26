@@ -2,9 +2,7 @@
 
 import logging
 import time
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Protocol
 
 from scinexusrag.generation.grounding import GroundingVerifier
 from scinexusrag.generation.llm import LLMClient
@@ -12,14 +10,8 @@ from scinexusrag.generation.query_analyzer import QueryAnalyzer, QueryType
 from scinexusrag.generation.synthesizer import Source, Synthesizer
 from scinexusrag.generation.verifier import AnswerVerifier, VerificationResult
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
-from scinexusrag.retrieval.dense import RetrievalResult
-from scinexusrag.utils.filenames import resolve_display_name
 
 logger = logging.getLogger(__name__)
-
-
-class DocumentMetadataStore(Protocol):
-    def list_with_metadata(self) -> Mapping[str, Mapping[str, object]]: ...
 
 
 @dataclass
@@ -37,7 +29,6 @@ class Orchestrator:
         retriever: CorrectiveRetriever,
         llm: LLMClient,
         top_k: int = 5,
-        document_store: DocumentMetadataStore | None = None,
         grounding_verifier: GroundingVerifier | None = None,
         max_tokens: int = 768,
         temperature: float = 0.1,
@@ -47,7 +38,6 @@ class Orchestrator:
         self.retriever = retriever
         self.llm = llm
         self.top_k = top_k
-        self.document_store = document_store
         self.grounding_verifier = grounding_verifier
         self.analyzer = QueryAnalyzer()
         self.synthesizer = Synthesizer(llm, max_tokens=max_tokens, temperature=temperature)
@@ -57,10 +47,7 @@ class Orchestrator:
         start = time.perf_counter()
         query_type, question = self._prepare_question(question)
         results = self.retriever.retrieve(question, top_k=self.top_k)
-        doc_names = self._document_names(results)
-        synthesis = self.synthesizer.synthesize(
-            question, results, doc_names=doc_names, query_type=query_type
-        )
+        synthesis = self.synthesizer.synthesize(question, results, query_type)
 
         if synthesis.error:
             answer = synthesis.answer
@@ -113,19 +100,3 @@ class Orchestrator:
         avg_score = sum(s.score for s in sources) / len(sources)
         coverage = len(set(cited)) / len(sources)
         return round(0.5 * max(0.0, min(1.0, avg_score)) + 0.5 * coverage, 3)
-
-    def _document_names(self, results: Sequence[RetrievalResult]) -> dict[str, str]:
-        names: dict[str, str] = {}
-        if self.document_store is not None:
-            try:
-                for doc_id, metadata in self.document_store.list_with_metadata().items():
-                    names[doc_id] = resolve_display_name(metadata, fallback=doc_id[:8])
-            except Exception:
-                logger.debug("could not load document names", exc_info=True)
-        for result in results:
-            doc_id = result.chunk.document_id
-            if doc_id not in names:
-                name = resolve_display_name(result.chunk.metadata, fallback="")
-                if name:
-                    names[doc_id] = name
-        return names

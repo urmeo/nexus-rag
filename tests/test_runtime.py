@@ -391,10 +391,9 @@ class TestBasicPipelineWorkflow:
         assert persisted.context_before == content[max(0, start - 150) : start].strip()
         assert persisted.context_after == content[end : end + 150].strip()
 
-        prepared = restarted.orchestrator.synthesizer.prepare(
-            "What reading was recorded?", matches, {result.document_id: "measurements.docx"}
-        )
+        prepared = restarted.orchestrator.synthesizer.prepare("What reading was recorded?", matches)
         assert prepared.error is None
+        assert prepared.sources[0].document_name == "measurements.docx"
         assert prepared.sources[0].chunk_id == match.id
         assert (
             prepared.sources[0].full_content or prepared.sources[0].content
@@ -897,7 +896,7 @@ class TestStatisticsAndMetadata:
 
         doc = docs[0]
         assert doc["id"] == ingest_result.document_id
-        assert "filename" in doc or "original_filename" in doc
+        assert doc["filename"] == pipeline_text_file.name
 
     def test_stats_with_multiple_documents(self, pipeline_rag: NexusRAG, docs_directory: Path):
         results = [pipeline_rag.ingest(path) for path in sorted(docs_directory.iterdir())]
@@ -2243,9 +2242,7 @@ class TestHierarchicalChunker:
         chunker = HierarchicalChunker(min_chunk_size=10, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
-        methods_chunks = [c for c in chunks if c.metadata.get("section_title") == "Methods"]
-        assert len(methods_chunks) >= 1
-        assert methods_chunks[0].metadata.get("section_title") == "Methods"
+        assert any(chunk.section_title == "Methods" for chunk in chunks)
 
     def test_large_section_split(self):
         large_content = "This is a sentence. " * 100
@@ -2621,8 +2618,6 @@ def test_literal_bracketed_text_is_not_treated_as_an_added_section_header():
 def _assert_context_span(chunk, content, start, end, context_chars):
     assert chunk.start_offset == start
     assert chunk.end_offset == end
-    assert chunk.metadata["start_offset"] == start
-    assert chunk.metadata["end_offset"] == end
     assert chunk.context_before == content[max(0, start - context_chars) : start].strip()
     assert chunk.context_after == content[end : end + context_chars].strip()
 
@@ -3317,7 +3312,7 @@ def _doc(doc_id: str = "abc123def456", name: str = "paper.pdf") -> ParsedDocumen
     return ParsedDocument(
         id=doc_id,
         content="Some parsed content with several words.",
-        metadata={"original_filename": name, "file_type": "pdf"},
+        metadata={"filename": name, "file_type": "pdf"},
     )
 
 
@@ -3455,13 +3450,13 @@ def document(doc_id="paper"):
     return ParsedDocument(doc_id, "Two words.", {"filename": "paper.txt", "file_type": "txt"})
 
 
-@pytest.mark.parametrize("original_name", [" \t", {"invalid": "name"}])
+@pytest.mark.parametrize("name", [" \t", {"invalid": "name"}])
 @pytest.mark.parametrize("recover", [False, True])
-def test_document_names_skip_invalid_candidates_when_added_or_recovered(
-    tmp_path, original_name, recover, document_store
+def test_invalid_document_names_fall_back_when_added_or_recovered(
+    tmp_path, name, recover, document_store
 ):
     parsed = document()
-    parsed.metadata["original_filename"] = original_name
+    parsed.metadata["filename"] = name
     if recover:
         (tmp_path / "paper.json").write_text(
             json.dumps({"id": parsed.id, "content": parsed.content, "metadata": parsed.metadata}),
@@ -3470,11 +3465,7 @@ def test_document_names_skip_invalid_candidates_when_added_or_recovered(
     else:
         document_store.add(parsed)
 
-    metadata = document_store.list_with_metadata()["paper"]
-
-    assert metadata["filename"] == "paper.txt"
-    assert metadata["original_filename"] == "paper.txt"
-    assert metadata["display_name"] == "paper.txt"
+    assert document_store.list_with_metadata()["paper"]["filename"] == "unknown"
 
 
 def test_public_metadata_snapshots_do_not_expose_nested_store_state(tmp_path, document_store):
@@ -4381,30 +4372,6 @@ def test_valid_vectors_are_preserved_as_float32(model_factory):
 
 
 @pytest.mark.parametrize(
-    "metadata,expected",
-    [
-        (
-            {
-                "document_name": "document.pdf",
-                "display_name": "display.pdf",
-                "filename": "stored.pdf",
-                "original_filename": "original.pdf",
-            },
-            "original.pdf",
-        ),
-        (
-            {"filename": "stored.pdf", "display_name": "display.pdf", "document_name": "doc.pdf"},
-            "stored.pdf",
-        ),
-        ({"display_name": "display.pdf", "document_name": "doc.pdf"}, "display.pdf"),
-        ({"document_name": "doc.pdf"}, "doc.pdf"),
-    ],
-)
-def test_available_names_keep_the_existing_field_priority(metadata, expected):
-    assert resolve_display_name(metadata) == expected
-
-
-@pytest.mark.parametrize(
     "invalid_name",
     [
         None,
@@ -4421,17 +4388,8 @@ def test_available_names_keep_the_existing_field_priority(metadata, expected):
         " \t\n\u2003",
     ],
 )
-def test_invalid_candidates_do_not_hide_a_valid_filename(invalid_name):
-    metadata = {"original_filename": invalid_name, "filename": "paper.pdf"}
-
-    assert resolve_display_name(metadata) == "paper.pdf"
-
-
-@pytest.mark.parametrize("fallback", ["Unknown", "Document", ""])
-def test_missing_valid_names_return_the_exact_requested_fallback(fallback):
-    metadata = {"original_filename": " \t", "filename": None, "display_name": False}
-
-    assert resolve_display_name(metadata, fallback=fallback) == fallback
+def test_invalid_filenames_use_the_fallback(invalid_name):
+    assert resolve_display_name({"filename": invalid_name}, fallback="Document") == "Document"
 
 
 def test_empty_metadata_uses_the_default_name():
@@ -4449,13 +4407,11 @@ def test_empty_metadata_uses_the_default_name():
     ],
 )
 def test_valid_names_keep_their_text_and_whitespace(name):
-    assert resolve_display_name({"original_filename": name}) == name
+    assert resolve_display_name({"filename": name}) == name
 
 
 def test_read_only_metadata_is_supported():
-    metadata = MappingProxyType({"original_filename": " \t", "filename": "paper.pdf"})
-
-    assert resolve_display_name(metadata) == "paper.pdf"
+    assert resolve_display_name(MappingProxyType({"filename": "paper.pdf"})) == "paper.pdf"
 
 
 def test_non_string_candidates_do_not_invoke_conversion_or_truthiness():
@@ -4466,24 +4422,17 @@ def test_non_string_candidates_do_not_invoke_conversion_or_truthiness():
         def __str__(self):
             raise AssertionError("metadata value must not become a fabricated filename")
 
-    assert (
-        resolve_display_name({"original_filename": InvalidName(), "filename": "paper.pdf"})
-        == "paper.pdf"
-    )
+    assert resolve_display_name({"filename": InvalidName()}) == "Unknown"
 
 
 @pytest.mark.parametrize("invalid_name", [" \t", 42])
-def test_chunks_use_a_valid_filename_when_the_original_name_is_invalid(invalid_name):
-    document = ParsedDocument(
-        "paper",
-        "The measured voltage is 3.3 V.",
-        {"original_filename": invalid_name, "filename": "paper.pdf"},
-    )
+def test_chunks_use_a_generic_name_when_the_filename_is_invalid(invalid_name):
+    document = ParsedDocument("paper", "The measured voltage is 3.3 V.", {"filename": invalid_name})
 
     chunks = HierarchicalChunker().chunk(document)
 
     assert chunks
-    assert all(chunk.document_name == "paper.pdf" for chunk in chunks)
+    assert all(chunk.document_name == "Document" for chunk in chunks)
 
 
 @pytest.mark.parametrize("stage", ["construction", "labels"])
@@ -4693,52 +4642,20 @@ def passage():
 
 
 @pytest.mark.parametrize(
-    "names,chunk_name,metadata,expected",
-    [
-        ({"doc": "index.pdf"}, "chunk.pdf", {"filename": "stored.pdf"}, "index.pdf"),
-        ({"doc": ""}, "chunk.pdf", {"filename": "stored.pdf"}, "chunk.pdf"),
-        ({"doc": " \t"}, "chunk.pdf", {"filename": "stored.pdf"}, "chunk.pdf"),
-        ({}, "", {"original_filename": "original.pdf", "filename": "stored.pdf"}, "original.pdf"),
-        ({}, "", {}, "Document 1"),
-    ],
+    "chunk_name,expected",
+    [("chunk.pdf", "chunk.pdf"), (" \t", "Document 1"), ("", "Document 1")],
 )
-def test_prompt_source_names_keep_available_metadata(
-    passage, names, chunk_name, metadata, expected
-):
+def test_prompt_source_names_fall_back_to_the_source_number(passage, chunk_name, expected):
     passage.chunk.document_name = chunk_name
-    passage.chunk.metadata = metadata
-    prepared = Synthesizer(Mock(spec=LLMClient)).prepare("What was measured?", [passage], names)
+    prepared = Synthesizer(Mock(spec=LLMClient)).prepare("What was measured?", [passage])
     assert prepared.error is None
     assert prepared.sources[0].document_name == expected
     assert f"[1] Source: {expected}" in prepared.prompt
 
 
-@pytest.mark.parametrize(
-    "page,section,expected_page,expected_section",
-    [
-        (7, "Methods", 7, "Methods"),
-        (0, "", 0, ""),
-        (True, 7, None, None),
-        ("7", ["Methods"], None, None),
-    ],
-)
-def test_prompt_metadata_fallbacks_have_source_types(
-    passage, page, section, expected_page, expected_section
-):
-    passage.chunk.metadata = {"page_number": page, "section_title": section}
-    prepared = Synthesizer(Mock(spec=LLMClient)).prepare("What was measured?", [passage])
-    assert prepared.sources[0].page_number == expected_page
-    assert prepared.sources[0].section_title == expected_section
-    if expected_page is not None:
-        assert f"Page {expected_page}" in prepared.prompt
-    else:
-        assert ", Page " not in prepared.prompt
-
-
-def test_explicit_source_location_precedes_metadata(passage):
+def test_source_location_appears_in_the_prompt(passage):
     passage.chunk.page_number = 0
     passage.chunk.section_title = "Results"
-    passage.chunk.metadata = {"page_number": 9, "section_title": "Methods"}
     prepared = Synthesizer(Mock(spec=LLMClient)).prepare("What was measured?", [passage])
     assert prepared.sources[0].page_number == 0
     assert prepared.sources[0].section_title == "Results"
@@ -4941,7 +4858,7 @@ class TestSynthesizerFormatting:
 
     def test_token_budget_capped_by_config(self) -> None:
         five = [_generation_result(i, f"s{i}") for i in range(1, 6)]
-        sources = Synthesizer(StubLLM("x"))._build_sources(five, {})  # type: ignore[arg-type]
+        sources = Synthesizer(StubLLM("x"))._build_sources(five)  # type: ignore[arg-type]
 
         assert Synthesizer(StubLLM("x"), max_tokens=2048)._token_budget(sources) == 756  # type: ignore[arg-type]
 
@@ -4954,7 +4871,7 @@ class TestSynthesizerFormatting:
         synth = Synthesizer(Mock(spec=LLMClient))
         results = [_generation_result(i, f"Passage {i}.") for i in range(1, 4)]
         results[1].chunk.context_before = "Nearby evidence."
-        sources = synth._build_sources(results, {})
+        sources = synth._build_sources(results)
         synth.max_context_length = len(synth._format_sources_for_llm(sources[:2])) - shortfall
 
         prepared = synth.prepare("What did the study find?", results)
@@ -6346,21 +6263,6 @@ def test_question_whitespace_is_trimmed_before_retrieval(orchestrator):
     orchestrator.retriever.retrieve.assert_called_once_with("What was measured?", top_k=5)
 
 
-def test_falsey_metadata_store_still_supplies_document_names(orchestrator):
-    class MetadataStore:
-        def __bool__(self):
-            return False
-
-        def list_with_metadata(self):
-            return {"doc-one": {"original_filename": "measurements.txt"}}
-
-    orchestrator.document_store = MetadataStore()
-
-    response = orchestrator.query("What was measured?")
-
-    assert response.sources[0].document_name == "measurements.txt"
-
-
 @pytest.mark.parametrize(
     "answer",
     [
@@ -6511,7 +6413,7 @@ class TestDocumentParser:
         content = sample_text_file.read_bytes()
         doc = parser.parse_bytes(content, "uploaded.txt", ".txt")
 
-        assert doc.metadata["original_filename"] == "uploaded.txt"
+        assert doc.metadata["filename"] == "uploaded.txt"
         assert "introduction" in doc.content.lower()
 
     def test_text_cleaning(self, parser, tmp_path):
@@ -6691,10 +6593,8 @@ class TestDocumentParser:
         assert document.sections[0].content == document.content
         _assert_section_spans(document)
         assert document.metadata["filename"] == "readings.docx"
-        assert document.metadata["original_filename"] == "readings.docx"
         assert document.metadata["extension"] == ".docx"
         assert document.metadata["file_type"] == "docx"
-        assert document.metadata["display_name"] == "readings.docx"
 
     def test_repeated_docx_tables_have_distinct_section_offsets(self, parser, tmp_path):
         source = DocxDocument()
@@ -7920,6 +7820,7 @@ def test_unavailable_llm_keeps_valid_pipeline_health_visible(failure_client, mon
         "embedding_model": "fixture-embedder",
         "total_documents": 3,
         "total_chunks": 12,
+        "total_words": 1200,
     }
 
 
@@ -7933,7 +7834,6 @@ def pipeline(monkeypatch):
         processing_time_ms=12.36,
         warnings=["Check the cited passage."],
     )
-    pipeline.list_documents.return_value = []
     monkeypatch.setattr(routes, "get_scinexusrag", lambda: pipeline)
     return pipeline
 
@@ -7945,37 +7845,25 @@ def source_client(pipeline, local_settings):
 
 
 @pytest.mark.parametrize(
-    "metadata,source_name,expected",
+    "source_name,expected",
     [
-        (
-            [{"id": "doc", "original_filename": "papers/metadata.pdf", "filename": "stored.pdf"}],
-            "embedded.pdf",
-            "metadata.pdf",
-        ),
-        (
-            [{"id": "doc", "filename": r"C:\papers\metadata.pdf"}],
-            "embedded.pdf",
-            "metadata.pdf",
-        ),
-        ([], "papers/embedded.pdf", "embedded.pdf"),
-        ([], r"C:\papers/mixed\embedded.pdf", "embedded.pdf"),
-        ([{"id": "doc"}], "embedded.pdf", "embedded.pdf"),
-        ([{"id": "doc", "original_filename": ""}], "embedded.pdf", "embedded.pdf"),
-        ([{"id": "doc", "original_filename": "/"}], "embedded.pdf", "embedded.pdf"),
-        ([{"id": "doc", "filename": "\\"}], "/", "Unknown"),
-        ([], "", "Unknown"),
+        ("embedded.pdf", "embedded.pdf"),
+        ("papers/embedded.pdf", "embedded.pdf"),
+        (r"C:\papers/mixed\embedded.pdf", "embedded.pdf"),
+        ("/", "Unknown"),
+        ("", "Unknown"),
     ],
 )
-def test_source_filename_uses_metadata_then_embedded_name(
-    source_client, pipeline, metadata, source_name, expected
+def test_source_filename_is_the_passage_document_basename(
+    source_client, pipeline, source_name, expected
 ):
-    pipeline.list_documents.return_value = metadata
     pipeline.query.return_value.sources[0].document_name = source_name
 
     response = source_client.post("/api/query", json={"question": "Evidence?"})
 
     assert response.status_code == 200
     assert response.json()["sources"][0]["filename"] == expected
+    pipeline.list_documents.assert_not_called()
 
 
 @pytest.mark.parametrize("length", [500, 501])
@@ -7998,12 +7886,10 @@ def test_source_preview_preserves_wire_fields_and_truncation_boundary(
             {
                 "index": 2,
                 "content": preview,
-                "text": preview,
                 "truncated": length > 500,
                 "filename": "paper.pdf",
                 "document_id": "doc",
                 "section_title": "",
-                "page": None,
                 "page_number": None,
                 "score": 0.877,
             }
@@ -8013,7 +7899,7 @@ def test_source_preview_preserves_wire_fields_and_truncation_boundary(
     }
 
 
-def test_sources_keep_sparse_citation_indices_and_page_aliases(source_client, pipeline):
+def test_sources_keep_sparse_citation_indices_and_page_numbers(source_client, pipeline):
     pipeline.query.return_value.answer = "Answer [2] [4]."
     pipeline.query.return_value.sources.append(
         Source(
@@ -8033,41 +7919,8 @@ def test_sources_keep_sparse_citation_indices_and_page_aliases(source_client, pi
     data = response.json()
     assert data["answer"] == "Answer [2] [4]."
     assert [source["index"] for source in data["sources"]] == [2, 4]
-    assert data["sources"][1]["page"] == data["sources"][1]["page_number"] == 7
+    assert data["sources"][1]["page_number"] == 7
     assert data["sources"][1]["section_title"] == "Results"
-
-
-def test_metadata_read_failure_keeps_answer_and_embedded_source_name(source_client, pipeline):
-    pipeline.list_documents.side_effect = OSError("private metadata details")
-    pipeline.query.return_value.sources[0].document_name = r"C:\papers\embedded.pdf"
-
-    response = source_client.post("/api/query", json={"question": "Evidence?"})
-
-    assert response.status_code == 200
-    assert response.json()["answer"] == "Answer [2]."
-    assert response.json()["sources"][0]["filename"] == "embedded.pdf"
-    assert response.json()["warnings"] == ["Check the cited passage."]
-    assert "private metadata details" not in response.text
-
-
-@pytest.mark.parametrize(
-    "error,status_code,detail",
-    [
-        (EmbeddingConfigError("private metadata details"), 409, "EMBEDDING_REVISION"),
-        (VectorStoreError("private metadata details"), 503, "vector index is unavailable"),
-    ],
-)
-def test_metadata_storage_failures_are_not_hidden(
-    source_client, pipeline, error, status_code, detail
-):
-    pipeline.list_documents.side_effect = error
-
-    response = source_client.post("/api/query", json={"question": "Evidence?"})
-
-    assert response.status_code == status_code
-    assert detail in response.json()["detail"]
-    assert "answer" not in response.json()
-    assert "private metadata details" not in response.text
 
 
 @pytest.fixture
@@ -8439,9 +8292,7 @@ class TestQueryDocuments:
             confidence=0.92,
             processing_time_ms=150.5,
         )
-        route_rag.list_documents.return_value = [
-            {"id": "doc_123", "filename": "test.pdf", "original_filename": "test.pdf"}
-        ]
+        route_rag.list_documents.return_value = [{"id": "doc_123", "filename": "test.pdf"}]
 
         response = route_client.post(
             "/api/query", json={"question": "What is the capital of France?"}
@@ -8551,8 +8402,8 @@ class TestQueryDocuments:
             processing_time_ms=200.0,
         )
         route_rag.list_documents.return_value = [
-            {"id": "doc_1", "filename": "paper1.pdf", "original_filename": "paper1.pdf"},
-            {"id": "doc_2", "filename": "paper2.pdf", "original_filename": "paper2.pdf"},
+            {"id": "doc_1", "filename": "paper1.pdf"},
+            {"id": "doc_2", "filename": "paper2.pdf"},
         ]
 
         response = route_client.post("/api/query", json={"question": "What did the research show?"})
@@ -8594,8 +8445,6 @@ class TestQueryDocuments:
             confidence=0.9,
             processing_time_ms=100.0,
         )
-        route_rag.list_documents.return_value = []
-
         response = route_client.post("/api/query", json={"question": "What is this?"})
 
         assert response.status_code == 200
@@ -8622,7 +8471,6 @@ class TestListDocuments:
             {
                 "id": "doc_1",
                 "filename": "paper1.pdf",
-                "original_filename": "paper1.pdf",
                 "word_count": 1000,
                 "chunk_count": 5,
                 "file_type": "pdf",
@@ -8631,7 +8479,6 @@ class TestListDocuments:
             {
                 "id": "doc_2",
                 "filename": "paper2.pdf",
-                "original_filename": "paper2.pdf",
                 "word_count": 800,
                 "chunk_count": 4,
                 "file_type": "pdf",
@@ -8665,9 +8512,9 @@ class TestListDocuments:
         assert route_client.get("/api/documents?offset=-1").status_code == 422
 
 
-class TestGetStatus:
-    def test_get_status_success(self, route_client, route_rag):
-        response = route_client.get("/api/status")
+class TestHealthStatistics:
+    def test_health_reports_collection_totals(self, route_client, route_rag):
+        response = route_client.get("/api/health")
 
         assert response.status_code == 200
         data = response.json()
@@ -8678,6 +8525,9 @@ class TestGetStatus:
         assert data["llm_available"] is True
         assert data["llm_model"] == "llama3.2:3b"
         assert data["embedding_model"] == "all-MiniLM-L6-v2"
+
+    def test_status_route_is_gone(self, route_client):
+        assert route_client.get("/api/status").status_code == 404
 
 
 class TestDeleteDocument:
@@ -8774,13 +8624,6 @@ class TestRouteErrors:
                 "Failed to retrieve documents",
             ),
             (
-                "GET",
-                "/api/status",
-                "get_stats",
-                Exception("Database error"),
-                "Failed to retrieve status",
-            ),
-            (
                 "DELETE",
                 "/api/documents/doc_123",
                 "delete_document",
@@ -8802,7 +8645,7 @@ class TestRouteErrors:
                 "Failed to clear documents",
             ),
         ],
-        ids=["ingest", "query", "inventory", "status", "delete", "invalid-metadata", "clear"],
+        ids=["ingest", "query", "inventory", "delete", "invalid-metadata", "clear"],
     )
     def test_backend_errors_are_reported(
         self, route_client, route_rag, method, path, operation, error, message
@@ -8866,9 +8709,7 @@ class TestEmbeddingConfigErrors:
         assert "original documents" in detail
         assert "private embedding metadata" not in detail
 
-    @pytest.mark.parametrize(
-        "path", ["/api/health", "/api/status", "/api/documents", "/api/metrics"]
-    )
+    @pytest.mark.parametrize("path", ["/api/health", "/api/documents", "/api/metrics"])
     def test_count_conflict_is_not_reported_as_empty_or_healthy(
         self, application_client, route_rag, path
     ):
@@ -8877,14 +8718,10 @@ class TestEmbeddingConfigErrors:
 
         self.assert_conflict(application_client.get(path))
 
-    @pytest.mark.parametrize("failed_method", ["query", "list_documents"])
     def test_query_conflict_is_actionable_and_does_not_expose_metadata(
-        self, application_client, route_rag, failed_method
+        self, application_client, route_rag
     ):
-        route_rag.query.return_value = RAGResponse("Answer.", [], 0.0)
-        getattr(route_rag, failed_method).side_effect = EmbeddingConfigError(
-            "private embedding metadata"
-        )
+        route_rag.query.side_effect = EmbeddingConfigError("private embedding metadata")
 
         response = application_client.post("/api/query", json={"question": "What was measured?"})
 
@@ -8982,7 +8819,6 @@ class TestStorageErrors:
         ("method", "path", "failed_method"),
         [
             ("GET", "/api/health", "get_stats"),
-            ("GET", "/api/status", "get_stats"),
             ("GET", "/api/documents", "get_document_inventory"),
             ("GET", "/api/metrics", "get_stats"),
             ("POST", "/api/query", "query"),
@@ -9053,7 +8889,7 @@ class TestApiKeyAuth:
         with patch(
             "scinexusrag.api.security.get_settings", return_value=_route_settings(api_key="secret")
         ):
-            response = route_client.get("/api/status", headers={"X-API-Key": key} if key else {})
+            response = route_client.get("/api/health", headers={"X-API-Key": key} if key else {})
 
         assert response.status_code == 401
         route_rag.get_stats.assert_not_called()
@@ -9062,7 +8898,7 @@ class TestApiKeyAuth:
         with patch(
             "scinexusrag.api.security.get_settings", return_value=_route_settings(api_key="secret")
         ):
-            response = route_client.get("/api/status", headers={"X-API-Key": "secret"})
+            response = route_client.get("/api/health", headers={"X-API-Key": "secret"})
             assert response.status_code == 200
 
 

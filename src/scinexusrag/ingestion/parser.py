@@ -111,9 +111,7 @@ class DocumentParser:
             doc = self.parse(tmp_path)
             doc.id = self._generate_id(Path(filename), doc.content)
             doc.metadata["filename"] = filename
-            doc.metadata["original_filename"] = filename
             doc.metadata["file_type"] = extension.lstrip(".")
-            doc.metadata["display_name"] = filename
             return doc
 
     def _parse_pdf(self, path: Path) -> tuple[str, list[Section]]:

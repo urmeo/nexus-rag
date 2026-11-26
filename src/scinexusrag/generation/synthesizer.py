@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from scinexusrag.generation.llm import LLMClient, LLMError
 from scinexusrag.generation.query_analyzer import QueryType
 from scinexusrag.retrieval.dense import RetrievalResult
-from scinexusrag.utils.filenames import resolve_display_name
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +114,6 @@ class Synthesizer:
         self,
         query: str,
         results: list[RetrievalResult],
-        doc_names: dict[str, str] | None = None,
         query_type: QueryType | None = None,
     ) -> SynthesisPrompt:
         if not results:
@@ -127,7 +125,7 @@ class Synthesizer:
 
         sources: list[Source] = []
         context_length = 0
-        for source in self._build_sources(results, doc_names or {})[: self.max_sources]:
+        for source in self._build_sources(results)[: self.max_sources]:
             block_length = len(self._format_sources_for_llm([source])) + (1 if sources else 0)
             if context_length + block_length > self.max_context_length:
                 break
@@ -144,10 +142,9 @@ class Synthesizer:
         self,
         query: str,
         results: list[RetrievalResult],
-        doc_names: dict[str, str] | None = None,
         query_type: QueryType | None = None,
     ) -> SynthesisResult:
-        prepared = self.prepare(query, results, doc_names, query_type)
+        prepared = self.prepare(query, results, query_type)
         if prepared.error:
             return SynthesisResult(answer=prepared.error, sources=[], error=prepared.error)
 
@@ -168,59 +165,31 @@ class Synthesizer:
 
         return SynthesisResult(answer=answer, sources=prepared.sources)
 
-    def _build_sources(
-        self, results: list[RetrievalResult], doc_names: dict[str, str]
-    ) -> list[Source]:
+    @staticmethod
+    def _build_sources(results: list[RetrievalResult]) -> list[Source]:
         sources: list[Source] = []
         seen_chunks = set()
-
         for result in results:
-            if result.chunk.id in seen_chunks:
-                continue
-            seen_chunks.add(result.chunk.id)
-
-            index = len(sources) + 1
             chunk = result.chunk
-            metadata = chunk.metadata
-            doc_id = chunk.document_id
-
-            document_name = f"Document {index}"
-            for name in (
-                doc_names.get(doc_id),
-                chunk.document_name,
-                resolve_display_name(metadata, fallback=""),
-            ):
-                if isinstance(name, str) and name.strip():
-                    document_name = name
-                    break
-            page_number = chunk.page_number
-            if not isinstance(page_number, int) or isinstance(page_number, bool):
-                metadata_page = metadata.get("page_number")
-                page_number = (
-                    metadata_page
-                    if isinstance(metadata_page, int) and not isinstance(metadata_page, bool)
-                    else None
-                )
-            section_title: str | None = chunk.section_title
-            if not isinstance(section_title, str) or not section_title:
-                metadata_section = metadata.get("section_title")
-                section_title = metadata_section if isinstance(metadata_section, str) else None
+            if chunk.id in seen_chunks:
+                continue
+            seen_chunks.add(chunk.id)
+            index = len(sources) + 1
+            name = chunk.document_name if chunk.document_name.strip() else f"Document {index}"
             full_context = chunk.full_context
-
             sources.append(
                 Source(
                     index=index,
                     chunk_id=chunk.id,
-                    document_id=doc_id,
+                    document_id=chunk.document_id,
                     content=chunk.content,
                     score=float(result.score),
-                    page_number=page_number,
-                    section_title=section_title,
-                    document_name=document_name,
+                    page_number=chunk.page_number,
+                    section_title=chunk.section_title or None,
+                    document_name=name,
                     full_content=full_context if full_context != chunk.content else "",
                 )
             )
-
         return sources
 
     def _format_sources_for_llm(self, sources: list[Source]) -> str:

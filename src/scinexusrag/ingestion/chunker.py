@@ -349,14 +349,5 @@ class HierarchicalChunker:
             chunk_index=index,
             start_offset=start_offset,
             end_offset=end_offset,
-            metadata={
-                **document.metadata,
-                "chunk_index": index,
-                "section_title": section_title,
-                "page_number": page_number,
-                "document_name": doc_name,
-                "original_filename": doc_name,
-                "start_offset": start_offset,
-                "end_offset": end_offset,
-            },
+            metadata=dict(document.metadata),
         )

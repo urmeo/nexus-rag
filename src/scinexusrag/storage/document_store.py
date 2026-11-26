@@ -136,7 +136,7 @@ class DocumentStore:
                 isinstance(entry[key], bool) or not isinstance(entry[key], int) or entry[key] < 0
             ):
                 raise ValueError(f"{key} must be a nonnegative integer")
-        for key in ("filename", "original_filename", "display_name", "uploaded_at", "file_type"):
+        for key in ("filename", "uploaded_at", "file_type"):
             if key in entry and not isinstance(entry[key], str):
                 raise ValueError(f"{key} must be a string")
 
@@ -170,11 +170,8 @@ class DocumentStore:
 
     def _metadata_entry(self, data: dict[str, Any]) -> dict[str, Any]:
         metadata = data.get("metadata", {})
-        name = resolve_display_name(metadata, fallback="unknown")
         entry = {
-            "filename": name,
-            "original_filename": name,
-            "display_name": name,
+            "filename": resolve_display_name(metadata, fallback="unknown"),
             "word_count": len(data["content"].split()),
             "section_count": len(data.get("sections", [])),
             "uploaded_at": datetime.now(UTC).isoformat(),
