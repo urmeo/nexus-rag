@@ -59,15 +59,6 @@ A caught generation failure, including blank output, returns an error answer, re
 
 The interface calls `POST /api/query` and displays the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first 500 characters plus `...` if truncated. Internal correction state and reasoning traces are omitted.
 
-Python's `Orchestrator.query_streaming()` and `NexusRAG.query_streaming()` emit provisional text followed by:
-
-| Event | Content |
-| --- | --- |
-| `verification` | Valid citation indices, faithfulness and warnings |
-| `verified_answer` | Complete answer with invalid citations removed |
-
-Consumers must replace provisional output with the final `answer` from the `data: {JSON}` event. Caught generation or verification failures replace it with an error message. Empty retrieval and context-limit failures also finish with an error answer and skip checks. The web interface uses the non-streaming route.
-
 Cross-encoder reranking and SPLADE are library or evaluation options, not default app stages. [Retrieval and evidence benchmarks](evaluation.md) do not establish generated-answer accuracy.
 
 ## Implementation and diagrams

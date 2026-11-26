@@ -2,7 +2,6 @@
 
 import json
 import time
-from collections.abc import Generator
 from contextlib import suppress
 from sys import float_info
 from threading import Lock
@@ -93,8 +92,6 @@ class LLMClient:
         system: str | None,
         temperature: float,
         max_tokens: int,
-        *,
-        stream: bool,
         stop: list[str] | None = None,
     ) -> dict[str, object]:
         options: dict[str, object] = {
@@ -108,7 +105,7 @@ class LLMClient:
         payload: dict[str, object] = {
             "model": self.model,
             "prompt": prompt,
-            "stream": stream,
+            "stream": False,
             "options": options,
         }
 
@@ -124,9 +121,7 @@ class LLMClient:
         max_tokens: int = 2048,
         stop: list[str] | None = None,
     ) -> str:
-        payload = self._generation_payload(
-            prompt, system, temperature, max_tokens, stream=False, stop=stop
-        )
+        payload = self._generation_payload(prompt, system, temperature, max_tokens, stop)
         response = self._post("/api/generate", payload)
         try:
             data = response.json()
@@ -148,53 +143,6 @@ class LLMClient:
         if not answer.strip():
             raise LLMError(f"LLM returned an empty response ({self._where()})")
         return answer
-
-    def stream(
-        self,
-        prompt: str,
-        system: str | None = None,
-        temperature: float = 0.1,
-        max_tokens: int = 2048,
-    ) -> Generator[str, None, None]:
-        payload = self._generation_payload(prompt, system, temperature, max_tokens, stream=True)
-
-        has_text = False
-        try:
-            with self.client.stream("POST", "/api/generate", json=payload) as response:
-                response.raise_for_status()
-                for line in response.iter_lines():
-                    if line:
-                        data = json.loads(line)
-                        if not isinstance(data, dict):
-                            raise LLMError(f"LLM stream expected a JSON object ({self._where()})")
-                        if data.get("error"):
-                            raise LLMError(
-                                f"LLM stream failed: backend reported an error ({self._where()})"
-                            )
-                        done = data.get("done", False)
-                        if not isinstance(done, bool):
-                            raise LLMError(
-                                f"LLM stream 'done' field must be a boolean ({self._where()})"
-                            )
-                        if "response" in data:
-                            token = data["response"]
-                            if not isinstance(token, str):
-                                raise LLMError(
-                                    f"LLM stream 'response' field must be a string ({self._where()})"
-                                )
-                            has_text = has_text or bool(token.strip())
-                            yield token
-                        if done:
-                            if not has_text:
-                                raise LLMError(f"LLM returned an empty response ({self._where()})")
-                            return
-                raise LLMError(f"LLM stream ended before completion ({self._where()})")
-        except httpx.HTTPStatusError as exc:
-            raise LLMError(
-                f"LLM stream failed with HTTP {exc.response.status_code} ({self._where()})"
-            ) from None
-        except (httpx.RequestError, json.JSONDecodeError) as exc:
-            raise LLMError(f"LLM stream failed: {type(exc).__name__} ({self._where()})") from None
 
     def is_available(self) -> bool:
         try:

@@ -446,22 +446,8 @@ class TestBasicPipelineWorkflow:
         deleted = pipeline_rag.delete_document("nonexistent_id")
         assert deleted is False
 
-    def test_empty_stream_ends_with_the_authoritative_answer(self, pipeline_rag: NexusRAG):
-        output = list(pipeline_rag.query_streaming("What was measured?"))
-        events = [json.loads(part.removeprefix("\ndata: ")) for part in output[1:]]
-
-        assert len(output) == 3
-        assert events[0] == {
-            "event": "verification",
-            "citations_valid": [],
-            "faithfulness": None,
-            "warnings": [output[0]],
-        }
-        assert events[1] == {"event": "verified_answer", "answer": output[0]}
-
-    @pytest.mark.parametrize("streaming", [False, True])
     def test_query_propagates_failed_storage_reads_before_returning_an_answer(
-        self, pipeline_rag: NexusRAG, monkeypatch, streaming
+        self, pipeline_rag: NexusRAG, monkeypatch
     ):
         failure = OSError("Index read failed")
         monkeypatch.setattr(
@@ -470,14 +456,10 @@ class TestBasicPipelineWorkflow:
         pipeline_rag._orchestrator = MagicMock()
 
         with pytest.raises(VectorStoreError, match="row count") as raised:
-            if streaming:
-                list(pipeline_rag.query_streaming("What was measured?"))
-            else:
-                pipeline_rag.query("What was measured?")
+            pipeline_rag.query("What was measured?")
 
         assert raised.value.__cause__ is failure
         pipeline_rag._orchestrator.query.assert_not_called()
-        pipeline_rag._orchestrator.query_streaming.assert_not_called()
 
     @pytest.mark.parametrize("lazy", [False, True])
     def test_failed_sparse_read_can_retry_without_publishing_an_empty_index(
@@ -1676,8 +1658,6 @@ class TestStoredEmbeddingConfiguration:
 
         with pytest.raises(EmbeddingConfigError):
             restarted.query("What measurements were recorded?")
-        with pytest.raises(EmbeddingConfigError):
-            list(restarted.query_streaming("What measurements were recorded?"))
 
         changed_embedder.embed_query.assert_not_called()
         restarted._llm.generate.assert_not_called()
@@ -5272,7 +5252,6 @@ def test_invalid_synthesis_limits_fail_before_generation(name, value, error):
     with pytest.raises(error, match=name):
         Synthesizer(llm, **{name: value})
     llm.generate.assert_not_called()
-    llm.stream.assert_not_called()
 
 
 @pytest.mark.parametrize("name", ["max_sources", "max_context_length"])
@@ -5343,20 +5322,6 @@ def integer_string_limit():
 def _generation_result(idx: int, content: str, score: float = 0.9) -> RetrievalResult:
     chunk = Chunk(id=f"c{idx}", content=content, document_id=f"d{idx}")
     return RetrievalResult(chunk=chunk, score=score)
-
-
-def _consume_stream(chunks: list[str]) -> tuple[str, list[dict[str, Any]]]:
-    answer = ""
-    events = []
-    for chunk in chunks:
-        if chunk.startswith("\ndata: "):
-            event = json.loads(chunk.removeprefix("\ndata: "))
-            events.append(event)
-            if event["event"] == "verified_answer":
-                answer = event["answer"]
-        else:
-            answer += chunk
-    return answer, events
 
 
 class StubLLM:
@@ -5511,19 +5476,16 @@ class TestSynthesizerFormatting:
         assert prepared.prompt.count("First passage.") == 1
         assert "Omitted passage." not in prepared.prompt
 
-    def test_regular_and_streaming_use_same_retained_sources_and_token_budget(self) -> None:
+    def test_synthesis_keeps_sources_that_fit_and_scales_the_token_budget(self) -> None:
         results = [_generation_result(i, f"Passage {i}: " + "evidence " * 145) for i in range(1, 6)]
         llm = Mock(spec=LLMClient)
         llm.generate.return_value = "Answer [2]."
-        llm.stream.return_value = iter(["Answer ", "[2]."])
         synth = Synthesizer(llm)
 
         response = synth.synthesize("What did the study find?", results)
-        streamed = "".join(synth.synthesize_streaming("What did the study find?", results))
 
-        assert streamed == response.answer
+        assert response.answer == "Answer [2]."
         assert [source.chunk_id for source in response.sources] == ["c1", "c2", "c3", "c4"]
-        assert llm.generate.call_args == llm.stream.call_args
         assert llm.generate.call_args.kwargs["max_tokens"] == 656
         prompt = llm.generate.call_args.args[0]
         assert results[4].chunk.content not in prompt
@@ -5532,7 +5494,6 @@ class TestSynthesizerFormatting:
 
 class TestOrchestratorWiring:
     @pytest.mark.usefixtures("integer_string_limit")
-    @pytest.mark.parametrize("streaming", [False, True])
     @pytest.mark.parametrize(
         ("digits", "valid", "warning"),
         [
@@ -5545,36 +5506,23 @@ class TestOrchestratorWiring:
         ids=["unparseable", "leading-zeros", "unicode-leading-zeros", "zero", "invalid-index"],
     )
     def test_long_citations_do_not_interrupt_the_final_answer(
-        self, streaming: bool, digits: str, valid: bool, warning: str | None
+        self, digits: str, valid: bool, warning: str | None
     ) -> None:
         citation = f"[{digits}]"
         raw_answer = f"Claim {citation}. Known [1]."
         expected = raw_answer if valid else "Claim. Known [1]."
 
         def reply(request: httpx.Request) -> httpx.Response:
-            if json.loads(request.content)["stream"]:
-                records = [{"response": raw_answer}, {"done": True}]
-                return httpx.Response(200, text="\n".join(json.dumps(row) for row in records))
             return httpx.Response(200, json={"response": raw_answer})
 
         with LLMClient() as llm:
             llm._client = httpx.Client(base_url=llm.base_url, transport=httpx.MockTransport(reply))
             orch = Orchestrator(StubRetriever([_generation_result(1, "evidence")]), llm)  # type: ignore[arg-type]
+            response = orch.query("What was measured?")
 
-            if streaming:
-                chunks = list(orch.query_streaming("What was measured?"))
-                answer, events = _consume_stream(chunks)
-                assert chunks[:-2] == [raw_answer]
-                assert events[-1] == {"event": "verified_answer", "answer": expected}
-                assert events[0]["citations_valid"] == ([1, 1] if valid else [1])
-                warnings = events[0]["warnings"]
-            else:
-                response = orch.query("What was measured?")
-                answer, warnings = response.answer, response.warnings
-                assert [source.index for source in response.sources] == [1]
-
-        assert answer == expected
-        assert warnings == ([] if warning is None else [warning])
+        assert [source.index for source in response.sources] == [1]
+        assert response.answer == expected
+        assert response.warnings == ([] if warning is None else [warning])
 
     def test_returns_rag_response(self) -> None:
         retriever = StubRetriever([_generation_result(1, "the sky is blue")])
@@ -5642,49 +5590,20 @@ class TestOrchestratorWiring:
         with pytest.raises(KeyError):
             Orchestrator(retriever, llm).query("What did the study find?")  # type: ignore[arg-type]
 
-    @pytest.mark.parametrize(
-        ("tokens", "expected_answer", "expected_citations"),
-        [
-            (["Fact ", "[1]."], "Fact [1].", [1]),
-            (["Claim ", "[99]."], "Claim.", []),
-            (["Fact ", "[1] and [9]."], "Fact [1] and.", [1]),
-        ],
-    )
-    def test_streaming_replaces_provisional_text_with_verified_answer(
-        self, tokens: list[str], expected_answer: str, expected_citations: list[int]
-    ) -> None:
-        retriever = StubRetriever([_generation_result(1, "fact")])
-        llm = Mock(spec=LLMClient)
-        llm.stream.return_value = iter(tokens)
-        orch = Orchestrator(retriever, llm)  # type: ignore[arg-type]
-
-        chunks = list(orch.query_streaming("q?"))
-        answer, events = _consume_stream(chunks)
-
-        assert chunks[:-2] == tokens
-        assert [event["event"] for event in events] == ["verification", "verified_answer"]
-        assert events[0]["citations_valid"] == expected_citations
-        assert events[1]["answer"] == expected_answer
-        assert answer == expected_answer
-        assert "[99]" not in answer and "[9]" not in answer
-
-    def test_empty_retrieval_stream_returns_final_error_without_answer_checks(self) -> None:
+    def test_empty_retrieval_returns_an_error_answer_without_answer_checks(self) -> None:
         llm = Mock(spec=LLMClient)
         grounding = Mock(spec=StubGrounding)
         orch = Orchestrator(StubRetriever([]), llm, grounding_verifier=grounding)  # type: ignore[arg-type]
         orch.verifier = Mock(spec=AnswerVerifier)
         error = "No relevant documents found. Please upload documents and try again."
 
-        chunks = list(orch.query_streaming("What did the study find?"))
-        answer, events = _consume_stream(chunks)
+        response = orch.query("What did the study find?")
 
-        assert chunks[:-2] == [error]
-        assert answer == error
-        assert events[-1] == {"event": "verified_answer", "answer": error}
-        assert events[0]["citations_valid"] == []
-        assert events[0]["faithfulness"] is None
-        assert events[0]["warnings"] == [error]
-        llm.stream.assert_not_called()
+        assert response.answer == error
+        assert response.sources == []
+        assert response.faithfulness is None
+        assert response.warnings == [error]
+        llm.generate.assert_not_called()
         orch.verifier.verify.assert_not_called()
         grounding.verify.assert_not_called()
 
@@ -5706,10 +5625,7 @@ class TestOrchestratorWiring:
         assert all((source.full_content or source.content) in prompt for source in response.sources)
         assert results[4].chunk.content not in prompt
 
-    @pytest.mark.parametrize("streaming", [False, True])
-    def test_oversized_context_stops_before_generation_and_verification(
-        self, streaming: bool
-    ) -> None:
+    def test_oversized_context_stops_before_generation_and_verification(self) -> None:
         first = _generation_result(1, "Short main passage.")
         first.chunk.context_before = "Nearby context. " * 500
         llm = Mock(spec=LLMClient)
@@ -5721,87 +5637,14 @@ class TestOrchestratorWiring:
         )
         error = "No source passages fit the context limit."
 
-        if streaming:
-            chunks = list(orch.query_streaming("What did the study find?"))
-            answer, events = _consume_stream(chunks)
-            event = events[0]
-            assert chunks[:-2] == [error]
-            assert answer == error
-            assert events[-1] == {"event": "verified_answer", "answer": error}
-            assert event["citations_valid"] == []
-            assert event["faithfulness"] is None
-            assert event["warnings"] == [error]
-        else:
-            response = orch.query("What did the study find?")
-            assert response.answer == error
-            assert response.sources == []
-            assert response.confidence == 0.0
-            assert response.faithfulness is None
-            assert response.warnings == [error]
+        response = orch.query("What did the study find?")
 
+        assert response.answer == error
+        assert response.sources == []
+        assert response.confidence == 0.0
+        assert response.faithfulness is None
+        assert response.warnings == [error]
         llm.generate.assert_not_called()
-        llm.stream.assert_not_called()
-        grounding.verify.assert_not_called()
-
-    def test_stream_verifies_the_source_snapshot_sent_to_the_llm(self) -> None:
-        results = [_generation_result(i, f"Passage {i}: " + "evidence " * 145) for i in range(1, 6)]
-        original_contents = [result.chunk.content for result in results[:4]]
-        llm = Mock(spec=LLMClient)
-        grounding = Mock(spec=StubGrounding)
-        grounding.verify.return_value = GroundingReport(faithfulness=1.0, sentences=[])
-        orch = Orchestrator(StubRetriever(results), llm, grounding_verifier=grounding)  # type: ignore[arg-type]
-
-        def mutate_after_preparation(*args: Any, **kwargs: Any) -> Any:
-            results[0].chunk.content = "Changed after prompt construction."
-            results.clear()
-            orch.synthesizer.max_sources = 0
-            orch.synthesizer.max_context_length = 0
-            yield "Visible claim [1]. Omitted claim [5]."
-
-        llm.stream.side_effect = mutate_after_preparation
-
-        chunks = list(orch.query_streaming("What did the study find?"))
-        answer, events = _consume_stream(chunks)
-        event = events[0]
-
-        assert event["citations_valid"] == [1]
-        assert any("out-of-range" in warning for warning in event["warnings"])
-        verified_answer, sources = grounding.verify.call_args.args
-        assert "[5]" not in verified_answer
-        assert answer == verified_answer
-        assert [source.content for source in sources] == original_contents
-        assert [source.index for source in sources] == [1, 2, 3, 4]
-        prompt = llm.stream.call_args.args[0]
-        assert all(source.content in prompt for source in sources)
-
-    @pytest.mark.parametrize("partial", [False, True])
-    def test_failed_stream_reports_failure_without_grounding_partial_text(
-        self, partial: bool
-    ) -> None:
-        def failed_stream(*args: Any, **kwargs: Any) -> Any:
-            if partial:
-                yield "Partial answer [1]."
-            raise LLMError("model unavailable")
-
-        llm = Mock(spec=LLMClient)
-        llm.stream.side_effect = failed_stream
-        grounding = Mock(spec=StubGrounding)
-        grounding.verify.return_value = GroundingReport(faithfulness=0.8, sentences=[])
-        orch = Orchestrator(  # type: ignore[arg-type]
-            StubRetriever([_generation_result(1, "evidence")]), llm, grounding_verifier=grounding
-        )
-
-        chunks = list(orch.query_streaming("What did the study find?"))
-        answer, events = _consume_stream(chunks)
-        event = events[0]
-
-        assert chunks[-3] == "Unable to generate response."
-        assert "Partial answer" not in answer
-        assert answer == "Unable to generate response."
-        assert events[-1] == {"event": "verified_answer", "answer": answer}
-        assert event["warnings"] == ["Answer generation failed."]
-        assert event["faithfulness"] is None
-        assert event["citations_valid"] == []
         grounding.verify.assert_not_called()
 
 
@@ -5874,47 +5717,6 @@ class TestLLMResponseValidation:
         with _llm_response(httpx.Response(200, text=json.dumps(payload))) as client:
             with pytest.raises(LLMError, match="string 'response' field"):
                 client.generate("question")
-
-    @pytest.mark.parametrize(
-        ("body", "error"),
-        [
-            ("[]", "JSON object"),
-            ('{"response": null}', "must be a string"),
-            ('{"response": 42}', "must be a string"),
-            ('{"error": "model was unloaded"}', "backend reported an error"),
-            ('{"done": "false"}', "must be a boolean"),
-            ("invalid JSON", "stream failed"),
-        ],
-    )
-    def test_stream_rejects_invalid_records(self, body: str, error: str) -> None:
-        with _llm_response(httpx.Response(200, text=body)) as client:
-            with pytest.raises(LLMError, match=error):
-                list(client.stream("question"))
-
-    @pytest.mark.parametrize("body", ["", '{"response": "Partial answer"}\n'])
-    def test_stream_requires_completion_record(self, body: str) -> None:
-        with _llm_response(httpx.Response(200, text=body)) as client:
-            with pytest.raises(LLMError, match="before completion"):
-                list(client.stream("question"))
-
-    def test_stream_accepts_completed_answer(self) -> None:
-        body = '{"response": "Complete answer"}\n{"done": true}\n'
-        with _llm_response(httpx.Response(200, text=body)) as client:
-            assert list(client.stream("question")) == ["Complete answer"]
-
-    @pytest.mark.parametrize("answer", ["", " \n\t"])
-    def test_stream_rejects_empty_completed_answers(self, answer: str) -> None:
-        with _llm_response(httpx.Response(200, json={"response": answer, "done": True})) as client:
-            with pytest.raises(LLMError, match="empty response"):
-                list(client.stream("question"))
-
-    def test_stream_surfaces_an_error_after_partial_output(self) -> None:
-        body = '{"response": "Partial answer"}\n{"error": "model was unloaded"}\n'
-        with _llm_response(httpx.Response(200, text=body)) as client:
-            tokens = client.stream("question")
-            assert next(tokens) == "Partial answer"
-            with pytest.raises(LLMError, match="backend reported an error"):
-                next(tokens)
 
     @pytest.mark.parametrize("payload", [[], None])
     def test_readiness_rejects_non_object_json(self, payload: Any) -> None:
@@ -6166,12 +5968,11 @@ def test_model_readiness_probe_does_not_wait_for_the_generation_timeout(configur
     assert timeouts == [dict.fromkeys(("connect", "read", "write", "pool"), probe)]
 
 
-def test_generate_and_stream_share_generation_options():
+def test_generate_sends_generation_options():
     requests = []
 
     def respond(request):
-        payload = json.loads(request.content)
-        requests.append(payload)
+        requests.append(json.loads(request.content))
         return httpx.Response(200, json={"response": "Answer.", "done": True})
 
     with LLMClient(model="custom-model") as llm:
@@ -6180,21 +5981,16 @@ def test_generate_and_stream_share_generation_options():
             llm.generate("Question", system="Instructions", temperature=0.2, max_tokens=17)
             == "Answer."
         )
-        assert list(
-            llm.stream("Question", system="Instructions", temperature=0.2, max_tokens=17)
-        ) == ["Answer."]
 
-    assert [request.pop("stream") for request in requests] == [False, True]
-    assert (
-        requests[0]
-        == requests[1]
-        == {
+    assert requests == [
+        {
             "model": "custom-model",
             "prompt": "Question",
-            "system": "Instructions",
+            "stream": False,
             "options": {"temperature": 0.2, "num_predict": 17, "top_p": 0.9},
+            "system": "Instructions",
         }
-    )
+    ]
 
 
 def test_generate_preserves_stop_sequences():
@@ -6323,19 +6119,10 @@ def _failed_backend(base_url, failure):
 @pytest.mark.parametrize(
     "failure", ["timeout", "connect", "http_400", "http_503", "unicode", "json", "backend"]
 )
-@pytest.mark.parametrize("streaming", [False, True])
-def test_backend_errors_and_tracebacks_omit_private_url_components(
-    private_backend, failure, streaming
-):
+def test_backend_errors_and_tracebacks_omit_private_url_components(private_backend, failure):
     base_url, secrets = private_backend
-    with (
-        _failed_backend(base_url, failure) as client,
-        pytest.raises(LLMError) as raised,
-    ):
-        if streaming:
-            list(client.stream("Question"))
-        else:
-            client.generate("Question")
+    with _failed_backend(base_url, failure) as client, pytest.raises(LLMError) as raised:
+        client.generate("Question")
     error = raised.value
     diagnostic = str(error) + repr(error) + "".join(traceback.format_exception(error))
     assert "base_url=http://localhost:11434" in diagnostic
@@ -6348,19 +6135,12 @@ def test_backend_errors_and_tracebacks_omit_private_url_components(
 @pytest.mark.parametrize(
     "failure", ["timeout", "connect", "http_400", "http_503", "unicode", "json", "backend"]
 )
-@pytest.mark.parametrize("streaming", [False, True])
-def test_generation_logs_omit_private_backend_url(private_backend, failure, streaming, caplog):
+def test_generation_logs_omit_private_backend_url(private_backend, failure, caplog):
     base_url, secrets = private_backend
     results = [RetrievalResult(Chunk(id="passage", document_id="paper", content="A finding."), 0.8)]
     with _failed_backend(base_url, failure) as client, caplog.at_level(logging.ERROR):
-        if streaming:
-            retriever = Mock()
-            retriever.retrieve.return_value = results
-            output = list(Orchestrator(retriever, client).query_streaming("Question"))
-            assert "Unable to generate response." in "".join(output)
-        else:
-            result = Synthesizer(client).synthesize("Question", results)
-            assert result.error == "Answer generation failed."
+        result = Synthesizer(client).synthesize("Question", results)
+        assert result.error == "Answer generation failed."
     assert caplog.records
     assert "base_url=http://localhost:11434" in caplog.text
     assert all(secret not in caplog.text for secret in secrets)
@@ -6996,37 +6776,11 @@ def orchestrator():
     retriever.retrieve_traced.return_value = (results, False)
     llm = Mock(spec=LLMClient)
     llm.generate.return_value = "A claim [1]."
-    llm.stream.return_value = iter(["A claim [1].", " Unsupported [99]."])
     return Orchestrator(retriever, llm)
 
 
 @pytest.mark.parametrize("stage", ["citations", "grounding"])
-def test_failed_stream_verification_replaces_provisional_answer(orchestrator, stage):
-    if stage == "grounding":
-        orchestrator.grounding_verifier = Mock(spec=GroundingVerifier)
-        verifier = orchestrator.grounding_verifier
-    else:
-        orchestrator.verifier = Mock(spec=AnswerVerifier)
-        verifier = orchestrator.verifier
-    verifier.verify.side_effect = RuntimeError("Verification unavailable")
-
-    chunks = list(orchestrator.query_streaming("What was measured?"))
-    events = [json.loads(chunk.removeprefix("\ndata: ")) for chunk in chunks[-2:]]
-
-    assert chunks[:-2] == ["A claim [1].", " Unsupported [99]."]
-    assert events == [
-        {
-            "event": "verification",
-            "citations_valid": [],
-            "faithfulness": None,
-            "warnings": ["Answer verification failed."],
-        },
-        {"event": "verified_answer", "answer": "Unable to verify response."},
-    ]
-
-
-@pytest.mark.parametrize("stage", ["citations", "grounding"])
-def test_nonstreaming_verification_errors_still_propagate(orchestrator, stage):
+def test_verification_errors_propagate(orchestrator, stage):
     if stage == "grounding":
         orchestrator.grounding_verifier = Mock(spec=GroundingVerifier)
         verifier = orchestrator.grounding_verifier
@@ -7072,35 +6826,23 @@ def test_invalid_retrieval_limit_fails_before_models(orchestrator, top_k):
     orchestrator.retriever.retrieve.assert_not_called()
     orchestrator.retriever.retrieve_traced.assert_not_called()
     orchestrator.llm.generate.assert_not_called()
-    orchestrator.llm.stream.assert_not_called()
 
 
-@pytest.mark.parametrize("streaming", [False, True])
 @pytest.mark.parametrize("question", ["", "  ", "\n\t", None, 1, b"Question"])
-def test_invalid_question_fails_before_retrieval(orchestrator, question, streaming):
+def test_invalid_question_fails_before_retrieval(orchestrator, question):
     error = ValueError if isinstance(question, str) else TypeError
     with pytest.raises(error, match="Question"):
-        if streaming:
-            list(orchestrator.query_streaming(question))
-        else:
-            orchestrator.query(question)
+        orchestrator.query(question)
 
     orchestrator.retriever.retrieve.assert_not_called()
     orchestrator.retriever.retrieve_traced.assert_not_called()
     orchestrator.llm.generate.assert_not_called()
-    orchestrator.llm.stream.assert_not_called()
 
 
-@pytest.mark.parametrize("streaming", [False, True])
-def test_question_whitespace_is_trimmed_before_retrieval(orchestrator, streaming):
-    if streaming:
-        list(orchestrator.query_streaming("  What was measured? \n"))
-        retrieval = orchestrator.retriever.retrieve
-    else:
-        orchestrator.query("  What was measured? \n")
-        retrieval = orchestrator.retriever.retrieve_traced
+def test_question_whitespace_is_trimmed_before_retrieval(orchestrator):
+    orchestrator.query("  What was measured? \n")
 
-    retrieval.assert_called_once_with("What was measured?", top_k=5)
+    orchestrator.retriever.retrieve_traced.assert_called_once_with("What was measured?", top_k=5)
 
 
 def test_falsey_metadata_store_still_supplies_document_names(orchestrator):
@@ -7126,16 +6868,10 @@ def test_falsey_metadata_store_still_supplies_document_names(orchestrator):
         "  Claim [1].\n\n\n    Supporting detail.\n",
     ],
 )
-def test_complete_and_streamed_answers_preserve_the_same_layout(orchestrator, answer):
+def test_complete_answers_preserve_their_layout(orchestrator, answer):
     orchestrator.llm.generate.return_value = answer
-    orchestrator.llm.stream.return_value = iter([answer])
 
-    response = orchestrator.query("What was measured?")
-    chunks = list(orchestrator.query_streaming("What was measured?"))
-    final = json.loads(chunks[-1].removeprefix("\ndata: "))
-
-    assert response.answer == answer
-    assert final == {"event": "verified_answer", "answer": answer}
+    assert orchestrator.query("What was measured?").answer == answer
 
 
 def _assert_section_spans(document):

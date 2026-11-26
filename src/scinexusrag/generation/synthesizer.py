@@ -2,7 +2,6 @@
 
 import logging
 import math
-from collections.abc import Generator
 from dataclasses import dataclass
 
 from scinexusrag.generation.llm import LLMClient, LLMError
@@ -171,26 +170,6 @@ class Synthesizer:
             )
 
         return SynthesisResult(answer=answer, sources=prepared.sources, raw_response=answer)
-
-    def synthesize_streaming(
-        self,
-        query: str,
-        results: list[RetrievalResult],
-        doc_names: dict[str, str] | None = None,
-        query_type: QueryType | None = None,
-    ) -> Generator[str, None, None]:
-        yield from self.stream_prepared(self.prepare(query, results, doc_names, query_type))
-
-    def stream_prepared(self, prepared: SynthesisPrompt) -> Generator[str, None, None]:
-        if prepared.error:
-            yield prepared.error
-            return
-        yield from self.llm.stream(
-            prepared.prompt,
-            system=SYSTEM_PROMPT,
-            temperature=self.temperature,
-            max_tokens=self._token_budget(prepared.sources),
-        )
 
     def _build_sources(
         self, results: list[RetrievalResult], doc_names: dict[str, str]

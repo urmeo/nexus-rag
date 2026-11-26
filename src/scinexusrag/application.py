@@ -1,10 +1,9 @@
 """Document workflow."""
 
 import gc
-import json
 import logging
 import threading
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -320,23 +319,6 @@ class NexusRAG:
             )
 
         return self.orchestrator.query(question)
-
-    def query_streaming(self, question: str) -> Generator[str, None, None]:
-        self.vector_store.validate_embedding_config(self.embedder.embedding_config)
-        if self.vector_store.count() == 0:
-            error = "No documents have been uploaded yet. Please upload research papers first."
-            yield error
-            verification = {
-                "event": "verification",
-                "citations_valid": [],
-                "faithfulness": None,
-                "warnings": [error],
-            }
-            yield f"\ndata: {json.dumps(verification)}\n\n"
-            yield f"\ndata: {json.dumps({'event': 'verified_answer', 'answer': error})}\n\n"
-            return
-
-        yield from self.orchestrator.query_streaming(question)
 
     def delete_document(self, document_id: str) -> bool:
         with self._write_lock:

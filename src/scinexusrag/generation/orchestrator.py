@@ -1,9 +1,8 @@
 """Answer orchestration."""
 
-import json
 import logging
 import time
-from collections.abc import Generator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -102,63 +101,6 @@ class Orchestrator:
             faithfulness=faithfulness,
             corrected=corrected,
         )
-
-    def query_streaming(self, question: str) -> Generator[str, None, None]:
-        """Verified stream."""
-        analyzed, question = self._prepare_question(question)
-        results = self.retriever.retrieve(question, top_k=self.top_k)
-        doc_names = self._document_names(results)
-        prepared = self.synthesizer.prepare(
-            question, results, doc_names=doc_names, query_type=analyzed.query_type
-        )
-
-        chunks: list[str] = []
-        citations_valid: list[int]
-        try:
-            for token in self.synthesizer.stream_prepared(prepared):
-                chunks.append(token)
-                yield token
-        except Exception:
-            logger.exception("Streaming generation failed")
-            answer = "Unable to generate response."
-            yield answer
-            citations_valid = []
-            faithfulness = None
-            warnings = ["Answer generation failed."]
-        else:
-            if prepared.error:
-                answer = prepared.error
-                citations_valid = []
-                faithfulness = None
-                warnings = [prepared.error]
-            else:
-                answer = "".join(chunks)
-                try:
-                    verification, faithfulness, warnings = self._verify_answer(
-                        answer, prepared.sources
-                    )
-                except Exception:
-                    logger.exception("Streaming answer verification failed")
-                    answer = "Unable to verify response."
-                    citations_valid = []
-                    faithfulness = None
-                    warnings = ["Answer verification failed."]
-                else:
-                    answer = verification.verified_answer
-                    citations_valid = verification.citations_valid
-
-        for warning in warnings:
-            logger.warning("streaming verification: %s", warning)
-
-        event = {
-            "event": "verification",
-            "citations_valid": citations_valid,
-            "faithfulness": faithfulness,
-            "warnings": warnings,
-        }
-        yield f"\ndata: {json.dumps(event)}\n\n"
-        final = {"event": "verified_answer", "answer": answer}
-        yield f"\ndata: {json.dumps(final)}\n\n"
 
     def _prepare_question(self, question: str) -> tuple[AnalyzedQuery, str]:
         if not isinstance(question, str):
