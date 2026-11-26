@@ -9,7 +9,7 @@ NexusRAG indexes documents, retrieves passages and sends them to Ollama for an a
 | Stage | Behavior |
 | --- | --- |
 | Read | Extract text from PDF, DOCX, Markdown or UTF-8 text. Save parsed JSON, not the original upload. |
-| Split | Pack sections and paragraphs into passages: target 1,200 characters, maximum 1,500, paragraph overlap up to 300. Keep character offsets in normalized text and attach up to 150 characters of nearby context on each side where offsets are available. |
+| Split | Pack sections and paragraphs into passages: target 1,200 characters, maximum 1,500, paragraph overlap up to 300. Words longer than a passage, such as base64 data, are split. Keep character offsets in normalized text and attach up to 150 characters of nearby context on each side where offsets are available. |
 | Index | Encode passage text with BGE-small, store vectors in LanceDB and update in-memory BM25. |
 
 PDFs need embedded text; encrypted files are rejected and there is no OCR. DOCX extraction reads body paragraphs and tables, including nested table text, in document order. Cells become pipe-separated text; table layout, headers, footers and image text are not preserved.
@@ -57,9 +57,9 @@ NLI receives the same complete sources as generation, including nearby context. 
 
 A caught generation failure, including blank output, returns an error answer, retained sources, zero confidence and a warning; checks are skipped. Other retrieval, storage or NLI failures can return an HTTP error. Vector-index read failures return **503**, rather than an empty-corpus message; Python raises `VectorStoreError` with the original cause.
 
-The interface calls `POST /api/query` and displays the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first 500 characters plus `...` if truncated. Internal correction state and reasoning traces are omitted.
+The interface calls `POST /api/query` and displays the answer, up to five source excerpts, confidence, processing time and warnings. Excerpts contain the first 500 characters plus `...` if truncated. The response does not say whether a feedback search ran.
 
-Cross-encoder reranking and SPLADE are library or evaluation options, not default app stages. [Retrieval and evidence benchmarks](evaluation.md) do not establish generated-answer accuracy.
+Cross-encoder reranking is a library option and SPLADE an evaluation baseline; neither is a default app stage. [Retrieval and evidence benchmarks](evaluation.md) do not establish generated-answer accuracy.
 
 ## Implementation and diagrams
 
@@ -82,9 +82,9 @@ Tokenizers, dependencies, documents and indexes need additional space. Peak RAM 
 
 | Location | Contents |
 | --- | --- |
-| `src/scinexusrag/` | API, document workflow, ingestion, retrieval, generation, storage, utilities and web interface |
+| `src/scinexusrag/` | API, application workflow, shared data models, ingestion, retrieval, generation, storage, utilities and web interface |
 | `src/scinexusrag/eval/` | Datasets, metrics, reports, sample data and regression thresholds |
-| `tests/` | Python unit/integration and JavaScript interface tests |
+| `tests/` | Python tests for each package, shared fixtures and JavaScript interface tests |
 | `assets/` | Pipeline diagrams, Figma snapshot and upload recording |
 | `outputs/results/` | Published CSV measurements, provenance and charts |
 | `outputs/generated/` | Fresh JSON runs and reports to review before publication |

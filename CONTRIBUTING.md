@@ -51,8 +51,10 @@ Set environment variables or use an ignored root `.env` file. Never commit secre
 | `SELF_CORRECTION_ENABLED` | `true` | One feedback search when dense similarity is low |
 | `SELF_CORRECTION_GROUNDING_ENABLED` | `false` | Optional NLI sentence checks |
 | `API_HOST` | `127.0.0.1` | Listening address |
+| `API_PORT` | `8000` | Listening port, 1–65535 |
 | `NEXUSRAG_API_KEY` | Empty | Require a key on `/api` routes |
 | `NEXUSRAG_FRONTEND_DIR` | Bundled `web/` | Custom interface directory |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR` for package logs |
 
 Indexes bind to the embedding model, revision, query and document prefixes, normalization and dimension. Missing or mismatched settings block access, including empty indexes. Custom models require a 40-character commit SHA in `EMBEDDING_REVISION`; local model paths are unsupported.
 
