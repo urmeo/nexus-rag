@@ -1,7 +1,6 @@
 """API application."""
 
 import logging
-import os
 from pathlib import Path
 
 import uvicorn
@@ -108,8 +107,8 @@ def create_app() -> FastAPI:
 
     app.include_router(router)
 
-    frontend_dir = Path(
-        os.environ.get("NEXUSRAG_FRONTEND_DIR") or Path(__file__).resolve().parents[1] / "web"
+    frontend_dir = (
+        settings.api.frontend_dir or Path(__file__).resolve().parents[1] / "web"
     ).resolve()
     if frontend_dir.is_dir():
         frontend = StaticFiles(directory=frontend_dir)

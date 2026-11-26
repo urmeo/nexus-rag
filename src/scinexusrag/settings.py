@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal, Self
 
 from dotenv import load_dotenv
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 load_dotenv()
@@ -101,7 +101,7 @@ class APISettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="API_")
 
     host: str = "127.0.0.1"
-    port: int = 8000
+    port: int = Field(default=8000, ge=1, le=65535)
     cors_origins: list[str] = ["http://localhost:8000", "http://127.0.0.1:8000"]
 
     api_key: str = Field(default="", validation_alias="NEXUSRAG_API_KEY", repr=False, exclude=True)
@@ -113,6 +113,12 @@ class APISettings(BaseSettings):
     max_uncompressed_mb: int = Field(default=200, gt=0)
 
     docs_enabled: bool = True
+    frontend_dir: Path | None = Field(default=None, validation_alias="NEXUSRAG_FRONTEND_DIR")
+
+    @field_validator("frontend_dir", mode="before")
+    @classmethod
+    def unset_when_empty(cls, value: object) -> object:
+        return value or None
 
 
 class Settings(BaseSettings):

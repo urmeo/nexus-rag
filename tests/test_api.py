@@ -165,7 +165,13 @@ def _write_frontend(directory: Path, label: str) -> Path:
 
 
 class TestFrontendConfiguration:
-    def test_factory_reads_current_environment_and_keeps_apps_isolated(
+    @pytest.fixture(autouse=True)
+    def fresh_settings(self):
+        get_settings.cache_clear()
+        yield
+        get_settings.cache_clear()
+
+    def test_factory_uses_the_configured_frontend_and_keeps_apps_isolated(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         first = _write_frontend(tmp_path / "first", "first")
@@ -173,6 +179,7 @@ class TestFrontendConfiguration:
         monkeypatch.setenv("NEXUSRAG_FRONTEND_DIR", str(first))
         first_app = create_app()
         monkeypatch.setenv("NEXUSRAG_FRONTEND_DIR", str(second))
+        get_settings.cache_clear()
         second_app = create_app()
 
         for app, label in ((first_app, "first"), (second_app, "second")):

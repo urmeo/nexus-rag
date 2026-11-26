@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from scinexusrag.settings import (
     HF_REVISIONS,
+    APISettings,
     EmbeddingSettings,
     IngestionSettings,
     LLMSettings,
@@ -154,3 +155,18 @@ class TestSettingsLoading:
             check=True,
         )
         assert result.stdout.strip() == HF_REVISIONS["BAAI/bge-small-en-v1.5"]
+
+
+@pytest.mark.parametrize("port", ["0", "-1", "65536"])
+def test_api_port_must_be_a_tcp_port(monkeypatch, port):
+    monkeypatch.setenv("API_PORT", port)
+
+    with pytest.raises(ValidationError, match="port"):
+        APISettings()
+
+
+@pytest.mark.parametrize("value,expected", [("", None), ("custom-ui", Path("custom-ui"))])
+def test_frontend_directory_is_read_from_the_environment(monkeypatch, value, expected):
+    monkeypatch.setenv("NEXUSRAG_FRONTEND_DIR", value)
+
+    assert APISettings().frontend_dir == expected
