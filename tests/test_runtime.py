@@ -6089,6 +6089,23 @@ def test_model_readiness_rejects_invalid_unicode_body():
         assert llm.is_available() is False
 
 
+@pytest.mark.parametrize(("configured", "probe"), [(60.0, 3.0), (1.5, 1.5)])
+def test_model_readiness_probe_does_not_wait_for_the_generation_timeout(configured, probe):
+    timeouts = []
+
+    def respond(request):
+        timeouts.append(request.extensions["timeout"])
+        return httpx.Response(200, json={"models": []})
+
+    with LLMClient(timeout=configured) as llm:
+        llm._client = httpx.Client(
+            base_url=llm.base_url, transport=httpx.MockTransport(respond), timeout=configured
+        )
+        llm.is_available()
+
+    assert timeouts == [dict.fromkeys(("connect", "read", "write", "pool"), probe)]
+
+
 def test_generate_and_stream_share_generation_options():
     requests = []
 

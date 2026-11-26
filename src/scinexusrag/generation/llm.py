@@ -9,6 +9,8 @@ from threading import Lock
 
 import httpx
 
+AVAILABILITY_TIMEOUT = 3.0
+
 
 class LLMError(RuntimeError):
     """Backend failure."""
@@ -200,7 +202,7 @@ class LLMClient:
 
     def is_available(self) -> bool:
         try:
-            response = self.client.get("/api/tags")
+            response = self.client.get("/api/tags", timeout=min(self.timeout, AVAILABILITY_TIMEOUT))
             if response.status_code != 200:
                 return False
             data = response.json()
