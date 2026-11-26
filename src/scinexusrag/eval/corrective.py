@@ -102,7 +102,7 @@ def evaluate(
     embedder = Embedder(model_name=embedding_model, device="cpu")
     dense = ExactDenseRetriever(embedder, chunks)
     bm25 = BM25Retriever()
-    bm25.add(chunks)
+    bm25.rebuild(chunks)
     adaptive = AdaptiveHybridRetriever(dense, bm25, 0.5, 0.5)
 
     def base_ndcg_for(

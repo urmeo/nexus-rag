@@ -7,7 +7,7 @@ _instance: NexusRAG | None = None
 _instance_lock = threading.Lock()
 
 
-def get_scinexusrag(settings: Settings | None = None) -> NexusRAG:
+def get_nexusrag(settings: Settings | None = None) -> NexusRAG:
     global _instance
     if _instance is None:
         with _instance_lock:

@@ -13,7 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from scinexusrag.api.dependencies import get_scinexusrag
+from scinexusrag.api.dependencies import get_nexusrag
 from scinexusrag.api.metrics import get_metrics_collector
 from scinexusrag.api.security import (
     limiter,
@@ -162,7 +162,7 @@ class MetricsResponse(BaseModel):
 @router.get("/health", response_model=HealthResponse, responses={503: {"model": HealthResponse}})
 async def health_check(response: Response) -> HealthResponse:
     try:
-        rag = get_scinexusrag()
+        rag = get_nexusrag()
         stats = await asyncio.to_thread(rag.get_stats)
         return HealthResponse(
             status="ok",
@@ -247,7 +247,7 @@ async def _ingest_upload(file: UploadFile) -> UploadResponse:
 
         await asyncio.to_thread(validate_upload, extension, content, file.content_type)
 
-        rag = get_scinexusrag()
+        rag = get_nexusrag()
         result = await asyncio.to_thread(rag.ingest_bytes, content, filename, extension)
 
         if result.success:
@@ -264,7 +264,7 @@ async def _ingest_upload(file: UploadFile) -> UploadResponse:
 @limiter.limit(query_limit)
 async def query_documents(request: Request, payload: QueryRequest) -> QueryResponse:
     with _api_errors("Failed to process query", keep_http=True):
-        rag = get_scinexusrag()
+        rag = get_nexusrag()
         started = time.monotonic()
         response = await asyncio.to_thread(rag.query, payload.question)
         elapsed_ms = (time.monotonic() - started) * 1000
@@ -285,7 +285,7 @@ async def list_documents(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DocumentListResponse:
     with _api_errors("Failed to retrieve documents"):
-        rag = get_scinexusrag()
+        rag = get_nexusrag()
         inventory = await asyncio.to_thread(rag.get_document_inventory)
 
         doc_list = []
@@ -323,7 +323,7 @@ async def delete_document(document_id: str) -> DeleteResponse:
         raise HTTPException(status_code=400, detail="Invalid document ID")
 
     with _api_errors("Failed to delete document", keep_http=True):
-        rag = get_scinexusrag()
+        rag = get_nexusrag()
         success = await asyncio.to_thread(rag.delete_document, document_id)
 
         if not success:
@@ -340,7 +340,7 @@ async def delete_document(document_id: str) -> DeleteResponse:
 )
 async def clear_all_documents() -> DeleteResponse:
     with _api_errors("Failed to clear documents"):
-        rag = get_scinexusrag()
+        rag = get_nexusrag()
         await asyncio.to_thread(rag.clear_all)
 
         return DeleteResponse(success=True, message="All documents cleared")
@@ -352,7 +352,7 @@ async def get_metrics() -> MetricsResponse:
         collector = get_metrics_collector()
         stats_data = collector.snapshot()
 
-        rag = get_scinexusrag()
+        rag = get_nexusrag()
         pipeline_stats = await asyncio.to_thread(rag.get_stats)
 
         return MetricsResponse(

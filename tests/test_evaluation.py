@@ -1702,7 +1702,9 @@ def test_generation_verifies_only_sources_shown_to_generator(monkeypatch) -> Non
     retriever = SimpleNamespace(retrieve=retrieved, rrf_k=60)
     monkeypatch.setattr(datasets, "load", lambda *a, **k: ds)
     monkeypatch.setattr(generation, "ExactDenseRetriever", lambda *a, **k: object())
-    monkeypatch.setattr(generation, "BM25Retriever", lambda: SimpleNamespace(add=lambda c: None))
+    monkeypatch.setattr(
+        generation, "BM25Retriever", lambda: SimpleNamespace(rebuild=lambda c: None)
+    )
     monkeypatch.setattr(generation, "AdaptiveHybridRetriever", lambda *a, **k: retriever)
     expansion = Mock(return_value="Expanded query")
     monkeypatch.setattr(

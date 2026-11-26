@@ -185,7 +185,7 @@ class NexusRAG:
             self.document_store.add(document)
             try:
                 self.vector_store.add(chunks, embeddings)
-                self.bm25.add_incremental(chunks)
+                self.bm25.add(chunks)
                 self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
                 self._assert_indexes_synced("persist")
             except Exception:
@@ -352,7 +352,7 @@ class NexusRAG:
         with self._write_lock:
             chunks = self.vector_store.get_all_chunks()
             sparse = self._bm25 if self._bm25 is not None else BM25Retriever()
-            sparse.add(chunks)
+            sparse.rebuild(chunks)
             self._bm25 = sparse
 
     def _recover_sparse_index(self, operation: str) -> None:

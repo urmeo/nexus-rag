@@ -1238,7 +1238,7 @@ class TestIngestRollback:
         def boom(chunks):
             raise RuntimeError("simulated index failure")
 
-        monkeypatch.setattr(pipeline_rag.bm25, "add_incremental", boom)
+        monkeypatch.setattr(pipeline_rag.bm25, "add", boom)
 
         result = pipeline_rag.ingest(pipeline_text_file)
 

@@ -30,7 +30,7 @@ from starlette.requests import Request
 import scinexusrag.api.app as api
 from scinexusrag.api import metrics, routes, security
 from scinexusrag.api.app import create_app
-from scinexusrag.api.dependencies import get_scinexusrag
+from scinexusrag.api.dependencies import get_nexusrag
 from scinexusrag.api.metrics import MetricsCollector
 from scinexusrag.api.routes import MAX_FILENAME_LENGTH, QueryRequest, router
 from scinexusrag.application import DocumentInventory, IngestResult, NexusRAG, SystemStats
@@ -53,13 +53,13 @@ from scinexusrag.version import __version__
 
 
 class TestSingletonBehavior:
-    def test_get_scinexusrag_returns_same_instance(self, tmp_path):
-        first = get_scinexusrag(Settings(data_dir=tmp_path))
-        assert get_scinexusrag() is first
+    def test_get_nexusrag_returns_same_instance(self, tmp_path):
+        first = get_nexusrag(Settings(data_dir=tmp_path))
+        assert get_nexusrag() is first
 
-    def test_get_scinexusrag_with_different_settings(self, tmp_path):
-        first = get_scinexusrag(Settings(data_dir=tmp_path / "first"))
-        assert get_scinexusrag(Settings(data_dir=tmp_path / "second")) is first
+    def test_get_nexusrag_with_different_settings(self, tmp_path):
+        first = get_nexusrag(Settings(data_dir=tmp_path / "first"))
+        assert get_nexusrag(Settings(data_dir=tmp_path / "second")) is first
 
 
 class TestHealthProbe:
@@ -280,7 +280,7 @@ def cors_settings(monkeypatch, local_settings):
     def unexpected_pipeline():
         pytest.fail("Rejected requests and CORS preflights must not load the pipeline.")
 
-    monkeypatch.setattr(routes, "get_scinexusrag", unexpected_pipeline)
+    monkeypatch.setattr(routes, "get_nexusrag", unexpected_pipeline)
     return cors_settings
 
 
@@ -421,7 +421,7 @@ def test_document_page_uses_inventory_totals_without_separate_reads(monkeypatch)
     )
     pipeline.get_stats.side_effect = AssertionError("Unexpected statistics read")
     pipeline.list_documents.side_effect = AssertionError("Unexpected document read")
-    monkeypatch.setattr("scinexusrag.api.routes.get_scinexusrag", lambda: pipeline)
+    monkeypatch.setattr("scinexusrag.api.routes.get_nexusrag", lambda: pipeline)
     app = FastAPI()
     app.include_router(router)
 
@@ -646,7 +646,7 @@ def test_metrics_http_response_preserves_counts_types_and_rounding(monkeypatch, 
     )
     monkeypatch.setattr(routes, "get_metrics_collector", lambda: collector)
     monkeypatch.setattr(
-        routes, "get_scinexusrag", lambda: SimpleNamespace(get_stats=lambda: statistics)
+        routes, "get_nexusrag", lambda: SimpleNamespace(get_stats=lambda: statistics)
     )
 
     with TestClient(api.create_app(), base_url="http://localhost") as client:
@@ -699,7 +699,7 @@ def test_local_api_rejects_foreign_hosts(request_settings, monkeypatch, host):
     def unexpected_pipeline():
         pytest.fail("Rejected hosts must not read the document collection.")
 
-    monkeypatch.setattr(routes, "get_scinexusrag", unexpected_pipeline)
+    monkeypatch.setattr(routes, "get_nexusrag", unexpected_pipeline)
     response = TestClient(api.create_app(), base_url="http://localhost").get(
         "/api/documents", headers={"Host": host, "Sec-Fetch-Site": "same-origin"}
     )
@@ -810,7 +810,7 @@ def test_normal_upload_reaches_ingestion(request_settings, monkeypatch):
             error=None,
         )
 
-    monkeypatch.setattr(routes, "get_scinexusrag", lambda: SimpleNamespace(ingest_bytes=ingest))
+    monkeypatch.setattr(routes, "get_nexusrag", lambda: SimpleNamespace(ingest_bytes=ingest))
     response = TestClient(api.create_app(), base_url="http://localhost").post(
         "/api/ingest", files={"file": ("small.txt", b"safe text", "text/plain")}
     )
@@ -833,7 +833,7 @@ def test_local_api_rejects_missing_or_duplicate_hosts_before_reading_body(
     def unexpected_pipeline():
         pytest.fail("Invalid host headers must not reach the document pipeline.")
 
-    monkeypatch.setattr(routes, "get_scinexusrag", unexpected_pipeline)
+    monkeypatch.setattr(routes, "get_nexusrag", unexpected_pipeline)
     messages, consumed = asyncio.run(asgi_request(api.create_app(), headers))
     assert [
         message["status"] for message in messages if message["type"] == "http.response.start"
@@ -865,7 +865,7 @@ def test_api_rejects_invalid_or_oversized_declared_lengths_before_reading_body(
     def unexpected_pipeline():
         pytest.fail("Rejected request lengths must not reach the document pipeline.")
 
-    monkeypatch.setattr(routes, "get_scinexusrag", unexpected_pipeline)
+    monkeypatch.setattr(routes, "get_nexusrag", unexpected_pipeline)
     headers = [(b"host", b"localhost")]
     headers.extend((b"content-length", value) for value in content_lengths)
     messages, consumed = asyncio.run(asgi_request(api.create_app(), headers))
@@ -976,7 +976,7 @@ def test_invalid_document_ids_do_not_reach_pipeline(local_client, monkeypatch, d
     def unexpected_pipeline():
         pytest.fail("Invalid document IDs must be rejected before loading the pipeline.")
 
-    monkeypatch.setattr(routes, "get_scinexusrag", unexpected_pipeline)
+    monkeypatch.setattr(routes, "get_nexusrag", unexpected_pipeline)
 
     response = local_client.delete(f"/api/documents/{quote(document_id, safe='')}")
 
@@ -988,7 +988,7 @@ async def test_empty_document_id_does_not_reach_pipeline(monkeypatch):
     def unexpected_pipeline():
         pytest.fail("An empty document ID must not load the pipeline.")
 
-    monkeypatch.setattr(routes, "get_scinexusrag", unexpected_pipeline)
+    monkeypatch.setattr(routes, "get_nexusrag", unexpected_pipeline)
 
     with pytest.raises(HTTPException) as error:
         await routes.delete_document("")
@@ -1003,7 +1003,7 @@ def test_corrupt_metadata_is_reported_as_server_error(local_client, monkeypatch,
     index_path = rag.document_store.path / "_index.json"
     corrupt_index = '{"private_document_metadata":'
     index_path.write_text(corrupt_index, encoding="utf-8")
-    monkeypatch.setattr(routes, "get_scinexusrag", lambda: rag)
+    monkeypatch.setattr(routes, "get_nexusrag", lambda: rag)
 
     response = local_client.delete("/api/documents/valid_document")
 
@@ -1039,7 +1039,7 @@ def test_corrupt_document_index_is_not_reported_as_available(
     documents.mkdir()
     (documents / "_index.json").write_text('{"private_document":', encoding="utf-8")
     pipeline = NexusRAG(failure_settings)
-    monkeypatch.setattr(routes, "get_scinexusrag", lambda: pipeline)
+    monkeypatch.setattr(routes, "get_nexusrag", lambda: pipeline)
 
     response = failure_client.get(path)
 
@@ -1064,7 +1064,7 @@ def test_unreadable_pipeline_does_not_return_success(
 
     pipeline = SimpleNamespace(get_stats=fail)
     factory = fail if failure_stage == "initialization" else lambda: pipeline
-    monkeypatch.setattr(routes, "get_scinexusrag", factory)
+    monkeypatch.setattr(routes, "get_nexusrag", factory)
 
     response = failure_client.get(path)
 
@@ -1101,7 +1101,7 @@ def test_unavailable_llm_keeps_valid_pipeline_health_visible(failure_client, mon
         llm_available=False,
     )
     monkeypatch.setattr(
-        routes, "get_scinexusrag", lambda: SimpleNamespace(get_stats=lambda: statistics)
+        routes, "get_nexusrag", lambda: SimpleNamespace(get_stats=lambda: statistics)
     )
 
     response = failure_client.get("/api/health")
@@ -1128,7 +1128,7 @@ def pipeline(monkeypatch):
         processing_time_ms=12.36,
         warnings=["Check the cited passage."],
     )
-    monkeypatch.setattr(routes, "get_scinexusrag", lambda: pipeline)
+    monkeypatch.setattr(routes, "get_nexusrag", lambda: pipeline)
     return pipeline
 
 
@@ -1235,7 +1235,7 @@ def upload_app(monkeypatch, local_settings):
     pipeline = Mock(spec=NexusRAG)
     pipeline.ingest_bytes.side_effect = ingest
     factory = Mock(return_value=pipeline)
-    monkeypatch.setattr(routes, "get_scinexusrag", factory)
+    monkeypatch.setattr(routes, "get_nexusrag", factory)
     return SimpleNamespace(app=api.create_app(), pipeline=pipeline, factory=factory)
 
 
@@ -1392,7 +1392,7 @@ def route_rag(monkeypatch):
         )
 
     mock.get_document_inventory.side_effect = document_inventory
-    monkeypatch.setattr("scinexusrag.api.routes.get_scinexusrag", lambda: mock)
+    monkeypatch.setattr("scinexusrag.api.routes.get_nexusrag", lambda: mock)
 
     return mock
 
@@ -1418,7 +1418,7 @@ class TestHealthCheck:
         assert data["total_chunks"] == 10
 
     def test_health_check_with_error(self, route_client):
-        with patch("scinexusrag.api.routes.get_scinexusrag", side_effect=Exception("Test error")):
+        with patch("scinexusrag.api.routes.get_nexusrag", side_effect=Exception("Test error")):
             response = route_client.get("/api/health")
 
             assert response.status_code == 503
@@ -2053,7 +2053,7 @@ class TestEmbeddingConfigErrors:
         changed_embedder.embedding_config = replace(config, model_name="different-model")
         changed._embedder = changed_embedder
         with (
-            patch("scinexusrag.api.routes.get_scinexusrag", return_value=changed),
+            patch("scinexusrag.api.routes.get_nexusrag", return_value=changed),
             TestClient(create_app(), base_url="http://localhost") as route_client,
         ):
             self.assert_conflict(
@@ -2151,7 +2151,7 @@ class TestStorageErrors:
         embedder.embedding_config = EmbeddingConfig("fixture", "a" * 40, "", "", True, 4)
         route_rag._embedder = embedder
         with (
-            patch("scinexusrag.api.routes.get_scinexusrag", return_value=route_rag),
+            patch("scinexusrag.api.routes.get_nexusrag", return_value=route_rag),
             TestClient(create_app(), base_url="http://localhost") as route_client,
         ):
             empty = route_client.post("/api/query", json={"question": "What was measured?"})

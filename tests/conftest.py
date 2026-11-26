@@ -31,7 +31,7 @@ def _disable_rate_limits(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _reset_scinexusrag_singleton(monkeypatch: pytest.MonkeyPatch) -> None:
+def _reset_nexusrag_singleton(monkeypatch: pytest.MonkeyPatch) -> None:
     import scinexusrag.api.dependencies as dependencies
 
     monkeypatch.setattr(dependencies, "_instance", None)

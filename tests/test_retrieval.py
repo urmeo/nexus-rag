@@ -703,14 +703,14 @@ def sample_chunks():
 
 
 class TestBM25Retriever:
-    def test_add_indexes_all_chunks(self, sample_chunks):
+    def test_rebuild_indexes_all_chunks(self, sample_chunks):
         r = BM25Retriever()
-        assert r.add(sample_chunks) == 5
+        assert r.rebuild(sample_chunks) == 5
         assert r.count() == 5
 
     def test_retrieve_ranks_the_matching_chunk_first(self, sample_chunks):
         r = BM25Retriever()
-        r.add(sample_chunks)
+        r.rebuild(sample_chunks)
         results = r.retrieve("neural networks deep learning", top_k=3)
         assert results[0].chunk.id == "chunk2"
         assert all(res.source == "sparse" for res in results)
@@ -719,12 +719,14 @@ class TestBM25Retriever:
     def test_empty_index_and_empty_query(self, sample_chunks):
         assert BM25Retriever().retrieve("anything", top_k=5) == []
         r = BM25Retriever()
-        r.add(sample_chunks)
+        r.rebuild(sample_chunks)
         assert r.retrieve("", top_k=5) == []
 
     def test_single_matching_passage_with_negative_idf_is_returned(self):
         retriever = BM25Retriever()
-        retriever.add([Chunk(id="match", document_id="paper", content="kinase tumor inhibition")])
+        retriever.rebuild(
+            [Chunk(id="match", document_id="paper", content="kinase tumor inhibition")]
+        )
 
         results = retriever.retrieve("kinase")
 
@@ -740,7 +742,7 @@ class TestBM25Retriever:
     )
     def test_nonpositive_match_is_ranked_before_unmatched_passage(self, texts):
         retriever = BM25Retriever()
-        retriever.add(
+        retriever.rebuild(
             [
                 Chunk(id=f"passage{i}", document_id="paper", content=text)
                 for i, text in enumerate(texts)
@@ -754,14 +756,14 @@ class TestBM25Retriever:
 
     def test_query_without_token_overlap_returns_no_passages(self):
         retriever = BM25Retriever()
-        retriever.add([Chunk(id="one", document_id="paper", content="kinase tumor inhibition")])
+        retriever.rebuild([Chunk(id="one", document_id="paper", content="kinase tumor inhibition")])
 
         assert retriever.retrieve("cardiac disease") == []
 
     @pytest.mark.parametrize("top_k", [0, -1])
     def test_nonpositive_depth_returns_no_passages(self, sample_chunks, top_k):
         retriever = BM25Retriever()
-        retriever.add(sample_chunks)
+        retriever.rebuild(sample_chunks)
 
         assert retriever.retrieve("neural networks", top_k=top_k) == []
 
@@ -772,8 +774,8 @@ class TestBM25Retriever:
 
     def test_incremental_add_and_remove(self, sample_chunks):
         r = BM25Retriever()
-        r.add(sample_chunks[:3])
-        r.add_incremental(sample_chunks[3:])
+        r.rebuild(sample_chunks[:3])
+        r.add(sample_chunks[3:])
         assert r.count() == 5
         assert r.remove({"chunk1", "chunk2"}) == 2
         assert r.count() == 3
@@ -781,19 +783,19 @@ class TestBM25Retriever:
     def test_incremental_add_is_idempotent_by_id(self, sample_chunks):
 
         r = BM25Retriever()
+        r.rebuild(sample_chunks[:3])
         r.add(sample_chunks[:3])
-        r.add_incremental(sample_chunks[:3])
         assert r.count() == 3
-        r.add_incremental(sample_chunks[2:])
+        r.add(sample_chunks[2:])
         assert r.count() == 5
 
     @pytest.mark.parametrize("preload", [False, True])
     def test_incremental_add_deduplicates_the_new_batch(self, sample_chunks, preload):
         retriever = BM25Retriever()
         if preload:
-            retriever.add(sample_chunks[:1])
+            retriever.rebuild(sample_chunks[:1])
 
-        assert retriever.add_incremental([*sample_chunks[:2], *sample_chunks[:2]]) == 2
+        assert retriever.add([*sample_chunks[:2], *sample_chunks[:2]]) == 2
         assert retriever.count() == 2
         assert retriever.remove({sample_chunks[0].id}) == 1
         assert retriever.count() == 1
@@ -805,7 +807,7 @@ class TestBM25Retriever:
             for i, c in enumerate(["the a is", "of to in", "x y z"])
         ]
         r = BM25Retriever()
-        assert r.add(chunks) == 3
+        assert r.rebuild(chunks) == 3
         assert r.count() == 3
         assert r.retrieve("machine learning", top_k=5) == []
 
@@ -878,7 +880,7 @@ class TestHybridRetriever:
 
     def test_fusion_retains_lexical_match_with_zero_bm25_score(self):
         sparse = BM25Retriever()
-        sparse.add([Chunk(id="match", document_id="paper", content="kinase tumor inhibition")])
+        sparse.rebuild([Chunk(id="match", document_id="paper", content="kinase tumor inhibition")])
         assert sparse.retrieve("kinase")[0].score == 0.0
         dense = MagicMock()
         dense.retrieve.return_value = []
@@ -1053,7 +1055,7 @@ def test_index_retains_its_own_corpus_when_the_input_list_changes():
         Chunk(id="second", document_id="paper", content="cardiac disease"),
     ]
     retriever = BM25Retriever()
-    retriever.add(chunks)
+    retriever.rebuild(chunks)
     chunks.clear()
 
     assert retriever.count() == 2
@@ -1068,7 +1070,7 @@ def test_index_copies_passage_text_identity_and_nested_metadata():
         metadata={"units": ["mA"]},
     )
     retriever = BM25Retriever()
-    retriever.add([chunk])
+    retriever.rebuild([chunk])
     chunk.id = "changed"
     chunk.content = "cardiac disease"
     chunk.metadata["units"].append("mV")
@@ -1083,7 +1085,7 @@ def test_index_copies_passage_text_identity_and_nested_metadata():
 
 def test_mutating_a_result_does_not_change_future_results_or_removal():
     retriever = BM25Retriever()
-    retriever.add(
+    retriever.rebuild(
         [
             Chunk(
                 id="original",
@@ -1109,9 +1111,9 @@ def test_mutating_a_result_does_not_change_future_results_or_removal():
 
 def test_incremental_rebuild_copies_new_chunks():
     retriever = BM25Retriever()
-    retriever.add([Chunk(id="first", document_id="paper", content="kinase inhibition")])
+    retriever.rebuild([Chunk(id="first", document_id="paper", content="kinase inhibition")])
     fresh = Chunk(id="second", document_id="paper", content="cardiac disease")
-    retriever.add_incremental([fresh])
+    retriever.add([fresh])
     fresh.id = "changed"
     fresh.content = "unrelated text"
 
@@ -1120,32 +1122,32 @@ def test_incremental_rebuild_copies_new_chunks():
 
 def test_empty_corpus_replacement_clears_old_passages():
     retriever = BM25Retriever()
-    retriever.add([Chunk(id="old", document_id="paper", content="kinase inhibition")])
+    retriever.rebuild([Chunk(id="old", document_id="paper", content="kinase inhibition")])
 
-    assert retriever.add([]) == 0
+    assert retriever.rebuild([]) == 0
     assert retriever.count() == 0
     assert retriever.retrieve("kinase") == []
 
 
 def test_empty_incremental_batch_keeps_existing_passages():
     retriever = BM25Retriever()
-    retriever.add([Chunk(id="old", document_id="paper", content="kinase inhibition")])
+    retriever.rebuild([Chunk(id="old", document_id="paper", content="kinase inhibition")])
 
-    assert retriever.add_incremental([]) == 1
+    assert retriever.add([]) == 1
     assert retriever.count() == 1
     assert [result.chunk.id for result in retriever.retrieve("kinase")] == ["old"]
 
 
 def test_duplicate_passage_ids_are_rejected_without_changing_the_old_index():
     retriever = BM25Retriever()
-    retriever.add([Chunk(id="old", document_id="paper", content="kinase inhibition")])
+    retriever.rebuild([Chunk(id="old", document_id="paper", content="kinase inhibition")])
     duplicate_ids = [
         Chunk(id="duplicate", document_id="paper", content="cardiac disease"),
         Chunk(id="duplicate", document_id="paper", content="neural response"),
     ]
 
     with pytest.raises(ValueError, match="IDs must be unique"):
-        retriever.add(duplicate_ids)
+        retriever.rebuild(duplicate_ids)
 
     assert retriever.count() == 1
     assert [result.chunk.id for result in retriever.retrieve("kinase")] == ["old"]
@@ -1155,7 +1157,7 @@ def test_duplicate_passage_ids_are_rejected_without_changing_the_old_index():
 @pytest.mark.parametrize("operation", ["replace", "incremental", "remove"])
 def test_failed_rebuild_keeps_the_previous_index(monkeypatch, operation):
     retriever = BM25Retriever()
-    retriever.add(
+    retriever.rebuild(
         [
             Chunk(id="first", document_id="paper", content="kinase inhibition"),
             Chunk(id="second", document_id="paper", content="cardiac disease"),
@@ -1171,9 +1173,9 @@ def test_failed_rebuild_keeps_the_previous_index(monkeypatch, operation):
 
     with pytest.raises(RuntimeError, match="index construction failed"):
         if operation == "replace":
-            retriever.add(new_chunks)
+            retriever.rebuild(new_chunks)
         elif operation == "incremental":
-            retriever.add_incremental(new_chunks)
+            retriever.add(new_chunks)
         else:
             retriever.remove({"second"})
 
@@ -1184,7 +1186,7 @@ def test_failed_rebuild_keeps_the_previous_index(monkeypatch, operation):
 @pytest.mark.parametrize("chunk_ids", [set(), {"absent"}])
 def test_removing_no_passages_does_not_rebuild(monkeypatch, chunk_ids):
     retriever = BM25Retriever()
-    retriever.add([Chunk(id="old", document_id="paper", content="kinase inhibition")])
+    retriever.rebuild([Chunk(id="old", document_id="paper", content="kinase inhibition")])
 
     def fail(_corpus):
         raise AssertionError("unchanged index must not be rebuilt")
@@ -1201,7 +1203,7 @@ def test_removing_no_passages_does_not_rebuild(monkeypatch, chunk_ids):
 def test_invalid_depth_is_rejected_even_with_an_empty_index(indexed, top_k):
     retriever = BM25Retriever()
     if indexed:
-        retriever.add([Chunk(id="original", document_id="paper", content="kinase inhibition")])
+        retriever.rebuild([Chunk(id="original", document_id="paper", content="kinase inhibition")])
 
     with pytest.raises(ValueError, match="top_k must be an integer"):
         retriever.retrieve("kinase", top_k=top_k)
@@ -1212,7 +1214,7 @@ def test_invalid_depth_is_rejected_even_with_an_empty_index(indexed, top_k):
 def test_non_string_query_is_rejected_even_with_an_empty_index(indexed, query):
     retriever = BM25Retriever()
     if indexed:
-        retriever.add([Chunk(id="original", document_id="paper", content="kinase inhibition")])
+        retriever.rebuild([Chunk(id="original", document_id="paper", content="kinase inhibition")])
 
     with pytest.raises(ValueError, match="query must be a string"):
         retriever.retrieve(query)
@@ -1221,7 +1223,7 @@ def test_non_string_query_is_rejected_even_with_an_empty_index(indexed, query):
 @pytest.mark.parametrize("query,top_k", [("kinase", 0), ("kinase", -2), ("", 5), (" \n\t ", 5)])
 def test_empty_requests_do_not_tokenize_or_score_the_index(monkeypatch, query, top_k):
     retriever = BM25Retriever()
-    retriever.add([Chunk(id="original", document_id="paper", content="kinase inhibition")])
+    retriever.rebuild([Chunk(id="original", document_id="paper", content="kinase inhibition")])
 
     def fail(_query):
         raise AssertionError("empty request must not be tokenized")
@@ -1231,7 +1233,7 @@ def test_empty_requests_do_not_tokenize_or_score_the_index(monkeypatch, query, t
     assert retriever.retrieve(query, top_k=top_k) == []
 
 
-@pytest.mark.parametrize("method", ["add", "add_incremental"])
+@pytest.mark.parametrize("method", ["rebuild", "add"])
 @pytest.mark.parametrize(
     "chunks",
     [
@@ -1251,7 +1253,7 @@ def test_empty_requests_do_not_tokenize_or_score_the_index(monkeypatch, query, t
 )
 def test_malformed_corpus_inputs_never_change_the_existing_index(method, chunks):
     retriever = BM25Retriever()
-    retriever.add(
+    retriever.rebuild(
         [
             Chunk("first", "kinase inhibition", "paper"),
             Chunk("second", "cardiac disease", "paper"),
