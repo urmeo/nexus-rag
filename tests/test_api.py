@@ -28,11 +28,12 @@ from starlette.datastructures import Headers
 from starlette.requests import Request
 
 import scinexusrag.api.app as api
-from scinexusrag.api import metrics, routes, security
+from scinexusrag.api import metrics, middleware, routes, security, uploads
 from scinexusrag.api.app import create_app
 from scinexusrag.api.dependencies import get_nexusrag
 from scinexusrag.api.metrics import MetricsCollector
-from scinexusrag.api.routes import MAX_FILENAME_LENGTH, QueryRequest, router
+from scinexusrag.api.routes import MAX_FILENAME_LENGTH, router
+from scinexusrag.api.schemas import QueryRequest
 from scinexusrag.application import DocumentInventory, IngestResult, NexusRAG, SystemStats
 from scinexusrag.generation.orchestrator import RAGResponse
 from scinexusrag.generation.synthesizer import Source
@@ -707,7 +708,7 @@ def test_local_api_rejects_foreign_hosts(request_settings, monkeypatch, host):
 
 
 def test_loopback_host_rejects_unicode_case_folding():
-    assert not security.is_loopback_host("localhoſt")
+    assert not middleware.is_loopback_host("localhoſt")
 
 
 @pytest.mark.parametrize(
@@ -895,8 +896,8 @@ def test_api_stream_limit_counts_actual_bytes(content_length, overflow, asgi_req
     chunks = [b"x" * 32768, b"x" * 32768]
     if overflow:
         chunks.extend([b"x", b"unread"])
-    app = security.LoopbackHostMiddleware(
-        security.RequestBodyLimitMiddleware(_body_size_app, max_upload_bytes=1)
+    app = middleware.LoopbackHostMiddleware(
+        middleware.RequestBodyLimitMiddleware(_body_size_app, max_upload_bytes=1)
     )
 
     messages, consumed = asyncio.run(asgi_request(app, headers, chunks))
@@ -910,8 +911,8 @@ def test_api_stream_limit_counts_actual_bytes(content_length, overflow, asgi_req
 
 
 def test_concurrent_requests_have_independent_body_limits(asgi_request):
-    app = security.LoopbackHostMiddleware(
-        security.RequestBodyLimitMiddleware(_body_size_app, max_upload_bytes=1)
+    app = middleware.LoopbackHostMiddleware(
+        middleware.RequestBodyLimitMiddleware(_body_size_app, max_upload_bytes=1)
     )
 
     async def requests():
@@ -941,10 +942,10 @@ def test_non_http_scope_passes_through_unchanged(scope):
     async def app(received_scope, received_receive, received_send):
         calls.append((received_scope, received_receive, received_send))
 
-    middleware = security.LoopbackHostMiddleware(
-        security.RequestBodyLimitMiddleware(app, max_upload_bytes=1)
+    guarded = middleware.LoopbackHostMiddleware(
+        middleware.RequestBodyLimitMiddleware(app, max_upload_bytes=1)
     )
-    asyncio.run(middleware(scope, receive, send))
+    asyncio.run(guarded(scope, receive, send))
     assert len(calls) == 1
     assert calls[0][0] is scope
     assert calls[0][1] is receive
@@ -1221,7 +1222,7 @@ def test_sources_keep_sparse_citation_indices_and_page_numbers(source_client, pi
 def upload_app(monkeypatch, local_settings):
     settings = local_settings
     settings.api.max_upload_mb = 1
-    monkeypatch.setattr(security, "_MAGIC", None)
+    monkeypatch.setattr(uploads, "_MAGIC", None)
 
     def ingest(data, filename, extension):
         return IngestResult(
@@ -2205,7 +2206,7 @@ class TestUploadValidationThroughRoute:
     def test_zip_bomb_rejected(self, route_client, route_rag):
 
         with patch(
-            "scinexusrag.api.security.get_settings",
+            "scinexusrag.api.uploads.get_settings",
             return_value=_route_settings(max_uncompressed_mb=0),
         ):
             files = {
@@ -2233,7 +2234,7 @@ class _MagicDatabaseError(Exception):
 class TestMimeDetectorLoading:
     def test_missing_optional_package_returns_none(self, monkeypatch):
         monkeypatch.setitem(sys.modules, "magic", None)
-        assert security._load_magic() is None
+        assert uploads._load_magic() is None
 
     @pytest.mark.parametrize("error", [OSError, _MagicDatabaseError])
     def test_unavailable_native_detector_returns_none(self, monkeypatch, error):
@@ -2245,7 +2246,7 @@ class TestMimeDetectorLoading:
             "magic",
             SimpleNamespace(Magic=create_detector, MagicException=_MagicDatabaseError),
         )
-        assert security._load_magic() is None
+        assert uploads._load_magic() is None
 
     def test_successful_detector_is_returned(self, monkeypatch):
         detector = SimpleNamespace(from_buffer=lambda data: "text/plain")
@@ -2254,7 +2255,7 @@ class TestMimeDetectorLoading:
             "magic",
             SimpleNamespace(Magic=lambda **kwargs: detector, MagicException=_MagicDatabaseError),
         )
-        assert security._load_magic() is detector
+        assert uploads._load_magic() is detector
 
     def test_unexpected_initialization_error_is_not_suppressed(self, monkeypatch):
         def create_detector(**kwargs):
@@ -2266,7 +2267,7 @@ class TestMimeDetectorLoading:
             SimpleNamespace(Magic=create_detector, MagicException=_MagicDatabaseError),
         )
         with pytest.raises(RuntimeError, match="Detector initialization failed"):
-            security._load_magic()
+            uploads._load_magic()
 
 
 class TestApiKey:
@@ -2428,8 +2429,8 @@ class TestSameSiteGuard:
 class TestValidateUpload:
     @pytest.fixture(autouse=True)
     def upload_settings(self, monkeypatch):
-        monkeypatch.setattr(security, "get_settings", lambda: _security_settings())
-        monkeypatch.setattr(security, "_MAGIC", None)
+        monkeypatch.setattr(uploads, "get_settings", lambda: _security_settings())
+        monkeypatch.setattr(uploads, "_MAGIC", None)
 
     @pytest.fixture
     def contents(self):
@@ -2445,7 +2446,7 @@ class TestValidateUpload:
 
     def test_pdf_magic_required_without_mime_detector(self) -> None:
         with pytest.raises(HTTPException) as exc:
-            security.validate_upload(".pdf", b"not a pdf", "application/pdf")
+            uploads.validate_upload(".pdf", b"not a pdf", "application/pdf")
         assert exc.value.status_code == 415
 
     @pytest.mark.parametrize(
@@ -2461,12 +2462,12 @@ class TestValidateUpload:
         ],
     )
     def test_matching_content_types_accepted(self, contents, extension, content_type):
-        security.validate_upload(extension, contents[extension], content_type)
+        uploads.validate_upload(extension, contents[extension], content_type)
 
     @pytest.mark.parametrize("extension", [".pdf", ".docx", ".txt", ".md"])
     @pytest.mark.parametrize("content_type", [None, "", "application/octet-stream"])
     def test_generic_content_types_accepted(self, contents, extension, content_type):
-        security.validate_upload(extension, contents[extension], content_type)
+        uploads.validate_upload(extension, contents[extension], content_type)
 
     @pytest.mark.parametrize(
         "extension,content_type",
@@ -2479,45 +2480,45 @@ class TestValidateUpload:
     )
     def test_content_type_for_another_extension_rejected(self, contents, extension, content_type):
         with pytest.raises(HTTPException) as exc:
-            security.validate_upload(extension, contents[extension], content_type)
+            uploads.validate_upload(extension, contents[extension], content_type)
         assert exc.value.status_code == 415
 
     def test_content_type_parameters_and_case_accepted(self):
-        security.validate_upload(".md", b"Document text.", " Text/Markdown ; charset=UTF-8 ")
+        uploads.validate_upload(".md", b"Document text.", " Text/Markdown ; charset=UTF-8 ")
 
     def test_extension_case_is_normalized(self, contents):
-        security.validate_upload(".PDF", contents[".pdf"], "application/pdf")
+        uploads.validate_upload(".PDF", contents[".pdf"], "application/pdf")
 
     def test_unsupported_extension_rejected(self):
         with pytest.raises(HTTPException) as exc:
-            security.validate_upload(".zip", b"Document text.", "application/octet-stream")
+            uploads.validate_upload(".zip", b"Document text.", "application/octet-stream")
         assert exc.value.status_code == 415
 
     def test_disallowed_content_type(self) -> None:
         with pytest.raises(HTTPException) as exc:
-            security.validate_upload(".txt", b"hello", "application/x-sh")
+            uploads.validate_upload(".txt", b"hello", "application/x-sh")
         assert exc.value.status_code == 415
 
     @pytest.mark.parametrize("extension", [".txt", ".md"])
     def test_text_must_be_utf8_without_mime_detector(self, extension) -> None:
         with pytest.raises(HTTPException) as exc:
-            security.validate_upload(extension, b"\xff\xfe\x00binary", "text/plain")
+            uploads.validate_upload(extension, b"\xff\xfe\x00binary", "text/plain")
         assert exc.value.status_code == 415
 
     @pytest.mark.parametrize("extra_byte", [False, True])
     def test_file_size_boundary_counts_utf8_bytes(self, monkeypatch, extra_byte) -> None:
-        monkeypatch.setattr(security, "get_settings", lambda: _security_settings(max_upload_mb=1))
+        monkeypatch.setattr(uploads, "get_settings", lambda: _security_settings(max_upload_mb=1))
         text = "é" * (1024 * 1024 // 2) + ("x" if extra_byte else "")
         if extra_byte:
             with pytest.raises(HTTPException) as exc:
-                security.validate_upload(".txt", text, "text/plain")
+                uploads.validate_upload(".txt", text, "text/plain")
             assert exc.value.status_code == 413
         else:
-            security.validate_upload(".txt", text, "text/plain")
+            uploads.validate_upload(".txt", text, "text/plain")
 
     def test_invalid_docx_rejected_without_mime_detector(self) -> None:
         with pytest.raises(HTTPException) as exc:
-            security.validate_upload(".docx", b"PK\x03\x04garbage", "application/zip")
+            uploads.validate_upload(".docx", b"PK\x03\x04garbage", "application/zip")
         assert exc.value.status_code == 415
 
     @pytest.mark.parametrize(
@@ -2530,29 +2531,29 @@ class TestValidateUpload:
         ],
     )
     def test_sniffed_content_mismatch_rejected(self, monkeypatch, contents, extension, detected):
-        monkeypatch.setattr(security, "_MAGIC", SimpleNamespace(from_buffer=lambda data: detected))
+        monkeypatch.setattr(uploads, "_MAGIC", SimpleNamespace(from_buffer=lambda data: detected))
         with pytest.raises(HTTPException) as exc:
-            security.validate_upload(extension, contents[extension], "application/octet-stream")
+            uploads.validate_upload(extension, contents[extension], "application/octet-stream")
         assert exc.value.status_code == 415
 
     @pytest.mark.parametrize("detected", ["text/x-rst", "TEXT/PLAIN", "inode/x-empty"])
     def test_sniffed_text_variants_accepted(self, monkeypatch, detected):
-        monkeypatch.setattr(security, "_MAGIC", SimpleNamespace(from_buffer=lambda data: detected))
+        monkeypatch.setattr(uploads, "_MAGIC", SimpleNamespace(from_buffer=lambda data: detected))
         data = b"" if detected == "inode/x-empty" else b"Document text."
-        security.validate_upload(".md", data, "text/markdown")
+        uploads.validate_upload(".md", data, "text/markdown")
 
     def test_mime_detector_failure_is_not_suppressed(self, monkeypatch):
         def fail(_data):
             raise OSError("MIME detector failed")
 
-        monkeypatch.setattr(security, "_MAGIC", SimpleNamespace(from_buffer=fail))
+        monkeypatch.setattr(uploads, "_MAGIC", SimpleNamespace(from_buffer=fail))
         with pytest.raises(OSError, match="MIME detector failed"):
-            security.validate_upload(".txt", b"Document text.", "text/plain")
+            uploads.validate_upload(".txt", b"Document text.", "text/plain")
 
     @pytest.mark.parametrize("extra_byte", [False, True])
     def test_docx_size_boundary_sums_archive_members(self, monkeypatch, extra_byte):
         monkeypatch.setattr(
-            security, "get_settings", lambda: _security_settings(max_uncompressed_mb=1)
+            uploads, "get_settings", lambda: _security_settings(max_uncompressed_mb=1)
         )
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -2560,10 +2561,10 @@ class TestValidateUpload:
             archive.writestr("b.xml", b"B" * (1024 * 1024 // 2 + int(extra_byte)))
         if extra_byte:
             with pytest.raises(HTTPException) as exc:
-                security.validate_upload(".docx", buffer.getvalue(), "application/zip")
+                uploads.validate_upload(".docx", buffer.getvalue(), "application/zip")
             assert exc.value.status_code == 413
         else:
-            security.validate_upload(".docx", buffer.getvalue(), "application/zip")
+            uploads.validate_upload(".docx", buffer.getvalue(), "application/zip")
 
 
 class TestAppConfig:

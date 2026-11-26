@@ -151,13 +151,13 @@ def observed_write_lock():
 @pytest.fixture
 def local_settings(monkeypatch):
     import scinexusrag.api.app as api
-    from scinexusrag.api import routes, security
+    from scinexusrag.api import routes, schemas, security, uploads
     from scinexusrag.settings import Settings
 
     settings = Settings()
     settings.api.host = "127.0.0.1"
     settings.api.api_key = ""
-    for module in (api, routes, security):
+    for module in (api, routes, schemas, security, uploads):
         monkeypatch.setattr(module, "get_settings", lambda: settings)
     return settings
 

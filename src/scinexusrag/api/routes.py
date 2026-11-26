@@ -6,41 +6,47 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import PurePosixPath
-from typing import Annotated, Self
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from scinexusrag.api.dependencies import get_nexusrag
 from scinexusrag.api.metrics import get_metrics_collector
+from scinexusrag.api.schemas import (
+    DeleteResponse,
+    DocumentInfo,
+    DocumentListResponse,
+    HealthResponse,
+    MetricsResponse,
+    QueryRequest,
+    QueryResponse,
+    SourceResponse,
+    UploadRequest,
+    UploadResponse,
+)
 from scinexusrag.api.security import (
     limiter,
     query_limit,
     require_api_key,
     require_same_site,
     upload_limit,
-    validate_upload,
 )
-from scinexusrag.generation.synthesizer import Source
+from scinexusrag.api.uploads import validate_upload
 from scinexusrag.ingestion.embedder import EmbeddingConfigError
 from scinexusrag.ingestion.parser import FORMATS
 from scinexusrag.settings import get_settings
 from scinexusrag.storage.document_store import INDEX_STEM, MAX_ID_LENGTH, SAFE_ID_PATTERN
 from scinexusrag.storage.vector_store import VectorStoreError
-from scinexusrag.utils.filenames import resolve_display_name
+from scinexusrag.utils.filenames import basename, resolve_display_name
 from scinexusrag.version import __version__
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
 
 MAX_FILENAME_LENGTH = 255
-_SOURCE_PREVIEW_CHARS = 500
-
-
-def _basename(filename: str) -> str:
-    return filename.replace("\\", "/").rsplit("/", 1)[-1]
 
 
 @contextmanager
@@ -54,110 +60,6 @@ def _api_errors(detail: str, *, keep_http: bool = False) -> Iterator[None]:
             raise
         logger.exception(detail)
         raise HTTPException(status_code=500, detail=detail) from None
-
-
-class QueryRequest(BaseModel):
-    question: str
-
-    @field_validator("question")
-    @classmethod
-    def validate_question(cls, question: str) -> str:
-        question = question.strip()
-        if not question:
-            raise ValueError("Question cannot be empty")
-        max_length = get_settings().retrieval.max_query_length
-        if len(question) > max_length:
-            raise ValueError(f"Question too long (max {max_length} characters)")
-        return question
-
-
-class SourceResponse(BaseModel):
-    index: int
-    content: str
-    truncated: bool
-    filename: str
-    document_id: str
-    section_title: str
-    page_number: int | None
-    score: float
-
-    @classmethod
-    def from_source(cls, source: Source) -> Self:
-        truncated = len(source.content) > _SOURCE_PREVIEW_CHARS
-        return cls(
-            index=source.index,
-            content=source.content[:_SOURCE_PREVIEW_CHARS] + ("..." if truncated else ""),
-            truncated=truncated,
-            filename=_basename(source.document_name) or "Unknown",
-            document_id=source.document_id,
-            section_title=source.section_title or "",
-            page_number=source.page_number,
-            score=round(source.score, 3),
-        )
-
-
-class QueryResponse(BaseModel):
-    answer: str
-    confidence: float
-    sources: list[SourceResponse]
-    processing_time_ms: float
-    warnings: list[str] = Field(default_factory=list)
-
-
-class UploadResponse(BaseModel):
-    success: bool
-    document_id: str
-    filename: str
-    chunk_count: int
-    word_count: int
-    error: str | None = None
-
-
-class _UploadRequest(BaseModel):
-    file: UploadFile = Field(
-        description="Document to upload", json_schema_extra={"format": "binary"}
-    )
-
-
-class DocumentInfo(BaseModel):
-    id: str
-    filename: str
-    word_count: int
-    chunk_count: int = 0
-    file_type: str = ""
-    uploaded_at: str = ""
-
-
-class DocumentListResponse(BaseModel):
-    documents: list[DocumentInfo]
-    total_documents: int = 0
-    total_chunks: int = 0
-
-
-class HealthResponse(BaseModel):
-    status: str
-    llm_available: bool
-    llm_model: str = ""
-    embedding_model: str = ""
-    total_documents: int = 0
-    total_chunks: int = 0
-    total_words: int = 0
-
-
-class DeleteResponse(BaseModel):
-    success: bool
-    message: str
-
-
-class MetricsResponse(BaseModel):
-    uptime_seconds: float
-    total_queries: int
-    total_ingestions: int
-    total_deletions: int
-    avg_query_time_ms: float
-    total_documents: int
-    total_chunks: int
-    version: str
 
 
 @router.get("/health", response_model=HealthResponse, responses={503: {"model": HealthResponse}})
@@ -189,7 +91,7 @@ async def health_check(response: Response) -> HealthResponse:
     openapi_extra={
         "requestBody": {
             "required": True,
-            "content": {"multipart/form-data": {"schema": _UploadRequest.model_json_schema()}},
+            "content": {"multipart/form-data": {"schema": UploadRequest.model_json_schema()}},
         }
     },
 )
@@ -203,7 +105,7 @@ async def ingest_document(request: Request) -> UploadResponse:
         raise HTTPException(status_code=400, detail="There was an error parsing the body") from None
     try:
         try:
-            payload = _UploadRequest.model_validate(dict(form))
+            payload = UploadRequest.model_validate(dict(form))
         except ValidationError as error:
             raise RequestValidationError(
                 [
@@ -223,7 +125,7 @@ async def _ingest_upload(file: UploadFile) -> UploadResponse:
     if len(file.filename) > MAX_FILENAME_LENGTH:
         raise HTTPException(status_code=400, detail="Filename too long")
 
-    filename = _basename(file.filename)
+    filename = basename(file.filename)
     if not filename or any(
         ord(character) < 32 or ord(character) == 127 for character in file.filename
     ):

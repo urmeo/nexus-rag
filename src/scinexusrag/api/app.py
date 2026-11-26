@@ -14,11 +14,8 @@ from slowapi.errors import RateLimitExceeded
 from uvicorn.logging import DefaultFormatter
 
 from scinexusrag.api.routes import router
-from scinexusrag.api.security import (
-    LoopbackHostMiddleware,
-    RequestBodyLimitMiddleware,
-    limiter,
-)
+from scinexusrag.api.middleware import LoopbackHostMiddleware, RequestBodyLimitMiddleware
+from scinexusrag.api.security import limiter
 from scinexusrag.ingestion.embedder import EmbeddingConfigError
 from scinexusrag.settings import get_settings
 from scinexusrag.storage.vector_store import VectorStoreError
