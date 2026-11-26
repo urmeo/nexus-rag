@@ -35,11 +35,6 @@ def _generate_chunk_id(document_id: str, index: int, content: str) -> str:
     return hashlib.sha256(hash_input.encode()).hexdigest()[:12]
 
 
-def _require_integer(value: int, name: str) -> None:
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{name} must be an integer")
-
-
 def _join_spans(spans: list[_TextSpan], separator: str, prefix: str = "") -> _TextSpan:
     return _TextSpan(
         prefix + separator.join(span.text for span in spans), spans[0].start, spans[-1].end
@@ -86,16 +81,6 @@ class HierarchicalChunker:
         include_context: bool = True,
         context_chars: int = DEFAULT_CONTEXT_CHARS,
     ) -> None:
-        for name, value in {
-            "min_chunk_size": min_chunk_size,
-            "target_chunk_size": target_chunk_size,
-            "max_chunk_size": max_chunk_size,
-            "overlap_size": overlap_size,
-            "context_chars": context_chars,
-        }.items():
-            _require_integer(value, name)
-        if not isinstance(include_context, bool):
-            raise ValueError("include_context must be a boolean")
         if min_chunk_size <= 0 or target_chunk_size <= 0 or max_chunk_size <= 0:
             raise ValueError("chunk sizes must be positive")
         if min_chunk_size > min(target_chunk_size, max_chunk_size):

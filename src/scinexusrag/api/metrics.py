@@ -2,7 +2,6 @@
 
 import threading
 import time
-from sys import float_info
 from typing import TypedDict
 
 
@@ -24,10 +23,6 @@ class MetricsCollector:
         self._average_query_time_ms = 0.0
 
     def record_query(self, elapsed_ms: float) -> None:
-        if isinstance(elapsed_ms, bool) or not isinstance(elapsed_ms, (int, float)):
-            raise TypeError("Query duration must be a number")
-        if not 0 <= elapsed_ms <= float_info.max:
-            raise ValueError("Query duration must be finite and nonnegative")
         with self._lock:
             query_count = self._total_queries + 1
             average = (

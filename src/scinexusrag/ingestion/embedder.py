@@ -168,12 +168,8 @@ class Embedder:
         batch_size: int = 32,
         show_progress: bool = False,
     ) -> NDArray[np.float32]:
-        if not isinstance(texts, list) or any(not isinstance(text, str) for text in texts):
-            raise ValueError("Embedding texts must be a list of strings.")
-        if type(batch_size) is not int or batch_size <= 0:
+        if batch_size <= 0:
             raise ValueError("Embedding batch size must be a positive integer.")
-        if type(show_progress) is not bool:
-            raise ValueError("Embedding progress flag must be a boolean.")
         model = self.model
         dimension = _model_dimension(model)
         if not texts:
@@ -195,8 +191,6 @@ class Embedder:
         return result
 
     def embed_query(self, query: str) -> NDArray[np.float32]:
-        if not isinstance(query, str):
-            raise ValueError("Embedding query must be a string.")
         model = self.model
         dimension = _model_dimension(model)
         embedding = model.encode(

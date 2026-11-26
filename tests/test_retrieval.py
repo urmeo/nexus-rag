@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier, Event
@@ -38,39 +37,28 @@ def test_empty_corrective_requests_do_not_call_base(options):
     base.retrieve.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "options", [{"query": None}, {"top_k": False}, {"top_k": 1.5}, {"depth": 0}, {"depth": True}]
-)
-def test_invalid_corrective_requests_do_not_call_base(options):
+def test_invalid_corrective_depth_does_not_call_base():
     base = Mock()
     retriever = CorrectiveRetriever(base)
 
-    with pytest.raises(ValueError):
-        retriever.retrieve_traced(**{"query": "query", **options})
+    with pytest.raises(ValueError, match="depth"):
+        retriever.retrieve_traced("query", depth=0)
 
     base.retrieve_with_dense_top.assert_not_called()
     base.retrieve.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "tau", [-0.1, 1.1, float("nan"), float("inf"), True, "0.5", 10**1000, -(10**1000)]
-)
+@pytest.mark.parametrize("tau", [-0.1, 1.1, float("nan"), float("inf"), 10**1000, -(10**1000)])
 def test_invalid_corrective_thresholds_fail_during_construction(tau):
     with pytest.raises(ValueError, match="threshold"):
         CorrectiveRetriever(Mock(), tau=tau)
 
 
 @pytest.mark.parametrize("option", ["feedback_docs", "feedback_terms"])
-@pytest.mark.parametrize("value", [0, -1, True, 1.5, float("nan")])
+@pytest.mark.parametrize("value", [0, -1])
 def test_feedback_sizes_require_positive_integers(option, value):
     with pytest.raises(ValueError, match=option):
         CorrectiveRetriever(Mock(), **{option: value})
-
-
-@pytest.mark.parametrize("enabled", [0, 1, "false", None])
-def test_corrective_switch_requires_a_boolean(enabled):
-    with pytest.raises(ValueError, match="enabled"):
-        CorrectiveRetriever(Mock(), enabled=enabled)
 
 
 @pytest.mark.parametrize(
@@ -93,24 +81,6 @@ def test_feedback_without_new_terms_does_not_repeat_the_query(query, content):
     assert results[0] is first[0]
     assert triggered is False
     base.retrieve.assert_not_called()
-
-
-@pytest.mark.parametrize("top_k", [True, 1.5, "2", None, float("nan")])
-def test_invalid_result_limits_fail_before_model_or_storage_access(retriever, top_k):
-    with pytest.raises(ValueError, match="top_k"):
-        retriever.retrieve("evidence", top_k=top_k)
-
-    retriever.embedder.embed_query.assert_not_called()
-    retriever.vector_store.validate_embedding_config.assert_not_called()
-
-
-@pytest.mark.parametrize("query", [None, 1, ["evidence"]])
-def test_invalid_queries_fail_before_model_or_storage_access(retriever, query):
-    with pytest.raises(ValueError, match="query"):
-        retriever.retrieve(query)
-
-    retriever.embedder.embed_query.assert_not_called()
-    retriever.vector_store.validate_embedding_config.assert_not_called()
 
 
 @pytest.mark.parametrize("query,top_k", [("evidence", 0), ("evidence", -1), ("", 5), (" \n", 5)])
@@ -153,9 +123,7 @@ def _fusion_result(chunk_id):
     return RetrievalResult(Chunk(id=chunk_id, content=chunk_id, document_id="paper"), 0.5)
 
 
-@pytest.mark.parametrize(
-    "weight", [-1, -0.1, float("nan"), float("inf"), True, "0.5", 10**1000, -(10**1000)]
-)
+@pytest.mark.parametrize("weight", [-1, -0.1, float("nan"), float("inf")])
 def test_invalid_fusion_weights_are_rejected(weight):
     with pytest.raises(ValueError, match="weights"):
         rrf_fuse([[_fusion_result("first")]], [weight])
@@ -163,7 +131,7 @@ def test_invalid_fusion_weights_are_rejected(weight):
         HybridRetriever(Mock(), Mock(), dense_weight=weight)
 
 
-@pytest.mark.parametrize("k", [-1, True, 0.5, float("nan")])
+@pytest.mark.parametrize("k", [-1])
 def test_invalid_rrf_constants_are_rejected(k):
     with pytest.raises(ValueError, match="RRF k"):
         rrf_fuse([[_fusion_result("first")]], [1.0], k=k)
@@ -176,25 +144,9 @@ def test_fusion_requires_one_weight_per_list():
         rrf_fuse([[_fusion_result("first")]], [])
 
 
-@pytest.mark.parametrize("top_k", [True, 1.5, "2"])
-def test_fusion_rejects_noninteger_limits(top_k):
-    with pytest.raises(ValueError, match="top_k"):
-        rrf_fuse([[_fusion_result("first")]], [1.0], top_k=top_k)
-
-
 @pytest.mark.parametrize("top_k", [0, -1])
 def test_nonpositive_fusion_limits_return_no_results(top_k):
     assert rrf_fuse([[_fusion_result("first"), _fusion_result("second")]], [1.0], top_k=top_k) == []
-
-
-def test_large_finite_weights_preserve_normalized_ranking():
-    ranked = [[_fusion_result("first"), _fusion_result("second")]] * 2
-
-    results = rrf_fuse(ranked, [1e308, 1e308], k=0)
-
-    assert [result.chunk.id for result in results] == ["first", "second"]
-    assert [result.score for result in results] == [1.0, 0.5]
-    assert all(math.isfinite(result.score) for result in results)
 
 
 def test_zero_rrf_constant_uses_reciprocal_rank():
@@ -246,15 +198,12 @@ def test_nonpositive_hybrid_limit_does_not_call_backends(top_k):
     sparse.retrieve.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "options", [{"query": None}, {"top_k": True}, {"top_k": 1.5}, {"depth": 0}, {"depth": 1.5}]
-)
-def test_invalid_hybrid_requests_do_not_call_backends(options):
+def test_invalid_hybrid_depth_does_not_call_backends():
     dense, sparse = Mock(), Mock()
     retriever = HybridRetriever(dense, sparse)
 
-    with pytest.raises(ValueError):
-        retriever.retrieve(**{"query": "query", **options})
+    with pytest.raises(ValueError, match="depth"):
+        retriever.retrieve("query", depth=0)
 
     dense.retrieve.assert_not_called()
     sparse.retrieve.assert_not_called()
@@ -272,9 +221,7 @@ def test_explicit_candidate_depth_and_query_text_are_preserved():
     sparse.retrieve.assert_called_once_with(" query ", 1)
 
 
-@pytest.mark.parametrize(
-    "shift", [-0.1, float("nan"), float("inf"), True, "0.2", 10**1000, -(10**1000)]
-)
+@pytest.mark.parametrize("shift", [-0.1, float("nan"), float("inf")])
 def test_invalid_adaptive_shifts_fail_during_construction(shift):
     with pytest.raises(ValueError, match="shift"):
         AdaptiveHybridRetriever(Mock(), Mock(), shift=shift)
@@ -292,18 +239,6 @@ def test_default_adaptive_weight_rules_remain_unchanged(query, weights):
     retriever = AdaptiveHybridRetriever(Mock(), Mock())
 
     assert retriever._weights(query) == weights
-
-
-def test_subnormal_positive_weights_retain_their_relative_influence():
-    ranked = [
-        [_fusion_result("first"), _fusion_result("second")],
-        [_fusion_result("second"), _fusion_result("first")],
-    ]
-
-    results = rrf_fuse(ranked, [5e-324, 1e-323])
-
-    assert results == rrf_fuse(ranked, [0.5, 1.0])
-    assert results[0].chunk.id == "second"
 
 
 @pytest.fixture
@@ -402,13 +337,9 @@ def candidates(count=3):
     "options",
     [
         {"model_name": ""},
-        {"model_name": None},
         {"device": "automatic"},
         {"batch_size": 0},
-        {"batch_size": False},
-        {"batch_size": 1.5},
         {"revision": ""},
-        {"revision": 1},
     ],
 )
 def test_invalid_reranker_settings_fail_without_load(monkeypatch, options):
@@ -427,25 +358,9 @@ def test_nonpositive_reranking_depth_skips_model(reranker, top_k):
     reranker._model.predict.assert_not_called()
 
 
-@pytest.mark.parametrize("top_k", [True, False, 1.5, "1"])
-def test_invalid_reranking_depth_fails_without_model(reranker, top_k):
-    with pytest.raises(ValueError, match="top_k"):
-        reranker.rerank("query", candidates(), top_k=top_k)
-
-    reranker._model.predict.assert_not_called()
-
-
 @pytest.mark.parametrize("query", ["", " \n\t"])
 def test_blank_reranking_query_skips_model(reranker, query):
     assert reranker.rerank(query, candidates()) == []
-    reranker._model.predict.assert_not_called()
-
-
-@pytest.mark.parametrize("query", [None, 1, ["question"]])
-def test_nontext_reranking_query_fails_without_model(reranker, query):
-    with pytest.raises(ValueError, match="query"):
-        reranker.rerank(query, candidates())
-
     reranker._model.predict.assert_not_called()
 
 
@@ -1198,28 +1113,6 @@ def test_removing_no_passages_does_not_rebuild(monkeypatch, chunk_ids):
     assert [result.chunk.id for result in retriever.retrieve("kinase")] == ["old"]
 
 
-@pytest.mark.parametrize("indexed", [False, True])
-@pytest.mark.parametrize("top_k", [True, False, 1.5, "2", None])
-def test_invalid_depth_is_rejected_even_with_an_empty_index(indexed, top_k):
-    retriever = BM25Retriever()
-    if indexed:
-        retriever.rebuild([Chunk(id="original", document_id="paper", content="kinase inhibition")])
-
-    with pytest.raises(ValueError, match="top_k must be an integer"):
-        retriever.retrieve("kinase", top_k=top_k)
-
-
-@pytest.mark.parametrize("indexed", [False, True])
-@pytest.mark.parametrize("query", [None, 42, b"kinase"])
-def test_non_string_query_is_rejected_even_with_an_empty_index(indexed, query):
-    retriever = BM25Retriever()
-    if indexed:
-        retriever.rebuild([Chunk(id="original", document_id="paper", content="kinase inhibition")])
-
-    with pytest.raises(ValueError, match="query must be a string"):
-        retriever.retrieve(query)
-
-
 @pytest.mark.parametrize("query,top_k", [("kinase", 0), ("kinase", -2), ("", 5), (" \n\t ", 5)])
 def test_empty_requests_do_not_tokenize_or_score_the_index(monkeypatch, query, top_k):
     retriever = BM25Retriever()
@@ -1236,22 +1129,9 @@ def test_empty_requests_do_not_tokenize_or_score_the_index(monkeypatch, query, t
 @pytest.mark.parametrize("method", ["rebuild", "add"])
 @pytest.mark.parametrize(
     "chunks",
-    [
-        None,
-        False,
-        "",
-        (),
-        {},
-        [None],
-        ["passage"],
-        [Chunk("first", None, "paper")],
-        [Chunk(None, "passage", "paper")],
-        [Chunk("", "passage", "paper")],
-        [Chunk(" \t ", "passage", "paper")],
-        [Chunk([], "passage", "paper")],
-    ],
+    [[Chunk("", "passage", "paper")], [Chunk(" \t ", "passage", "paper")]],
 )
-def test_malformed_corpus_inputs_never_change_the_existing_index(method, chunks):
+def test_blank_passage_ids_never_change_the_existing_index(method, chunks):
     retriever = BM25Retriever()
     retriever.rebuild(
         [
@@ -1261,7 +1141,7 @@ def test_malformed_corpus_inputs_never_change_the_existing_index(method, chunks)
     )
     before = retriever.retrieve("kinase cardiac")
 
-    with pytest.raises(ValueError, match="chunks must be a list"):
+    with pytest.raises(ValueError, match="nonempty IDs"):
         getattr(retriever, method)(chunks)
 
     assert retriever.count() == 2

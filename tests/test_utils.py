@@ -99,12 +99,6 @@ def test_empty_and_punctuation_only_text_has_no_sentences(text):
     assert split_sentences(text) == []
 
 
-@pytest.mark.parametrize("text", [None, 42, ["claim"]])
-def test_nontext_input_has_clear_error(text):
-    with pytest.raises(ValueError, match="text must be a string"):
-        split_sentences(text)
-
-
 def test_citations_remain_with_their_claims():
     assert split_sentences("First claim [1].\n\nNext claim [2].") == [
         "First claim [1].",

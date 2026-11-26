@@ -21,9 +21,9 @@ class AnswerVerifier:
     def verify(self, answer: str, sources: list[Source]) -> VerificationResult:
         found = extract_citations(answer)
         source_indices = [source.index for source in sources]
-        if any(type(index) is not int or index <= 0 for index in source_indices) or len(
-            set(source_indices)
-        ) != len(source_indices):
+        if any(index <= 0 for index in source_indices) or len(set(source_indices)) != len(
+            source_indices
+        ):
             raise ValueError("source indices must be unique positive integers")
         indices = set(source_indices)
         valid = [c for c in found if c in indices]

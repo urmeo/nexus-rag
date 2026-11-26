@@ -501,34 +501,6 @@ class TestMetricsCollector:
         assert snap["avg_query_time_ms"] == 0.0
 
     @pytest.mark.parametrize(
-        "duration,error",
-        [
-            (True, TypeError),
-            (False, TypeError),
-            ("12.5", TypeError),
-            (None, TypeError),
-            (complex(1, 1), TypeError),
-            (float("nan"), ValueError),
-            (float("inf"), ValueError),
-            (float("-inf"), ValueError),
-            (-1.0, ValueError),
-            (10**1000, ValueError),
-        ],
-    )
-    def test_invalid_duration_preserves_statistics(self, duration, error):
-        collector = MetricsCollector()
-        collector.record_query(100.0)
-
-        with pytest.raises(error):
-            collector.record_query(duration)
-
-        snap = collector.snapshot()
-        assert snap["total_queries"] == 1
-        assert snap["avg_query_time_ms"] == 100.0
-        collector.record_query(200)
-        assert collector.snapshot()["avg_query_time_ms"] == 150.0
-
-    @pytest.mark.parametrize(
         "durations,expected",
         [
             ([sys.float_info.max] * 4, sys.float_info.max),

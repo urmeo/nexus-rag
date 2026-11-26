@@ -217,8 +217,6 @@ class VectorStore:
         return self.db.create_table(self.table_name, schema=schema)
 
     def add(self, chunks: list[Chunk], embeddings: NDArray[np.float32]) -> int:
-        if not isinstance(chunks, list) or any(not isinstance(chunk, Chunk) for chunk in chunks):
-            raise ValueError("chunks must be a list of Chunk objects")
         embeddings = _cosine_vectors(embeddings, (len(chunks), self.embedding_dim))
         if not chunks:
             return 0
@@ -230,8 +228,6 @@ class VectorStore:
             if chunk_id in chunk_ids:
                 raise ValueError(f"Duplicate chunk ID: {chunk_id}")
             chunk_ids.add(chunk_id)
-            if not isinstance(chunk.content, str) or not isinstance(chunk.metadata, dict):
-                raise ValueError("Chunks need text content and dictionary metadata")
 
         records = [
             {
@@ -317,8 +313,6 @@ class VectorStore:
         )
 
     def search(self, query_embedding: NDArray[np.float32], top_k: int = 5) -> list[SearchResult]:
-        if type(top_k) is not int:
-            raise ValueError("top_k must be an integer")
         if top_k <= 0:
             return []
         query_embedding = _cosine_vectors(query_embedding, (self.embedding_dim,))

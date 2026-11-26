@@ -33,7 +33,7 @@ class Orchestrator:
         max_tokens: int = 768,
         temperature: float = 0.1,
     ) -> None:
-        if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k <= 0:
+        if top_k <= 0:
             raise ValueError("top_k must be a positive integer")
         self.retriever = retriever
         self.llm = llm
@@ -71,8 +71,6 @@ class Orchestrator:
         )
 
     def _prepare_question(self, question: str) -> tuple[QueryType, str]:
-        if not isinstance(question, str):
-            raise TypeError("Question must be a string")
         question = question.strip()
         if not question:
             raise ValueError("Question cannot be empty")

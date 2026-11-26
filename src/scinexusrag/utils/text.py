@@ -9,8 +9,6 @@ SENTENCE_BOUNDARY = re.compile(
 
 
 def split_sentences(text: str) -> list[str]:
-    if not isinstance(text, str):
-        raise ValueError("text must be a string")
     return [
         sentence.strip()
         for sentence in SENTENCE_BOUNDARY.split(text)

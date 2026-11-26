@@ -2,40 +2,29 @@
 
 from __future__ import annotations
 
+import math
 import string
 from collections import defaultdict
 from collections.abc import Sequence
 from heapq import nlargest
-from numbers import Real
-from sys import float_info
 
 from scinexusrag.retrieval.base import Retriever, RetrievalResult
 from scinexusrag.retrieval.sparse import BM25Retriever
 
 
 def _fusion_weights(weights: Sequence[float], k: int) -> list[float]:
-    if isinstance(k, bool) or not isinstance(k, int) or k < 0:
+    if k < 0:
         raise ValueError("RRF k must be a nonnegative integer.")
-    values: list[float] = []
-    for weight in weights:
-        if (
-            isinstance(weight, bool)
-            or not isinstance(weight, Real)
-            or not 0 <= weight <= float_info.max
-        ):
-            raise ValueError("Fusion weights must be finite nonnegative numbers.")
-        values.append(float(weight))
-    return values
+    if not all(math.isfinite(weight) and weight >= 0 for weight in weights):
+        raise ValueError("Fusion weights must be finite nonnegative numbers.")
+    return [float(weight) for weight in weights]
 
 
-def _search_requested(query: str, top_k: int, depth: int) -> bool:
-    if not isinstance(query, str):
-        raise ValueError("Query must be a string.")
-    if isinstance(top_k, bool) or not isinstance(top_k, int):
-        raise ValueError("top_k must be an integer.")
+def search_requested(query: str, top_k: int, depth: int) -> bool:
+    """Whether a search has anything to do; an invalid candidate depth is an error."""
     if top_k <= 0 or not query.strip():
         return False
-    if isinstance(depth, bool) or not isinstance(depth, int) or depth <= 0:
+    if depth <= 0:
         raise ValueError("depth must be a positive integer.")
     return True
 
@@ -50,13 +39,8 @@ def rrf_fuse(
     values = _fusion_weights(weights, k)
     if len(ranked_lists) != len(values):
         raise ValueError("Each ranked list must have one fusion weight.")
-    if top_k is not None:
-        if isinstance(top_k, bool) or not isinstance(top_k, int):
-            raise ValueError("top_k must be an integer or None.")
-        if top_k <= 0:
-            return []
-    peak = max(values, default=0.0)
-    scale = peak if peak > 1.0 or 0 < peak < float_info.min else 1.0
+    if top_k is not None and top_k <= 0:
+        return []
     scores: dict[str, float] = defaultdict(float)
     results_by_id: dict[str, RetrievalResult] = {}
     for results, weight in zip(ranked_lists, values, strict=True):
@@ -68,7 +52,7 @@ def rrf_fuse(
                 continue
             seen.add(chunk_id)
             rank += 1
-            scores[chunk_id] += (weight / scale) / (k + rank)
+            scores[chunk_id] += weight / (k + rank)
             results_by_id.setdefault(chunk_id, result)
 
     order = nlargest(len(scores) if top_k is None else top_k, scores, key=scores.__getitem__)
@@ -105,7 +89,7 @@ class HybridRetriever:
         return self.dense_weight, self.sparse_weight
 
     def _run(self, query: str, top_k: int, depth: int) -> tuple[list[RetrievalResult], float]:
-        if not _search_requested(query, top_k, depth):
+        if not search_requested(query, top_k, depth):
             return [], 0.0
         dense_weight, sparse_weight = self._weights(query)
         dense = self.dense.retrieve(query, depth)
@@ -136,11 +120,7 @@ class AdaptiveHybridRetriever(HybridRetriever):
         shift: float = 0.2,
     ) -> None:
         super().__init__(dense_retriever, sparse_retriever, dense_weight, sparse_weight, rrf_k)
-        if (
-            isinstance(shift, bool)
-            or not isinstance(shift, Real)
-            or not 0 <= shift <= float_info.max
-        ):
+        if not (math.isfinite(shift) and shift >= 0):
             raise ValueError("Adaptive shift must be a finite nonnegative number.")
         self.shift: float = shift
 

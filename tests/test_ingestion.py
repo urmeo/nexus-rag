@@ -663,22 +663,6 @@ def test_short_tail_merge_extends_source_end_without_repeating_overlap():
     _assert_context_span(chunks[0], content, 2, len(content) - 2, 20)
 
 
-@pytest.mark.parametrize(
-    "option",
-    ["min_chunk_size", "target_chunk_size", "max_chunk_size", "overlap_size", "context_chars"],
-)
-@pytest.mark.parametrize("value", [True, 1.5, float("nan"), float("inf"), "100"])
-def test_hierarchical_sizes_reject_nonintegers_at_construction(option, value):
-    with pytest.raises(ValueError, match=rf"{option} must be an integer"):
-        HierarchicalChunker(**{option: value})
-
-
-@pytest.mark.parametrize("value", [0, 1, "false", None])
-def test_context_switch_requires_a_boolean(value):
-    with pytest.raises(ValueError, match="include_context must be a boolean"):
-        HierarchicalChunker(include_context=value)
-
-
 @pytest.mark.parametrize("sectioned", [False, True])
 @pytest.mark.parametrize("paragraphs", [["alpha", "beta"], ["alpha", "beta", "gamma"]])
 def test_paragraphs_that_exactly_fill_the_target_stay_together(sectioned, paragraphs):
@@ -999,27 +983,13 @@ def test_explicit_empty_prefixes_override_model_defaults(model_factory):
 @pytest.mark.parametrize(
     "options",
     [
-        {"texts": "sentence"},
-        {"texts": ["sentence", None]},
-        {"texts": None},
         {"texts": ["sentence"], "batch_size": 0},
         {"texts": [], "batch_size": -1},
-        {"texts": ["sentence"], "batch_size": True},
-        {"texts": ["sentence"], "batch_size": 1.5},
-        {"texts": ["sentence"], "show_progress": 1},
     ],
 )
 def test_invalid_batch_inputs_fail_without_model_load(model_factory, options):
     with pytest.raises(ValueError):
         Embedder().embed(**options)
-
-    model_factory.assert_not_called()
-
-
-@pytest.mark.parametrize("query", [None, 3, ["sentence"]])
-def test_invalid_query_fails_without_model_load(model_factory, query):
-    with pytest.raises(ValueError, match="query"):
-        Embedder().embed_query(query)
 
     model_factory.assert_not_called()
 

@@ -13,16 +13,8 @@ from scinexusrag.retrieval.stopwords import STOP_WORDS
 
 
 def _validate_chunks(chunks: list[Chunk]) -> None:
-    if not isinstance(chunks, list) or any(
-        not isinstance(chunk, Chunk)
-        or not isinstance(chunk.id, str)
-        or not chunk.id.strip()
-        or not isinstance(chunk.content, str)
-        for chunk in chunks
-    ):
-        raise ValueError(
-            "chunks must be a list of chunks with nonempty string IDs and text content"
-        )
+    if any(not chunk.id.strip() for chunk in chunks):
+        raise ValueError("chunks need nonempty IDs")
 
 
 @dataclass
@@ -72,10 +64,6 @@ class BM25Retriever:
         return self.rebuild(existing_chunks + fresh)
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
-        if not isinstance(query, str):
-            raise ValueError("query must be a string")
-        if isinstance(top_k, bool) or not isinstance(top_k, int):
-            raise ValueError("top_k must be an integer")
         index = self._index
         if index is None or top_k <= 0 or not query.strip():
             return []

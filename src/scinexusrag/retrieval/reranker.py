@@ -19,13 +19,13 @@ class Reranker:
         batch_size: int = 8,
         revision: str | None = None,
     ) -> None:
-        if not isinstance(model_name, str) or not model_name.strip():
+        if not model_name.strip():
             raise ValueError("reranker model name must be a nonempty string")
         if device not in (None, "cpu", "cuda", "mps"):
             raise ValueError("reranker device must be cpu, cuda, mps or None")
-        if type(batch_size) is not int or batch_size <= 0:
+        if batch_size <= 0:
             raise ValueError("reranker batch_size must be a positive integer")
-        if revision is not None and (not isinstance(revision, str) or not revision.strip()):
+        if revision is not None and not revision.strip():
             raise ValueError("reranker revision must be a nonempty string or None")
         self.model_name = model_name
         self.device = device
@@ -53,10 +53,6 @@ class Reranker:
         results: list[RetrievalResult],
         top_k: int | None = None,
     ) -> list[RetrievalResult]:
-        if not isinstance(query, str):
-            raise ValueError("reranker query must be a string")
-        if top_k is not None and type(top_k) is not int:
-            raise ValueError("reranker top_k must be an integer or None")
         if not results or not query.strip() or (top_k is not None and top_k <= 0):
             return []
 

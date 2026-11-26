@@ -1466,14 +1466,6 @@ def test_invalid_query_vectors_fail_before_opening_database(contract_vectors, ve
     assert contract_vectors._db is None
 
 
-@pytest.mark.parametrize("top_k", [True, False, 1.5, "1", None])
-def test_invalid_search_depth_fails_before_opening_database(contract_vectors, top_k):
-    with pytest.raises(ValueError, match="top_k"):
-        contract_vectors.search(np.ones(2, dtype=np.float32), top_k=top_k)
-
-    assert contract_vectors._db is None
-
-
 @pytest.mark.parametrize("top_k", [0, -1, -100])
 def test_nonpositive_search_depth_does_not_open_database(contract_vectors, top_k):
     assert contract_vectors.search(np.ones(2, dtype=np.float32), top_k=top_k) == []

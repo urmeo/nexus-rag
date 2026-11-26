@@ -80,17 +80,9 @@ class Synthesizer:
             ("max_sources", max_sources, 0),
             ("max_tokens", max_tokens, 1),
         ):
-            if type(value) is not int:
-                raise TypeError(f"{name} must be an integer")
             if value < minimum:
                 raise ValueError(f"{name} must be at least {minimum}")
-        if isinstance(temperature, bool) or not isinstance(temperature, (int, float)):
-            raise TypeError("temperature must be a number")
-        try:
-            valid_temperature = math.isfinite(temperature) and temperature >= 0
-        except OverflowError:
-            valid_temperature = False
-        if not valid_temperature:
+        if not (math.isfinite(temperature) and temperature >= 0):
             raise ValueError("temperature must be finite and nonnegative")
         self.llm = llm
         self.max_context_length = max_context_length

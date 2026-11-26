@@ -1,9 +1,9 @@
 """Ollama client."""
 
 import json
+import math
 import time
 from contextlib import suppress
-from sys import float_info
 from threading import Lock
 
 import httpx
@@ -26,19 +26,11 @@ class LLMClient:
     ):
         self._client: httpx.Client | None = None
         self._client_lock = Lock()
-        if isinstance(max_retries, bool) or not isinstance(max_retries, int) or max_retries < 0:
+        if max_retries < 0:
             raise ValueError("max_retries must be a nonnegative integer")
-        if (
-            isinstance(timeout, bool)
-            or not isinstance(timeout, (int, float))
-            or not 0 < timeout <= float_info.max
-        ):
+        if not (math.isfinite(timeout) and timeout > 0):
             raise ValueError("timeout must be finite and positive")
-        if (
-            isinstance(backoff, bool)
-            or not isinstance(backoff, (int, float))
-            or not 0 <= backoff <= float_info.max
-        ):
+        if not (math.isfinite(backoff) and backoff >= 0):
             raise ValueError("backoff must be finite and nonnegative")
         self.model = model
         self.base_url = base_url.rstrip("/")

@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from collections import Counter
-from numbers import Real
 
 from scinexusrag.retrieval.base import RetrievalResult
-from scinexusrag.retrieval.hybrid import HybridRetriever, _search_requested, rrf_fuse
+from scinexusrag.retrieval.hybrid import HybridRetriever, rrf_fuse, search_requested
 
 
 class CorrectiveRetriever:
@@ -20,16 +19,14 @@ class CorrectiveRetriever:
         feedback_terms: int = 10,
         enabled: bool = True,
     ) -> None:
-        if isinstance(tau, bool) or not isinstance(tau, Real) or not 0 <= tau <= 1:
+        if not 0 <= tau <= 1:
             raise ValueError("Corrective threshold must be finite and between 0 and 1.")
         for name, value in {
             "feedback_docs": feedback_docs,
             "feedback_terms": feedback_terms,
         }.items():
-            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            if value <= 0:
                 raise ValueError(f"{name} must be a positive integer.")
-        if not isinstance(enabled, bool):
-            raise ValueError("enabled must be a boolean.")
         self.base: HybridRetriever = base
         self.tau: float = tau
         self.feedback_docs: int = feedback_docs
@@ -50,7 +47,7 @@ class CorrectiveRetriever:
     def retrieve_traced(
         self, query: str, top_k: int = 10, depth: int = 50
     ) -> tuple[list[RetrievalResult], bool]:
-        if not _search_requested(query, top_k, depth):
+        if not search_requested(query, top_k, depth):
             return [], False
         first, dense_top = self.base.retrieve_with_dense_top(query, top_k=depth, depth=depth)
         if not self.enabled or not first or dense_top >= self.tau:

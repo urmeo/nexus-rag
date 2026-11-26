@@ -11,10 +11,6 @@ class DenseRetriever:
         self.vector_store = vector_store
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
-        if not isinstance(query, str):
-            raise ValueError("query must be a string")
-        if type(top_k) is not int:
-            raise ValueError("top_k must be an integer")
         if not query.strip() or top_k <= 0:
             return []
         self.vector_store.validate_embedding_config(self.embedder.embedding_config)
