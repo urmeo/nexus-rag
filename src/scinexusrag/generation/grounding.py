@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from inspect import signature
 from threading import Lock
 from typing import Any, Literal
 
@@ -72,19 +71,12 @@ class GroundingVerifier:
 
         if not pairs:
             return np.zeros((0, 3))
-        predict = self.model.predict
-        activation_name = (
-            "activation_fct"
-            if "activation_fct" in signature(predict).parameters
-            else "activation_fn"
-        )
-        raw_activation = {activation_name: lambda values: values}
         logits = np.asarray(
-            predict(
+            self.model.predict(
                 pairs,
                 convert_to_numpy=True,
                 apply_softmax=False,
-                **raw_activation,
+                activation_fn=lambda values: values,
             ),
             dtype=np.float64,
         )

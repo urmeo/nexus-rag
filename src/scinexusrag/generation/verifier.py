@@ -12,11 +12,8 @@ from scinexusrag.generation.synthesizer import Source
 
 @dataclass
 class VerificationResult:
-    original_answer: str
     verified_answer: str
-    citations_found: list[int]
     citations_valid: list[int]
-    citations_invalid: list[int]
     warnings: list[str]
 
 
@@ -44,10 +41,5 @@ class AnswerVerifier:
             warnings.append("answer cites no sources")
 
         return VerificationResult(
-            original_answer=answer,
-            verified_answer=verified,
-            citations_found=found,
-            citations_valid=valid,
-            citations_invalid=invalid,
-            warnings=warnings,
+            verified_answer=verified, citations_valid=valid, warnings=warnings
         )

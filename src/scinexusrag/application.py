@@ -12,8 +12,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from scinexusrag.generation.llm import LLMClient
-from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse, ReasoningStep
-from scinexusrag.ingestion.chunker import Chunk, SemanticChunker
+from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
+from scinexusrag.ingestion.chunker import Chunk, HierarchicalChunker
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfigError
 from scinexusrag.ingestion.parser import DocumentParseError, DocumentParser, ParsedDocument
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
@@ -52,7 +52,6 @@ class SystemStats:
     total_documents: int
     total_chunks: int
     total_words: int
-    storage_path: str
     llm_model: str
     embedding_model: str
     llm_available: bool
@@ -65,7 +64,7 @@ class NexusRAG:
         self._write_lock = threading.RLock()
 
         self._parser: DocumentParser | None = None
-        self._chunker: SemanticChunker | None = None
+        self._chunker: HierarchicalChunker | None = None
         self._embedder: Embedder | None = None
         self._vector_store: VectorStore | None = None
         self._document_store: DocumentStore | None = None
@@ -80,9 +79,9 @@ class NexusRAG:
         return self._parser
 
     @property
-    def chunker(self) -> SemanticChunker:
+    def chunker(self) -> HierarchicalChunker:
         if self._chunker is None:
-            self._chunker = SemanticChunker(
+            self._chunker = HierarchicalChunker(
                 min_chunk_size=self.settings.ingestion.min_chunk_size,
                 target_chunk_size=self.settings.ingestion.chunk_size,
                 max_chunk_size=self.settings.ingestion.chunk_size + 300,
@@ -281,33 +280,6 @@ class NexusRAG:
             logger.exception("Failed to ingest document: %s", filename)
             return self._failed_ingest(filename, f"Ingestion failed: {type(e).__name__}")
 
-    def ingest_directory(self, dir_path: str | Path, recursive: bool = False) -> list[IngestResult]:
-        path = Path(dir_path)
-        if not path.is_dir():
-            raise ValueError(f"Not a directory: {path}")
-
-        pattern = "**/*" if recursive else "*"
-        results: list[IngestResult] = []
-        skipped = 0
-
-        for file_path in sorted(path.glob(pattern)):
-            if not file_path.is_file() or file_path.name.startswith("."):
-                continue
-            if file_path.suffix.lower() in self.parser.SUPPORTED_EXTENSIONS:
-                results.append(self.ingest(file_path))
-            else:
-                skipped += 1
-                results.append(
-                    self._failed_ingest(
-                        file_path.name,
-                        f"Unsupported file type: {file_path.suffix or 'no extension'}",
-                    )
-                )
-
-        if skipped:
-            logger.warning("Skipped %d unsupported file(s) in %s", skipped, path)
-        return results
-
     def query(self, question: str) -> RAGResponse:
         self.vector_store.validate_embedding_config(self.embedder.embedding_config)
         if self.vector_store.count() == 0:
@@ -315,7 +287,6 @@ class NexusRAG:
                 answer="No documents have been uploaded yet. Please upload research papers first.",
                 sources=[],
                 confidence=0.0,
-                reasoning_trace=[ReasoningStep("validation", "no documents in knowledge base")],
             )
 
         return self.orchestrator.query(question)
@@ -357,7 +328,6 @@ class NexusRAG:
             total_documents=doc_stats["document_count"],
             total_chunks=chunk_count,
             total_words=doc_stats["total_words"],
-            storage_path=str(self.settings.data_dir),
             llm_model=self.settings.llm.model,
             embedding_model=self.settings.embedding.model,
             llm_available=self.llm.is_available(),
@@ -391,19 +361,3 @@ class NexusRAG:
             self._bm25 = None
             self._orchestrator = None
             logger.exception("Could not rebuild the sparse index after %s", operation)
-
-    def unload_models(self) -> None:
-        with self._write_lock:
-            if self._embedder is not None:
-                self._embedder.unload()
-                self._embedder = None
-
-            self._orchestrator = None
-            self._vector_store = None
-            self._bm25 = None
-
-            if self._llm is not None:
-                self._llm.close()
-                self._llm = None
-
-        gc.collect()

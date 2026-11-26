@@ -5,8 +5,6 @@ import logging
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Literal
-
 from scinexusrag.ingestion.parser import ParsedDocument
 from scinexusrag.utils.filenames import resolve_display_name
 from scinexusrag.utils.text import SENTENCE_BOUNDARY
@@ -83,23 +81,14 @@ def _words(source: _TextSpan, width: int) -> Iterator[_TextSpan]:
             yield source.slice(start, min(start + width, match.end()))
 
 
-def _word_windows(source: _TextSpan, width: int, overlap: int = 0) -> list[_TextSpan]:
+def _word_windows(source: _TextSpan, width: int) -> list[_TextSpan]:
     windows: list[_TextSpan] = []
     current: list[_TextSpan] = []
     current_length = 0
     for word in _words(source, width):
         if current and current_length + 1 + len(word.text) > width:
             windows.append(_join_spans(current, " "))
-            suffix: list[_TextSpan] = []
-            suffix_length = 0
-            for previous in reversed(current):
-                length = len(previous.text) + suffix_length + (1 if suffix else 0)
-                if length > overlap or length + 1 + len(word.text) > width:
-                    break
-                suffix.append(previous)
-                suffix_length = length
-            current = list(reversed(suffix))
-            current_length = suffix_length
+            current, current_length = [], 0
         current_length += len(word.text) + (1 if current else 0)
         current.append(word)
     if current:
@@ -371,80 +360,3 @@ class HierarchicalChunker:
                 "end_offset": end_offset,
             },
         )
-
-
-class FixedSizeChunker:
-    """Word-safe chunking."""
-
-    def __init__(
-        self,
-        chunk_size: int = 500,
-        chunk_overlap: int = 50,
-        length_function: str = "chars",
-    ) -> None:
-        _require_integer(chunk_size, "chunk_size")
-        _require_integer(chunk_overlap, "chunk_overlap")
-        if chunk_size <= 0:
-            raise ValueError("chunk_size must be positive")
-        if chunk_overlap < 0 or chunk_overlap >= chunk_size:
-            raise ValueError("chunk_overlap must be nonnegative and smaller than chunk_size")
-        if length_function not in ("chars", "words"):
-            raise ValueError("length_function must be 'chars' or 'words'")
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.length_function = length_function
-
-    def chunk(self, document: ParsedDocument) -> list[Chunk]:
-        text = document.content.strip()
-        if not text:
-            return []
-
-        doc_name = resolve_display_name(document.metadata, fallback="Unknown Document")
-
-        chunks: list[Chunk] = []
-        for index, content in enumerate(self._split_text(text)):
-            chunks.append(
-                Chunk(
-                    id=_generate_chunk_id(document.id, index, content),
-                    content=content,
-                    document_id=document.id,
-                    document_name=doc_name,
-                    chunk_index=index,
-                    metadata={
-                        **document.metadata,
-                        "chunk_index": index,
-                        "filename": doc_name,
-                    },
-                )
-            )
-        return chunks
-
-    def _split_text(self, text: str) -> list[str]:
-        if self.length_function == "words":
-            words = text.split()
-            step = self.chunk_size - self.chunk_overlap
-            windows = []
-            for start in range(0, len(words), step):
-                windows.append(" ".join(words[start : start + self.chunk_size]))
-                if start + self.chunk_size >= len(words):
-                    break
-            return windows
-
-        return [
-            span.text
-            for span in _word_windows(_TextSpan(text), self.chunk_size, self.chunk_overlap)
-        ]
-
-
-SemanticChunker = HierarchicalChunker
-
-
-def get_chunker(
-    strategy: Literal["hierarchical", "semantic", "fixed"] = "hierarchical",
-    **kwargs: Any,
-) -> HierarchicalChunker | FixedSizeChunker:
-    if strategy == "fixed":
-        return FixedSizeChunker(**kwargs)
-    if strategy in ("hierarchical", "semantic"):
-        return HierarchicalChunker(**kwargs)
-    raise ValueError("strategy must be 'hierarchical', 'semantic' or 'fixed'")

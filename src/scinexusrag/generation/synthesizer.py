@@ -29,9 +29,6 @@ class Source:
 class SynthesisResult:
     answer: str
     sources: list[Source]
-    confidence: float = 0.0
-    raw_response: str = ""
-    tokens_used: int = 0
     error: str | None = None
 
 
@@ -169,7 +166,7 @@ class Synthesizer:
                 error="Answer generation failed.",
             )
 
-        return SynthesisResult(answer=answer, sources=prepared.sources, raw_response=answer)
+        return SynthesisResult(answer=answer, sources=prepared.sources)
 
     def _build_sources(
         self, results: list[RetrievalResult], doc_names: dict[str, str]

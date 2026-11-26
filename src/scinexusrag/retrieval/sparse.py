@@ -34,17 +34,12 @@ class BM25Index:
 class BM25Retriever:
     """BM25 retrieval."""
 
-    def __init__(self, stopwords: set[str] | frozenset[str] | None = None):
+    def __init__(self) -> None:
         self._index: BM25Index | None = None
-        self._stopwords = STOP_WORDS if stopwords is None else frozenset(stopwords)
-
-    @property
-    def stopwords(self) -> frozenset[str]:
-        return self._stopwords
 
     def tokenize(self, text: str) -> list[str]:
         tokens = re.findall(r"\b[a-z0-9]+\b", text.lower())
-        return [token for token in tokens if token not in self.stopwords and len(token) > 1]
+        return [token for token in tokens if token not in STOP_WORDS and len(token) > 1]
 
     def add(self, chunks: list[Chunk]) -> int:
         _validate_chunks(chunks)

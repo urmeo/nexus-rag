@@ -8,7 +8,7 @@ from typing import Protocol
 
 from scinexusrag.generation.grounding import GroundingVerifier
 from scinexusrag.generation.llm import LLMClient
-from scinexusrag.generation.query_analyzer import AnalyzedQuery, QueryAnalyzer
+from scinexusrag.generation.query_analyzer import QueryAnalyzer, QueryType
 from scinexusrag.generation.synthesizer import Source, Synthesizer
 from scinexusrag.generation.verifier import AnswerVerifier, VerificationResult
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
@@ -23,21 +23,12 @@ class DocumentMetadataStore(Protocol):
 
 
 @dataclass
-class ReasoningStep:
-    stage: str
-    detail: str
-
-
-@dataclass
 class RAGResponse:
     answer: str
     sources: list[Source]
     confidence: float
     processing_time_ms: float = 0.0
-    reasoning_trace: list[ReasoningStep] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    faithfulness: float | None = None
-    corrected: bool = False
 
 
 class Orchestrator:
@@ -64,22 +55,16 @@ class Orchestrator:
 
     def query(self, question: str) -> RAGResponse:
         start = time.perf_counter()
-        trace: list[ReasoningStep] = []
-
-        analyzed, question = self._prepare_question(question)
-
-        results, corrected = self.retriever.retrieve_traced(question, top_k=self.top_k)
-        trace.append(ReasoningStep("retrieval", f"{len(results)} chunks, corrected={corrected}"))
-
+        query_type, question = self._prepare_question(question)
+        results = self.retriever.retrieve(question, top_k=self.top_k)
         doc_names = self._document_names(results)
         synthesis = self.synthesizer.synthesize(
-            question, results, doc_names=doc_names, query_type=analyzed.query_type
+            question, results, doc_names=doc_names, query_type=query_type
         )
 
         if synthesis.error:
             answer = synthesis.answer
             confidence = 0.0
-            faithfulness = None
             warnings = [synthesis.error]
         else:
             verification, faithfulness, warnings = self._verify_answer(
@@ -89,26 +74,22 @@ class Orchestrator:
             confidence = self._confidence(
                 synthesis.sources, verification.citations_valid, faithfulness
             )
-        trace.append(ReasoningStep("synthesis", f"confidence={confidence:.2f}"))
 
         return RAGResponse(
             answer=answer,
             sources=synthesis.sources,
             confidence=confidence,
             processing_time_ms=(time.perf_counter() - start) * 1000,
-            reasoning_trace=trace,
             warnings=warnings,
-            faithfulness=faithfulness,
-            corrected=corrected,
         )
 
-    def _prepare_question(self, question: str) -> tuple[AnalyzedQuery, str]:
+    def _prepare_question(self, question: str) -> tuple[QueryType, str]:
         if not isinstance(question, str):
             raise TypeError("Question must be a string")
         question = question.strip()
         if not question:
             raise ValueError("Question cannot be empty")
-        return self.analyzer.analyze(question), self.analyzer.rewrite_vague_query(question)
+        return self.analyzer.classify(question), self.analyzer.rewrite_vague_query(question)
 
     def _verify_answer(
         self, answer: str, sources: list[Source]

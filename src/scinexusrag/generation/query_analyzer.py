@@ -1,10 +1,7 @@
 """Query analysis."""
 
 import re
-from dataclasses import dataclass
 from enum import Enum
-
-from scinexusrag.retrieval.stopwords import STOP_WORDS
 
 
 class QueryType(Enum):
@@ -18,14 +15,6 @@ class QueryType(Enum):
     CAUSAL = "causal"
     TEMPORAL = "temporal"
     UNKNOWN = "unknown"
-
-
-@dataclass
-class AnalyzedQuery:
-    original: str
-    normalized: str
-    query_type: QueryType
-    keywords: list[str]
 
 
 QUERY_PATTERNS = {
@@ -56,27 +45,12 @@ VAGUE_REWRITES = {
 
 
 class QueryAnalyzer:
-    def analyze(self, query: str) -> AnalyzedQuery:
+    def classify(self, query: str) -> QueryType:
         normalized = re.sub(r"\s+", " ", query.lower().strip()).rstrip("?").strip()
-        return AnalyzedQuery(
-            original=query,
-            normalized=normalized,
-            query_type=self._classify(normalized),
-            keywords=self._keywords(normalized),
-        )
-
-    def _classify(self, query: str) -> QueryType:
         for qtype, patterns in QUERY_PATTERNS.items():
-            if any(re.search(p, query) for p in patterns):
+            if any(re.search(p, normalized) for p in patterns):
                 return qtype
         return QueryType.UNKNOWN
-
-    def _keywords(self, query: str) -> list[str]:
-        out: list[str] = []
-        for w in re.findall(r"\b[a-z][a-z0-9]+\b", query):
-            if w not in STOP_WORDS and len(w) > 2 and w not in out:
-                out.append(w)
-        return out
 
     def rewrite_vague_query(self, query: str) -> str:
         low = re.sub(r"\s+", " ", query.lower().strip()).rstrip("?.").strip()

@@ -68,13 +68,7 @@ from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
 from scinexusrag.generation.query_analyzer import QueryAnalyzer, QueryType
 from scinexusrag.generation.synthesizer import Source, Synthesizer
 from scinexusrag.generation.verifier import AnswerVerifier
-from scinexusrag.ingestion.chunker import (
-    Chunk,
-    FixedSizeChunker,
-    HierarchicalChunker,
-    SemanticChunker,
-    get_chunker,
-)
+from scinexusrag.ingestion.chunker import Chunk, HierarchicalChunker
 from scinexusrag.ingestion.embedder import (
     Embedder,
     EmbeddingConfig,
@@ -310,7 +304,7 @@ class TestBasicPipelineWorkflow:
 
         assert result.success, result.error
         assert result.chunk_count > 0
-        chunks = pipeline_rag.vector_store.get_chunks_by_document(result.document_id)
+        chunks = pipeline_rag.vector_store.get_all_chunks()
         assert all("[" not in chunk.content for chunk in chunks)
         for line in content.splitlines():
             if line:
@@ -389,10 +383,7 @@ class TestBasicPipelineWorkflow:
         assert len(matches) == 1
         match = matches[0].chunk
         assert numeric_row in match.content
-        persisted = {
-            chunk.id: chunk
-            for chunk in restarted.vector_store.get_chunks_by_document(result.document_id)
-        }[match.id]
+        persisted = {chunk.id: chunk for chunk in restarted.vector_store.get_all_chunks()}[match.id]
         assert persisted.full_context == match.full_context
         start, end = persisted.start_offset, persisted.end_offset
         assert start is not None and end is not None
@@ -562,7 +553,7 @@ class TestBasicPipelineWorkflow:
         assert pipeline_rag.bm25 is not sparse
         assert pipeline_rag.bm25.count() == 0
         assert pipeline_rag.delete_document(result.document_id)
-        assert pipeline_rag.document_store.count() == 0
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 0
 
     def test_delete_document_with_more_than_100000_chunks_removes_all_sparse_entries(
         self, pipeline_rag: NexusRAG
@@ -584,7 +575,7 @@ class TestBasicPipelineWorkflow:
 
         assert pipeline_rag.vector_store.count() == pipeline_rag.bm25.count() == 0
         assert pipeline_rag.bm25.retrieve("42 mA") == []
-        assert pipeline_rag.document_store.count() == 0
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 0
 
     @pytest.mark.parametrize("failure", ["unlink", "index_save"])
     def test_delete_metadata_failure_keeps_retrieval_indexes_synced(
@@ -608,20 +599,14 @@ class TestBasicPipelineWorkflow:
 
 
 class TestMultiFileIngestion:
-    def test_ingest_directory(self, pipeline_rag: NexusRAG, docs_directory: Path):
-        results = pipeline_rag.ingest_directory(docs_directory)
+    def test_ingesting_several_files_updates_stats(
+        self, pipeline_rag: NexusRAG, docs_directory: Path
+    ):
+        results = [pipeline_rag.ingest(path) for path in sorted(docs_directory.iterdir())]
 
         assert len(results) == 3
-        assert all(r.success for r in results)
-
-        docs = pipeline_rag.list_documents()
-        assert len(docs) == 3
-
-        for result in results:
-            assert result.chunk_count > 0
-
-    def test_ingest_directory_stats(self, pipeline_rag: NexusRAG, docs_directory: Path):
-        results = pipeline_rag.ingest_directory(docs_directory)
+        assert all(result.success and result.chunk_count > 0 for result in results)
+        assert len(pipeline_rag.list_documents()) == 3
         total_chunks = sum(r.chunk_count for r in results)
         total_words = sum(r.word_count for r in results)
 
@@ -629,21 +614,6 @@ class TestMultiFileIngestion:
         assert stats.total_documents == 3
         assert stats.total_chunks == total_chunks
         assert stats.total_words == total_words
-
-    def test_ingest_directory_with_unsupported_format(self, pipeline_rag: NexusRAG, tmp_path: Path):
-        test_dir = tmp_path / "mixed_docs"
-        test_dir.mkdir()
-
-        (test_dir / "valid.txt").write_text("Valid content here.\n" * 10)
-        (test_dir / "unsupported.xyz").write_text("This should be skipped.\n")
-
-        results = pipeline_rag.ingest_directory(test_dir)
-
-        assert len(results) == 2
-        by_name = {r.filename: r for r in results}
-        assert by_name["valid.txt"].success is True
-        assert by_name["unsupported.xyz"].success is False
-        assert "Unsupported file type" in (by_name["unsupported.xyz"].error or "")
 
 
 class TestConcurrentWrites:
@@ -688,7 +658,7 @@ class TestConcurrentWrites:
             assert ingest_result.result(timeout=5).success
 
         assert snapshot.total_documents == snapshot.total_chunks == snapshot.total_words == 0
-        assert pipeline_rag.document_store.count() == 1
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 1
         assert pipeline_rag.vector_store.count() > 0
 
     @pytest.mark.parametrize("first_operation", ["ingest", "list_documents"])
@@ -741,7 +711,7 @@ class TestConcurrentWrites:
             assert rejected[0].error == "Document already exists"
         else:
             assert not rejected
-        assert store.count() == 1
+        assert len(store.list_with_metadata()) == 1
         assert pipeline_rag.vector_store.count() == successful[0].chunk_count
         assert pipeline_rag.bm25.count() == successful[0].chunk_count
 
@@ -749,7 +719,7 @@ class TestConcurrentWrites:
         self, pipeline_rag: NexusRAG, pipeline_text_file: Path, monkeypatch
     ):
         pipeline_rag.vector_store.count()
-        pipeline_rag.document_store.count()
+        len(pipeline_rag.document_store.list_with_metadata())
         embed = pipeline_rag.embedder.embed
         barrier = Barrier(2)
 
@@ -767,7 +737,7 @@ class TestConcurrentWrites:
         rejected = [result for result in results if not result.success]
         assert len(successful) == len(rejected) == 1
         assert rejected[0].error == "Document already exists"
-        assert pipeline_rag.document_store.count() == 1
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 1
         assert pipeline_rag.vector_store.count() == successful[0].chunk_count
         assert pipeline_rag.bm25.count() == successful[0].chunk_count
 
@@ -809,17 +779,18 @@ class TestDuplicateDetection:
         docs = pipeline_rag.list_documents()
         assert len(docs) == 1
 
-    def test_duplicate_in_batch_ingest(self, pipeline_rag: NexusRAG, tmp_path: Path):
-        docs_dir = tmp_path / "dup_test"
-        docs_dir.mkdir()
-
+    def test_same_file_in_two_folders_is_ingested_once(
+        self, pipeline_rag: NexusRAG, tmp_path: Path
+    ):
         content = "Test content for duplicate detection.\n" * 5
+        paths = []
         for name in ("first", "second"):
-            directory = docs_dir / name
+            directory = tmp_path / name
             directory.mkdir()
-            (directory / "paper.txt").write_text(content)
+            paths.append(directory / "paper.txt")
+            paths[-1].write_text(content)
 
-        results = pipeline_rag.ingest_directory(docs_dir, recursive=True)
+        results = [pipeline_rag.ingest(path) for path in paths]
 
         assert len(results) == 2
         successful = [r for r in results if r.success]
@@ -827,7 +798,7 @@ class TestDuplicateDetection:
         assert len(successful) == len(rejected) == 1
         assert rejected[0].error == "Document already exists"
         assert rejected[0].document_id == successful[0].document_id
-        assert pipeline_rag.document_store.count() == 1
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 1
         assert pipeline_rag.vector_store.count() == successful[0].chunk_count
         assert pipeline_rag.bm25.count() == successful[0].chunk_count
 
@@ -866,7 +837,8 @@ class TestClearOperations:
 
     def test_clear_all_documents(self, pipeline_rag: NexusRAG, docs_directory: Path):
 
-        pipeline_rag.ingest_directory(docs_directory)
+        for path in sorted(docs_directory.iterdir()):
+            pipeline_rag.ingest(path)
         assert pipeline_rag.get_stats().total_documents == 3
 
         pipeline_rag.clear_all()
@@ -912,7 +884,6 @@ class TestStatisticsAndMetadata:
         assert stats.total_documents == 1
         assert stats.total_chunks == result.chunk_count
         assert stats.total_words > 0
-        assert stats.storage_path == str(pipeline_rag.settings.data_dir)
 
     def test_list_documents_empty(self, pipeline_rag: NexusRAG):
         docs = pipeline_rag.list_documents()
@@ -929,7 +900,7 @@ class TestStatisticsAndMetadata:
         assert "filename" in doc or "original_filename" in doc
 
     def test_stats_with_multiple_documents(self, pipeline_rag: NexusRAG, docs_directory: Path):
-        results = pipeline_rag.ingest_directory(docs_directory)
+        results = [pipeline_rag.ingest(path) for path in sorted(docs_directory.iterdir())]
 
         stats = pipeline_rag.get_stats()
         assert stats.total_documents == len(results)
@@ -963,10 +934,6 @@ class TestPipelineErrors:
 
         assert result.success is False
         assert result.error == "Unsupported format: .xyz"
-
-    def test_ingest_directory_nonexistent(self, pipeline_rag: NexusRAG):
-        with pytest.raises(ValueError, match="Not a directory"):
-            pipeline_rag.ingest_directory("/nonexistent/directory")
 
     def test_ingest_bytes_empty(self, pipeline_rag: NexusRAG):
         result = pipeline_rag.ingest_bytes(b"", "empty.txt", ".txt")
@@ -1123,7 +1090,9 @@ class TestIntegrationWithRealComponents:
 
         assert restarted.bm25.count() == result.chunk_count
         assert restarted.bm25.retrieve("research")
-        assert restarted.vector_store.list_documents() == [result.document_id]
+        assert {chunk.document_id for chunk in restarted.vector_store.get_all_chunks()} == {
+            result.document_id
+        }
 
     def test_with_real_parser_and_chunker(self, pipeline_rag: NexusRAG, pipeline_text_file: Path):
         result = pipeline_rag.ingest(pipeline_text_file)
@@ -1197,7 +1166,7 @@ class TestIngestRollback:
         document = ParsedDocument("existing", "Original evidence.", {"filename": "current.txt"})
         chunks = pipeline_rag.chunker.chunk(document)
         embeddings = pipeline_rag.embedder.embed([chunk.content for chunk in chunks])
-        assert pipeline_rag.document_store.count() == 0
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 0
         writer = DocumentStore(pipeline_rag.document_store.path)
         writer.add(document)
         writer.update_metadata(document.id, "notes", {"tags": ["original"]})
@@ -1222,7 +1191,7 @@ class TestIngestRollback:
         source.write_text("The measured current is forty-two milliamps.", encoding="utf-8")
         document = pipeline_rag.parser.parse(source)
         chunks = pipeline_rag.chunker.chunk(document)
-        assert pipeline_rag.document_store.count() == 0
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 0
 
         writer = DocumentStore(pipeline_rag.document_store.path)
         writer.add(document)
@@ -1234,7 +1203,7 @@ class TestIngestRollback:
         existing_metadata = writer.list_with_metadata()
         existing_files = {path.name: path.read_bytes() for path in writer.path.iterdir()}
         existing_vectors = pipeline_rag.vector_store.table.to_arrow()
-        assert pipeline_rag.document_store.count() == 0
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 0
 
         if entry_point == "ingest":
             result = pipeline_rag.ingest(source)
@@ -1276,7 +1245,7 @@ class TestIngestRollback:
         assert restarted.document_store.exists(document_id)
         assert restarted.bm25.count() == len(chunks)
         assert restarted.delete_document(document_id)
-        assert restarted.document_store.count() == 0
+        assert len(restarted.document_store.list_with_metadata()) == 0
         assert restarted.bm25.count() == restarted.vector_store.count() == 0
 
     @pytest.mark.parametrize(
@@ -1314,7 +1283,7 @@ class TestIngestRollback:
 
         def fail_cleanup(*args, **kwargs):
             if stage == "dense_partial":
-                pipeline_rag.vector_store.delete([chunks[0].id])
+                pipeline_rag.vector_store.table.delete(f"id = '{chunks[0].id}'")
             elif stage == "dense_after":
                 cleanup(*args, **kwargs)
             raise OSError(f"Rollback failed during {stage}")
@@ -1331,8 +1300,8 @@ class TestIngestRollback:
             assert pipeline_rag._orchestrator is None
         monkeypatch.setattr(owner, method, cleanup)
         expected_remaining = 3 if stage == "dense_before" else 2 if stage == "dense_partial" else 0
-        assert (
-            len(pipeline_rag.vector_store.get_chunks_by_document(document.id)) == expected_remaining
+        assert len(pipeline_rag.vector_store.get_chunk_ids_by_document(document.id)) == (
+            expected_remaining
         )
         assert (
             pipeline_rag.bm25.count()
@@ -1347,7 +1316,7 @@ class TestIngestRollback:
         restarted._embedder = pipeline_rag.embedder
         assert restarted.bm25.count() == other.chunk_count + expected_remaining
         assert restarted.delete_document(document.id)
-        assert restarted.document_store.count() == 1
+        assert len(restarted.document_store.list_with_metadata()) == 1
         assert restarted.document_store.exists(other.document_id)
         assert restarted.bm25.count() == restarted.vector_store.count() == other.chunk_count
 
@@ -1355,7 +1324,7 @@ class TestIngestRollback:
         self, pipeline_rag: NexusRAG, pipeline_text_file: Path, monkeypatch
     ):
         store = pipeline_rag.document_store
-        store.count()
+        store.list_with_metadata()
         save_index = store._save_index
         failed = False
 
@@ -1370,7 +1339,7 @@ class TestIngestRollback:
         result = pipeline_rag.ingest(pipeline_text_file)
 
         assert not result.success
-        assert store.count() == 0
+        assert store.list_with_metadata() == {}
         assert pipeline_rag.vector_store.count() == 0
         assert pipeline_rag.bm25.count() == 0
         assert all(path == store._index_path for path in store.path.glob("*.json"))
@@ -1387,7 +1356,7 @@ class TestIngestRollback:
         result = pipeline_rag.ingest(pipeline_text_file)
 
         assert result.success is False
-        assert pipeline_rag.document_store.count() == 0
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 0
         assert pipeline_rag.bm25.count() == 0
 
     def test_bm25_failure_rolls_back_all_stores(
@@ -1401,23 +1370,8 @@ class TestIngestRollback:
         result = pipeline_rag.ingest(pipeline_text_file)
 
         assert result.success is False
-        assert pipeline_rag.document_store.count() == 0
+        assert len(pipeline_rag.document_store.list_with_metadata()) == 0
         assert pipeline_rag.vector_store.count() == 0
-
-
-class TestUnloadModels:
-    def test_unload_resets_lazy_handles(self, pipeline_rag: NexusRAG):
-
-        assert pipeline_rag.embedder is not None
-        _ = pipeline_rag.llm
-        _ = pipeline_rag.orchestrator
-
-        pipeline_rag.unload_models()
-
-        assert all(
-            getattr(pipeline_rag, "_" + name) is None
-            for name in ("embedder", "llm", "orchestrator", "vector_store", "bm25")
-        )
 
 
 class _ObservedWriteLock:
@@ -1568,53 +1522,6 @@ class TestLazyResourceLifecycle:
         assert getattr(pipeline_rag, resource) is handle
         assert factory.call_count == 2
 
-    @pytest.mark.parametrize(
-        "resource,factory_name", [("embedder", "Embedder"), ("llm", "LLMClient")]
-    )
-    def test_unload_waits_for_lazy_handle_construction(
-        self, test_settings, monkeypatch, resource, factory_name
-    ):
-        pipeline_rag = NexusRAG(test_settings)
-        lock = _ObservedWriteLock()
-        pipeline_rag._write_lock = lock
-        constructing = Event()
-        release = Event()
-        original_handle, fresh_handle = MagicMock(), MagicMock()
-
-        def construct(**_kwargs):
-            constructing.set()
-            assert release.wait(timeout=5)
-            return original_handle
-
-        factory = MagicMock(side_effect=construct)
-        monkeypatch.setattr("scinexusrag.application." + factory_name, factory)
-        with ThreadPoolExecutor(max_workers=2) as workers:
-            loading = workers.submit(lambda: getattr(pipeline_rag, resource))
-            try:
-                assert constructing.wait(timeout=5)
-                lock.wait_for_attempts(1)
-                unloading = workers.submit(pipeline_rag.unload_models)
-                lock.wait_for_attempts(1)
-                assert not unloading.done()
-            finally:
-                release.set()
-            assert loading.result(timeout=5) is original_handle
-            unloading.result(timeout=5)
-
-        if resource == "embedder":
-            original_handle.unload.assert_called_once()
-        else:
-            original_handle.close.assert_called_once()
-        assert all(
-            getattr(pipeline_rag, "_" + name) is None
-            for name in ("embedder", "llm", "orchestrator", "vector_store", "bm25")
-        )
-        factory.side_effect = None
-        factory.return_value = fresh_handle
-        assert getattr(pipeline_rag, resource) is fresh_handle
-        assert getattr(pipeline_rag, resource) is fresh_handle
-        assert factory.call_count == 2
-
 
 class TestStoredEmbeddingConfiguration:
     def test_explicit_reset_does_not_require_a_valid_embedder(
@@ -1633,7 +1540,7 @@ class TestStoredEmbeddingConfiguration:
         config.assert_not_called()
         invalid_embedder.embed.assert_not_called()
         invalid_embedder.embed_query.assert_not_called()
-        assert restarted.document_store.count() == 0
+        assert len(restarted.document_store.list_with_metadata()) == 0
         assert (
             restarted.settings.storage.table_name
             not in original.vector_store.db.list_tables().tables
@@ -1662,7 +1569,7 @@ class TestStoredEmbeddingConfiguration:
         changed_embedder.embed_query.assert_not_called()
         restarted._llm.generate.assert_not_called()
         assert original.vector_store.count() == ingested.chunk_count
-        assert original.document_store.count() == 1
+        assert len(original.document_store.list_with_metadata()) == 1
 
     def test_changed_revision_rejects_ingest_before_embedding_writes_or_rollback(
         self, pipeline_rag: NexusRAG, pipeline_text_file: Path, monkeypatch
@@ -1700,35 +1607,15 @@ class TestStoredEmbeddingConfiguration:
         writes.assert_not_called()
         deletes.assert_not_called()
         assert original.vector_store.count() == ingested.chunk_count
-        assert original.document_store.count() == 1
-
-    def test_unload_reloads_configuration_instead_of_reusing_old_store(
-        self, pipeline_rag: NexusRAG, pipeline_text_file: Path
-    ):
-        ingested = pipeline_rag.ingest(pipeline_text_file)
-        assert ingested.success
-        assert pipeline_rag.bm25.count() == ingested.chunk_count
-        changed_config = replace(pipeline_rag.embedder.embedding_config, revision="b" * 40)
-
-        pipeline_rag.unload_models()
-        changed_embedder = MagicMock()
-        changed_embedder.dimension = 384
-        changed_embedder.embedding_config = changed_config
-        pipeline_rag._embedder = changed_embedder
-
-        assert pipeline_rag._vector_store is None
-        assert pipeline_rag._bm25 is None
-        with pytest.raises(EmbeddingConfigError):
-            pipeline_rag.query("What measurements were recorded?")
-        changed_embedder.embed_query.assert_not_called()
+        assert len(original.document_store.list_with_metadata()) == 1
 
     def test_explicit_reset_clears_documents_and_allows_reingestion(
         self, pipeline_rag: NexusRAG, pipeline_text_file: Path
     ):
-        original = pipeline_rag
-        assert original.ingest(pipeline_text_file).success
-        changed_config = replace(original.embedder.embedding_config, model_name="another-model")
-        original.unload_models()
+        assert pipeline_rag.ingest(pipeline_text_file).success
+        changed_config = replace(pipeline_rag.embedder.embedding_config, model_name="another-model")
+        original = NexusRAG(settings=pipeline_rag.settings)
+        original._llm = pipeline_rag.llm
         original._embedder = MagicMock()
         original._embedder.dimension = 384
         original._embedder.embedding_config = changed_config
@@ -1738,7 +1625,7 @@ class TestStoredEmbeddingConfiguration:
             original.query("What measurements were recorded?")
 
         original.clear_all()
-        assert original.document_store.count() == 0
+        assert len(original.document_store.list_with_metadata()) == 0
         assert original.vector_store.count() == 0
         assert original.bm25.count() == 0
         original._embedder.embed.side_effect = lambda texts, **kwargs: np.ones(
@@ -1747,7 +1634,7 @@ class TestStoredEmbeddingConfiguration:
         result = original.ingest(pipeline_text_file)
 
         assert result.success
-        assert original.document_store.count() == 1
+        assert len(original.document_store.list_with_metadata()) == 1
         assert original.vector_store.count() == original.bm25.count() == result.chunk_count
 
 
@@ -2064,7 +1951,6 @@ def test_answer_verification_preserves_valid_noncontiguous_sources_and_layout():
 
     assert result.verified_answer == answer
     assert result.citations_valid == [2, 4]
-    assert result.citations_invalid == []
     assert result.warnings == []
 
 
@@ -2076,24 +1962,6 @@ def test_invalid_citation_removal_preserves_markdown_hard_breaks(newline):
 
     assert cleaned == f"Claim   {newline}Next claim [1]."
     assert extract_citations(cleaned) == [1]
-
-
-def test_grounding_supports_legacy_cross_encoder_activation_parameter():
-    logits = np.array([-2.0, 2.0])
-
-    def predict(pairs, *, activation_fct, apply_softmax, convert_to_numpy):
-        assert pairs == [("first", "claim"), ("second", "claim")]
-        assert apply_softmax is False
-        assert convert_to_numpy is True
-        return activation_fct(logits)
-
-    verifier = GroundingVerifier()
-    verifier._model = SimpleNamespace(predict=predict)
-
-    probabilities = verifier.class_probs([("first", "claim"), ("second", "claim")])
-
-    expected = 1 / (1 + np.exp(-logits))
-    np.testing.assert_allclose(probabilities, np.column_stack([1 - expected, expected]))
 
 
 class TestHealthProbe:
@@ -2302,82 +2170,7 @@ class TestFrontendConfiguration:
             assert "Private document contents" not in response.text
 
 
-class TestFixedSizeChunker:
-    def test_fixed_size_chunker_basic(self, parsed_document):
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(parsed_document)
-
-        assert len(chunks) > 0
-        assert all(isinstance(c, Chunk) for c in chunks)
-
-    def test_chunk_size_respected(self, parsed_document):
-        chunk_size = 200
-        chunker = FixedSizeChunker(chunk_size=chunk_size, chunk_overlap=20)
-        chunks = chunker.chunk(parsed_document)
-
-        assert chunks
-        assert all(len(chunk.content) <= chunk_size for chunk in chunks)
-
-    def test_chunk_overlap(self):
-        content = " ".join(f"w{i}" for i in range(60))
-        doc = ParsedDocument(id="test", content=content, metadata={}, sections=[])
-
-        chunker = FixedSizeChunker(chunk_size=20, chunk_overlap=5, length_function="words")
-        chunks = chunker.chunk(doc)
-
-        assert len(chunks) >= 2
-
-        assert chunks[0].content.split()[-5:] == chunks[1].content.split()[:5]
-
-    def test_chunk_ids_unique(self, parsed_document):
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(parsed_document)
-
-        ids = [c.id for c in chunks]
-        assert ids
-        assert len(ids) == len(set(ids))
-
-    def test_chunk_metadata_preserved(self, parsed_document):
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(parsed_document)
-
-        for i, chunk in enumerate(chunks):
-            assert chunk.document_id == parsed_document.id
-            assert chunk.metadata["chunk_index"] == i
-            assert "filename" in chunk.metadata
-
-    def test_word_based_chunking(self, parsed_document):
-        chunker = FixedSizeChunker(chunk_size=20, chunk_overlap=5, length_function="words")
-        chunks = chunker.chunk(parsed_document)
-
-        assert len(chunks) > 0
-        for chunk in chunks:
-            word_count = len(chunk.content.split())
-            assert 0 < word_count <= 20
-
-    def test_overlap_validation(self):
-        with pytest.raises(ValueError):
-            FixedSizeChunker(chunk_size=100, chunk_overlap=100)
-
-        with pytest.raises(ValueError):
-            FixedSizeChunker(chunk_size=100, chunk_overlap=150)
-
-    def test_empty_document(self):
-        doc = ParsedDocument(id="empty", content="", metadata={}, sections=[])
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(doc)
-
-        assert chunks == []
-
-    def test_whitespace_only_document(self):
-        doc = ParsedDocument(id="ws", content="   \n\n   ", metadata={}, sections=[])
-        chunker = FixedSizeChunker(chunk_size=100, chunk_overlap=20)
-        chunks = chunker.chunk(doc)
-
-        assert chunks == []
-
-
-class TestSemanticChunker:
+class TestHierarchicalChunker:
     @pytest.mark.parametrize(
         "overrides",
         [
@@ -2414,7 +2207,7 @@ class TestSemanticChunker:
         assert chunks[0].context_after == ""
 
     def test_semantic_chunker_basic(self, parsed_document):
-        chunker = SemanticChunker(min_chunk_size=50, max_chunk_size=500)
+        chunker = HierarchicalChunker(min_chunk_size=50, max_chunk_size=500)
         chunks = chunker.chunk(parsed_document)
 
         assert len(chunks) > 0
@@ -2433,7 +2226,7 @@ class TestSemanticChunker:
             sections=sections,
         )
 
-        chunker = SemanticChunker(min_chunk_size=10, max_chunk_size=500)
+        chunker = HierarchicalChunker(min_chunk_size=10, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
         assert len(chunks) >= len(sections)
@@ -2447,7 +2240,7 @@ class TestSemanticChunker:
         ]
         doc = ParsedDocument(id="test", content="Content", metadata={}, sections=sections)
 
-        chunker = SemanticChunker(min_chunk_size=10, max_chunk_size=500)
+        chunker = HierarchicalChunker(min_chunk_size=10, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
         methods_chunks = [c for c in chunks if c.metadata.get("section_title") == "Methods"]
@@ -2459,7 +2252,7 @@ class TestSemanticChunker:
         sections = [Section(title="Large", content=large_content, level=1)]
         doc = ParsedDocument(id="large", content=large_content, metadata={}, sections=sections)
 
-        chunker = SemanticChunker(min_chunk_size=50, max_chunk_size=200)
+        chunker = HierarchicalChunker(min_chunk_size=50, max_chunk_size=200)
         chunks = chunker.chunk(doc)
 
         assert len(chunks) > 1
@@ -2472,7 +2265,7 @@ Second paragraph here.
 Third paragraph follows."""
 
         doc = ParsedDocument(id="paras", content=content, metadata={}, sections=[])
-        chunker = SemanticChunker(min_chunk_size=10, max_chunk_size=500)
+        chunker = HierarchicalChunker(min_chunk_size=10, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
         assert len(chunks) >= 1
@@ -2481,31 +2274,17 @@ Third paragraph follows."""
         content = "A.\n\nB.\n\nC.\n\nD.\n\nE."
         doc = ParsedDocument(id="small", content=content, metadata={}, sections=[])
 
-        chunker = SemanticChunker(min_chunk_size=20, max_chunk_size=500)
+        chunker = HierarchicalChunker(min_chunk_size=20, max_chunk_size=500)
         chunks = chunker.chunk(doc)
 
         assert [chunk.content for chunk in chunks] == [content]
 
     def test_empty_document(self):
         doc = ParsedDocument(id="empty", content="", metadata={}, sections=[])
-        chunker = SemanticChunker()
+        chunker = HierarchicalChunker()
         chunks = chunker.chunk(doc)
 
         assert chunks == []
-
-
-class TestGetChunker:
-    def test_get_fixed_chunker(self):
-        chunker = get_chunker("fixed", chunk_size=200, chunk_overlap=30)
-        assert isinstance(chunker, FixedSizeChunker)
-
-    def test_get_semantic_chunker(self):
-        chunker = get_chunker("semantic", max_chunk_size=500)
-        assert isinstance(chunker, SemanticChunker)
-
-    def test_default_is_semantic(self):
-        chunker = get_chunker()
-        assert isinstance(chunker, SemanticChunker)
 
 
 class TestParagraphChunking:
@@ -2589,7 +2368,7 @@ class TestChunkerNoDataLoss:
     def test_short_document_yields_a_chunk(self):
         doc = ParsedDocument(id="d", content="A short valid note.", metadata={})
         doc.sections = [Section(title="", content="A short valid note.", level=0)]
-        chunks = SemanticChunker(include_context=False).chunk(doc)
+        chunks = HierarchicalChunker(include_context=False).chunk(doc)
         assert len(chunks) == 1
         assert "short valid note" in chunks[0].content
 
@@ -2599,7 +2378,7 @@ class TestChunkerNoDataLoss:
             Section(title="Alpha", content="alpha " * 300, level=0, page_number=1),
             Section(title="Beta", content="short beta note.", level=0, page_number=2),
         ]
-        chunks = SemanticChunker(include_context=False).chunk(doc)
+        chunks = HierarchicalChunker(include_context=False).chunk(doc)
         beta = [c for c in chunks if c.section_title == "Beta"]
         assert beta and beta[0].page_number == 2
 
@@ -2628,7 +2407,7 @@ def test_heading_only_documents_produce_chunks_with_exact_source_spans(extension
         data = "\n\n".join(expected).encode()
     document = DocumentParser().parse_bytes(data, "readings" + extension, extension)
 
-    chunks = SemanticChunker(context_chars=12).chunk(document)
+    chunks = HierarchicalChunker(context_chars=12).chunk(document)
 
     assert [chunk.content for chunk in chunks] == expected
     assert [chunk.section_title for chunk in chunks] == headings
@@ -2645,7 +2424,7 @@ def test_body_and_empty_final_heading_are_chunked_once_with_their_own_metadata()
     source = "# Methods\nMeasured current: 42 mA.\n\n## CALIBRATION PASSED."
     document = DocumentParser().parse_bytes(source.encode(), "readings.md", ".md")
 
-    chunks = SemanticChunker(context_chars=16).chunk(document)
+    chunks = HierarchicalChunker(context_chars=16).chunk(document)
 
     assert [chunk.content for chunk in chunks] == [
         "[Methods]\n\nMeasured current: 42 mA.",
@@ -2665,7 +2444,7 @@ def test_empty_sections_fall_back_to_original_text_with_exact_source_offsets(sec
         sections=[Section(title=section_title, content=""), Section(title="", content="  ")],
     )
 
-    chunks = SemanticChunker(context_chars=10).chunk(document)
+    chunks = HierarchicalChunker(context_chars=10).chunk(document)
 
     assert len(chunks) == 1
     chunk = chunks[0]
@@ -2681,7 +2460,7 @@ def test_short_tail_does_not_overflow_full_chunk(content, sectioned):
     document = ParsedDocument(id="tail", content=content)
     if sectioned:
         document.sections = [Section(title="Methods", content=content, level=1, page_number=4)]
-    chunker = SemanticChunker(include_context=False, overlap_size=0)
+    chunker = HierarchicalChunker(include_context=False, overlap_size=0)
 
     chunks = chunker.chunk(document)
 
@@ -2701,7 +2480,7 @@ def test_short_tail_merge_does_not_duplicate_overlap(sectioned):
     document = ParsedDocument(id="overlap-tail", content=content)
     if sectioned:
         document.sections = [Section(title="Methods", content=content, page_number=4)]
-    chunker = SemanticChunker(min_chunk_size=200, include_context=False)
+    chunker = HierarchicalChunker(min_chunk_size=200, include_context=False)
 
     chunks = chunker.chunk(document)
 
@@ -2724,7 +2503,7 @@ def test_context_matches_full_passage_when_prefixes_repeat():
         content=content,
         sections=[Section(title="First", content=first), Section(title="Second", content=second)],
     )
-    chunker = SemanticChunker(context_chars=20)
+    chunker = HierarchicalChunker(context_chars=20)
 
     chunks = chunker.chunk(document)
 
@@ -2758,7 +2537,7 @@ def test_identical_passages_get_context_from_their_document_order():
         ],
     )
 
-    chunks = SemanticChunker(context_chars=16).chunk(document)
+    chunks = HierarchicalChunker(context_chars=16).chunk(document)
 
     assert chunks[0].context_before == "First marker."
     assert chunks[1].context_before == "Middle marker."
@@ -2779,7 +2558,7 @@ def test_full_overlap_chunks_keep_context_from_the_same_source_position():
             Section(title="Results", content=results),
         ],
     )
-    chunker = SemanticChunker(min_chunk_size=200, context_chars=40)
+    chunker = HierarchicalChunker(min_chunk_size=200, context_chars=40)
 
     chunks = chunker.chunk(document)
 
@@ -2809,7 +2588,7 @@ def test_shorter_repeated_prefix_gets_context_from_its_later_occurrence():
         ],
     )
 
-    chunks = SemanticChunker(context_chars=16).chunk(document)
+    chunks = HierarchicalChunker(context_chars=16).chunk(document)
 
     assert chunks[1].context_before == "Middle marker."
     assert chunks[1].context_after == "Last marker."
@@ -2823,7 +2602,7 @@ def test_unmatched_passage_does_not_borrow_context_from_a_shared_prefix():
         sections=[Section(title="Methods", content=prefix + "A different result.")],
     )
 
-    chunk = SemanticChunker().chunk(document)[0]
+    chunk = HierarchicalChunker().chunk(document)[0]
 
     assert chunk.context_before == ""
     assert chunk.context_after == ""
@@ -2832,7 +2611,7 @@ def test_unmatched_passage_does_not_borrow_context_from_a_shared_prefix():
 def test_literal_bracketed_text_is_not_treated_as_an_added_section_header():
     content = "[Literal source label]\n\nA short document with a label in its source text."
 
-    chunk = SemanticChunker().chunk(ParsedDocument(id="literal-label", content=content))[0]
+    chunk = HierarchicalChunker().chunk(ParsedDocument(id="literal-label", content=content))[0]
 
     assert chunk.full_context == content
     assert chunk.context_before == ""
@@ -2864,7 +2643,7 @@ def test_repeated_wrapped_words_keep_their_original_whitespace_positions():
             )
         ],
     )
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=1,
         target_chunk_size=12,
         max_chunk_size=12,
@@ -2886,7 +2665,7 @@ def test_sentence_packing_keeps_source_offsets_when_separator_whitespace_changes
     second = "Second sentence."
     third = "Third sentence."
     content = first + "\t  " + second + "\n " + third
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=1,
         target_chunk_size=35,
         max_chunk_size=35,
@@ -2921,7 +2700,7 @@ def test_paragraph_overlap_keeps_source_offsets_with_headers_and_irregular_blank
             )
         ],
     )
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=1,
         target_chunk_size=35,
         max_chunk_size=70,
@@ -2960,7 +2739,7 @@ def test_explicit_section_offsets_distinguish_identical_passages():
         ],
     )
 
-    chunk = SemanticChunker(context_chars=16).chunk(document)[0]
+    chunk = HierarchicalChunker(context_chars=16).chunk(document)[0]
 
     assert chunk.content == "[Methods]\n\n" + passage
     _assert_context_span(chunk, content, start, start + len(passage), 16)
@@ -2973,7 +2752,7 @@ def test_parsed_repeated_sections_keep_context_after_whitespace_cleaning(extensi
     body = "The instrument\twas calibrated.\n\n  Measurements were recorded."
     source = headers[0] + "\n" + body + "\n\n" + headers[1] + "\n" + body
     document = DocumentParser().parse_bytes(source.encode(), "study" + extension, extension)
-    chunker = SemanticChunker(context_chars=20)
+    chunker = HierarchicalChunker(context_chars=20)
 
     chunks = chunker.chunk(document)
 
@@ -2994,7 +2773,7 @@ def test_invalid_section_offsets_do_not_borrow_context_from_matching_text_elsewh
         ],
     )
 
-    chunk = SemanticChunker().chunk(document)[0]
+    chunk = HierarchicalChunker().chunk(document)[0]
 
     assert chunk.start_offset is None
     assert chunk.end_offset is None
@@ -3011,7 +2790,7 @@ def test_legacy_section_with_repeated_body_has_no_guessed_context():
         sections=[Section(title="Methods", content=passage)],
     )
 
-    chunk = SemanticChunker().chunk(document)[0]
+    chunk = HierarchicalChunker().chunk(document)[0]
 
     assert chunk.start_offset is None
     assert chunk.end_offset is None
@@ -3024,85 +2803,13 @@ def test_short_tail_merge_extends_source_end_without_repeating_overlap():
     second = ("beta " * 10).strip()
     third = ("gamma " * 10).strip()
     content = " \t" + first + "\n \n" + second + "\n\t\n" + third + " \n"
-    chunker = SemanticChunker(min_chunk_size=200, context_chars=20)
+    chunker = HierarchicalChunker(min_chunk_size=200, context_chars=20)
 
     chunks = chunker.chunk(ParsedDocument(id="merged-tail-position", content=content))
 
     assert len(chunks) == 1
     assert chunks[0].content == first + "\n\n" + second + "\n\n" + third
     _assert_context_span(chunks[0], content, 2, len(content) - 2, 20)
-
-
-@pytest.mark.parametrize("length_function", ["chars", "words"])
-def test_negative_overlap_fails_before_it_can_skip_content(length_function):
-    with pytest.raises(ValueError, match="nonnegative"):
-        FixedSizeChunker(chunk_size=2, chunk_overlap=-1, length_function=length_function)
-
-
-@pytest.mark.parametrize("chunk_size", [0, -1])
-def test_nonpositive_chunk_size_rejected(chunk_size):
-    with pytest.raises(ValueError, match="positive"):
-        FixedSizeChunker(chunk_size=chunk_size, chunk_overlap=-2)
-
-
-@pytest.mark.parametrize(
-    "content",
-    [
-        " ".join(f"word{i}" for i in range(60)),
-        "A sentence fills this chunk. Another sentence also has enough words to overflow.",
-    ],
-)
-def test_fixed_character_budget_preserves_every_word_without_overlap(content):
-    chunker = FixedSizeChunker(chunk_size=30, chunk_overlap=0)
-    chunks = chunker.chunk(ParsedDocument(id="fixed", content=content))
-
-    assert len(chunks) > 1
-    assert all(len(chunk.content) <= 30 for chunk in chunks)
-    assert " ".join(chunk.content for chunk in chunks).split() == content.split()
-
-
-def test_fixed_character_overlap_keeps_whole_words_and_respects_the_budget():
-    content = "alpha beta gamma delta epsilon zeta"
-    chunks = FixedSizeChunker(chunk_size=22, chunk_overlap=10).chunk(
-        ParsedDocument(id="overlap", content=content)
-    )
-
-    assert [chunk.content for chunk in chunks] == [
-        "alpha beta gamma delta",
-        "delta epsilon zeta",
-    ]
-
-
-def test_fixed_character_overlap_shrinks_to_fit_the_next_word():
-    chunks = FixedSizeChunker(chunk_size=10, chunk_overlap=8).chunk(
-        ParsedDocument(id="budget", content="one two abcdefghi end")
-    )
-
-    assert [chunk.content for chunk in chunks] == ["one two", "abcdefghi", "end"]
-
-
-def test_fixed_character_chunker_splits_an_oversized_word():
-    chunks = FixedSizeChunker(chunk_size=10, chunk_overlap=0).chunk(
-        ParsedDocument(id="word", content="valid " + "x" * 11)
-    )
-
-    assert [chunk.content for chunk in chunks] == ["valid", "x" * 10, "x"]
-
-
-def test_fixed_chunker_rejects_an_unknown_length_unit():
-    with pytest.raises(ValueError, match="length_function"):
-        FixedSizeChunker(length_function="tokens")
-
-
-@pytest.mark.parametrize("word_count,expected_chunks", [(20, 1), (35, 2), (36, 3)])
-def test_fixed_word_chunks_do_not_emit_a_tail_made_only_of_overlap(word_count, expected_chunks):
-    content = " ".join(f"word{i}" for i in range(word_count))
-    chunks = FixedSizeChunker(chunk_size=20, chunk_overlap=5, length_function="words").chunk(
-        ParsedDocument(id="word-tail", content=content)
-    )
-
-    assert len(chunks) == expected_chunks
-    assert chunks[-1].content.split()[-1] == f"word{word_count - 1}"
 
 
 @pytest.mark.parametrize(
@@ -3115,28 +2822,10 @@ def test_hierarchical_sizes_reject_nonintegers_at_construction(option, value):
         HierarchicalChunker(**{option: value})
 
 
-@pytest.mark.parametrize("option", ["chunk_size", "chunk_overlap"])
-@pytest.mark.parametrize("value", [False, 1.5, float("nan"), float("inf"), "100"])
-def test_fixed_sizes_reject_nonintegers_before_splitting(option, value):
-    with pytest.raises(ValueError, match=rf"{option} must be an integer"):
-        FixedSizeChunker(**{option: value})
-
-
 @pytest.mark.parametrize("value", [0, 1, "false", None])
 def test_context_switch_requires_a_boolean(value):
     with pytest.raises(ValueError, match="include_context must be a boolean"):
         HierarchicalChunker(include_context=value)
-
-
-@pytest.mark.parametrize("strategy", ["", "unknown", "Fixed", None, []])
-def test_unknown_chunking_strategies_are_rejected(strategy):
-    with pytest.raises(ValueError, match="strategy must be"):
-        get_chunker(strategy)
-
-
-def test_invalid_length_unit_reports_configuration_error():
-    with pytest.raises(ValueError, match="length_function"):
-        FixedSizeChunker(length_function=[])
 
 
 @pytest.mark.parametrize("sectioned", [False, True])
@@ -3378,33 +3067,7 @@ def retriever():
     embedder.embed_query.return_value = np.array([1, 0], dtype=np.float32)
     store = MagicMock()
     store.search.return_value = []
-    store.search_by_document.return_value = []
     return DenseRetriever(embedder, store)
-
-
-@pytest.mark.parametrize("document_id", ["", " \t", False, 0, []])
-def test_invalid_document_filter_never_falls_back_to_unfiltered_search(retriever, document_id):
-    with pytest.raises(ValueError, match="document_id"):
-        retriever.retrieve("evidence", document_id=document_id)
-
-    retriever.embedder.embed_query.assert_not_called()
-    retriever.vector_store.search.assert_not_called()
-    retriever.vector_store.search_by_document.assert_not_called()
-
-
-def test_document_filter_uses_only_the_requested_document(retriever):
-    chunk = Chunk("passage", "Voltage is 3.3 V.", "paper")
-    retriever.vector_store.search_by_document.return_value = [SearchResult(chunk, 0.75)]
-
-    results = retriever.retrieve("voltage", top_k=2, document_id="paper")
-
-    assert [(result.chunk, result.score, result.source) for result in results] == [
-        (chunk, 0.75, "dense")
-    ]
-    retriever.vector_store.search.assert_not_called()
-    retriever.vector_store.search_by_document.assert_called_once_with(
-        retriever.embedder.embed_query.return_value, "paper", 2
-    )
 
 
 @pytest.mark.parametrize("top_k", [True, 1.5, "2", None, float("nan")])
@@ -3449,7 +3112,6 @@ def test_nonempty_query_and_result_order_are_preserved(retriever):
         (chunks[0], 0.8, "dense"),
         (chunks[1], 0.5, "dense"),
     ]
-    retriever.vector_store.search_by_document.assert_not_called()
 
 
 @pytest.mark.parametrize("error_type", [EmbeddingConfigError, VectorStoreError])
@@ -3473,33 +3135,6 @@ def test_search_failure_propagates(retriever):
         retriever.retrieve("evidence")
 
     assert caught.value is failure
-
-
-@pytest.mark.parametrize(
-    "min_score", [float("nan"), float("inf"), -float("inf"), True, "0.5", None]
-)
-def test_invalid_thresholds_fail_before_model_or_storage_access(retriever, min_score):
-    with pytest.raises(ValueError, match="min_score"):
-        retriever.retrieve_with_threshold("evidence", min_score=min_score)
-
-    retriever.embedder.embed_query.assert_not_called()
-    retriever.vector_store.validate_embedding_config.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    "min_score,expected",
-    [(-1, [0.8, 0.5]), (0.5, [0.8, 0.5]), (0.8, [0.8]), (2, []), (10**1000, [])],
-)
-def test_thresholds_filter_scores_without_changing_order(retriever, min_score, expected):
-    chunk = Chunk("passage", "Evidence.", "paper")
-    retriever.vector_store.search.return_value = [
-        SearchResult(chunk, 0.8),
-        SearchResult(chunk, 0.5),
-    ]
-
-    results = retriever.retrieve_with_threshold("evidence", min_score=min_score)
-
-    assert [result.score for result in results] == expected
 
 
 @pytest.fixture
@@ -3694,8 +3329,9 @@ def test_orphaned_doc_file_recovered_on_load(tmp_path, document_store) -> None:
     reloaded = DocumentStore(path=tmp_path)
 
     assert reloaded.exists("abc123def456")
-    assert reloaded.index["abc123def456"]["filename"] == "paper.pdf"
-    assert reloaded.index["abc123def456"]["word_count"] > 0
+    entry = reloaded.list_with_metadata()["abc123def456"]
+    assert entry["filename"] == "paper.pdf"
+    assert entry["word_count"] > 0
     assert (tmp_path / "_index.json").exists()
 
 
@@ -3707,7 +3343,7 @@ def test_dangling_index_entry_dropped_on_load(tmp_path, document_store) -> None:
     reloaded = DocumentStore(path=tmp_path)
 
     assert not reloaded.exists("abc123def456")
-    assert reloaded.count() == 0
+    assert reloaded.list_with_metadata() == {}
 
 
 def test_delete_survives_reload(tmp_path, document_store) -> None:
@@ -3717,7 +3353,7 @@ def test_delete_survives_reload(tmp_path, document_store) -> None:
     reloaded = DocumentStore(path=tmp_path)
 
     assert not reloaded.exists("abc123def456")
-    assert reloaded.count() == 0
+    assert reloaded.list_with_metadata() == {}
 
 
 def test_reserved_index_id_is_rejected(tmp_path, document_store) -> None:
@@ -3747,7 +3383,7 @@ def test_interrupted_index_update_cannot_restore_a_deleted_document(
 
     reloaded = DocumentStore(path=tmp_path)
     assert not reloaded.exists("abc123def456")
-    assert reloaded.count() == 0
+    assert reloaded.list_with_metadata() == {}
 
 
 def test_failed_file_deletion_keeps_the_index_entry(tmp_path, monkeypatch, document_store) -> None:
@@ -3799,12 +3435,7 @@ def test_stats_use_one_snapshot_during_concurrent_writes(
         stats = document_store.get_stats()
         writer.result(timeout=5)
 
-    assert stats == {
-        "document_count": 2,
-        "total_words": 9,
-        "total_sections": 3,
-        "storage_path": str(tmp_path.resolve()),
-    }
+    assert stats == {"document_count": 2, "total_words": 9}
 
 
 def test_metadata_snapshot_does_not_share_mutable_entries(tmp_path, document_store) -> None:
@@ -3846,17 +3477,16 @@ def test_document_names_skip_invalid_candidates_when_added_or_recovered(
     assert metadata["display_name"] == "paper.txt"
 
 
-@pytest.mark.parametrize("read", ["index", "list_with_metadata"])
-def test_public_metadata_snapshots_do_not_expose_nested_store_state(tmp_path, read, document_store):
+def test_public_metadata_snapshots_do_not_expose_nested_store_state(tmp_path, document_store):
     document_store.add(document())
     document_store.update_metadata("paper", "notes", {"tags": ["original"]})
 
-    snapshot = document_store.index if read == "index" else document_store.list_with_metadata()
+    snapshot = document_store.list_with_metadata()
     snapshot["paper"]["notes"]["tags"].append("changed")
     snapshot["paper"]["word_count"] = 99
     snapshot.pop("paper")
 
-    assert document_store.count() == 1
+    assert len(document_store.list_with_metadata()) == 1
     assert document_store.list_with_metadata()["paper"]["notes"] == {"tags": ["original"]}
     assert document_store.get_stats()["total_words"] == 2
     assert DocumentStore(tmp_path).list_with_metadata() == document_store.list_with_metadata()
@@ -3894,7 +3524,7 @@ def test_case_colliding_document_ids_cannot_overwrite_or_delete_a_document(
         else:
             document_store.delete("PAPER")
 
-    assert document_store.count() == 1
+    assert len(document_store.list_with_metadata()) == 1
     assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
 
 
@@ -3910,7 +3540,7 @@ def test_recovery_rejects_document_symlinks_without_reading_or_writing_targets(t
     before = outside.read_bytes()
 
     with pytest.raises(DocumentStoreError, match="Unsafe stored"):
-        DocumentStore(directory).count()
+        len(DocumentStore(directory).list_with_metadata())
 
     assert outside.read_bytes() == before
     assert (directory / "linked.json").is_symlink()
@@ -3925,7 +3555,7 @@ def test_index_symlinks_are_rejected_without_touching_the_target(tmp_path):
     (directory / "_index.json").symlink_to(outside)
 
     with pytest.raises(DocumentStoreError, match="index cannot be a symbolic link"):
-        DocumentStore(directory).count()
+        len(DocumentStore(directory).list_with_metadata())
 
     assert outside.read_text() == "{}"
     assert (directory / "_index.json").is_symlink()
@@ -3948,7 +3578,7 @@ def test_recovery_rejects_case_colliding_index_entries_without_rewriting_files(t
     before = (tmp_path / "_index.json").read_bytes()
 
     with pytest.raises(DocumentStoreError, match="letter case"):
-        DocumentStore(tmp_path).count()
+        len(DocumentStore(tmp_path).list_with_metadata())
 
     assert (tmp_path / "_index.json").read_bytes() == before
 
@@ -4024,7 +3654,7 @@ def test_failed_add_cleanup_preserves_original_error_and_recovers_the_orphan(
 def test_concurrent_file_creation_cannot_be_overwritten_or_removed(
     tmp_path, monkeypatch, document_store
 ):
-    assert document_store.count() == 0
+    assert len(document_store.list_with_metadata()) == 0
     writer = DocumentStore(tmp_path)
     link = os.link
     existing_files = {}
@@ -4053,7 +3683,7 @@ def test_concurrent_file_creation_cannot_be_overwritten_or_removed(
 def test_interrupted_publication_recovers_the_completed_document_file(
     tmp_path, monkeypatch, document_store
 ):
-    assert document_store.count() == 0
+    assert len(document_store.list_with_metadata()) == 0
     link = os.link
 
     def interrupt_after_publication(source, target):
@@ -4084,7 +3714,7 @@ def test_duplicate_add_preserves_the_original_document_and_metadata(tmp_path, do
 
 
 def test_add_never_overwrites_a_file_created_after_the_index_was_cached(tmp_path, document_store):
-    assert document_store.count() == 0
+    assert len(document_store.list_with_metadata()) == 0
     payload = {"id": "paper", "content": "Existing text.", "metadata": {}, "sections": []}
     (tmp_path / "paper.json").write_text(json.dumps(payload))
     before = (tmp_path / "paper.json").read_bytes()
@@ -4107,9 +3737,9 @@ def test_missing_document_files_are_removed_from_cached_metadata(
         assert document_store.delete("paper") is True
     else:
         assert document_store.clear() == 1
-    assert document_store.count() == 0
+    assert len(document_store.list_with_metadata()) == 0
     assert not document_store.exists("paper")
-    assert DocumentStore(tmp_path).count() == 0
+    assert len(DocumentStore(tmp_path).list_with_metadata()) == 0
 
 
 def test_clear_rewrites_the_index_once(tmp_path, monkeypatch, document_store):
@@ -4127,7 +3757,7 @@ def test_clear_rewrites_the_index_once(tmp_path, monkeypatch, document_store):
     assert document_store.clear() == 3
     assert targets == [tmp_path / "_index.json"]
     assert sorted(path.name for path in tmp_path.iterdir()) == ["_index.json"]
-    assert DocumentStore(tmp_path).count() == 0
+    assert len(DocumentStore(tmp_path).list_with_metadata()) == 0
 
 
 def test_interrupted_clear_reloads_the_remaining_documents(tmp_path, monkeypatch, document_store):
@@ -4161,8 +3791,8 @@ def test_failed_missing_file_cleanup_reconciles_on_retry(tmp_path, monkeypatch, 
     with pytest.raises(OSError, match="index unavailable"):
         document_store.delete("paper")
 
-    assert document_store.count() == 0
-    assert DocumentStore(tmp_path).count() == 0
+    assert len(document_store.list_with_metadata()) == 0
+    assert len(DocumentStore(tmp_path).list_with_metadata()) == 0
 
 
 @pytest.mark.parametrize("data", [b"{broken", b"\xff", b"[]", b"null", b'{"paper": []}'])
@@ -4217,7 +3847,7 @@ def test_invalid_orphan_documents_are_preserved_and_never_reported_as_empty(tmp_
     (tmp_path / "paper.json").write_bytes(data)
 
     with pytest.raises(DocumentStoreError):
-        DocumentStore(tmp_path).count()
+        len(DocumentStore(tmp_path).list_with_metadata())
 
     assert (tmp_path / "paper.json").read_bytes() == data
     assert not (tmp_path / "_index.json").exists()
@@ -4235,7 +3865,7 @@ def test_recovery_read_errors_propagate_without_rewriting_files(tmp_path, monkey
     monkeypatch.setattr(type(tmp_path), "read_text", fail)
 
     with pytest.raises(PermissionError, match="document unavailable"):
-        DocumentStore(tmp_path).count()
+        len(DocumentStore(tmp_path).list_with_metadata())
 
     assert not (tmp_path / "_index.json").exists()
 
@@ -4288,7 +3918,7 @@ def test_nonfinite_json_values_are_rejected_when_reading_stored_data(tmp_path, f
     (tmp_path / filename).write_text(data)
 
     with pytest.raises(DocumentStoreError, match="Cannot read stored JSON"):
-        DocumentStore(tmp_path).count()
+        len(DocumentStore(tmp_path).list_with_metadata())
 
     assert (tmp_path / filename).read_text() == data
 
@@ -4338,7 +3968,7 @@ def test_overflowing_json_numbers_are_rejected_without_rewriting_files(tmp_path,
     (tmp_path / filename).write_text(data)
 
     with pytest.raises(DocumentStoreError, match="Cannot read stored JSON"):
-        DocumentStore(tmp_path).count()
+        len(DocumentStore(tmp_path).list_with_metadata())
 
     assert (tmp_path / filename).read_text() == data
 
@@ -4507,84 +4137,6 @@ class TestEmbedder:
         assert factory.call_count == 2
         assert embedder._loaded_model_source == ("test-model", "a" * 40)
 
-    def test_unload_waits_for_initial_load_and_next_access_loads_fresh_model(self, observed_lock):
-        embedder = Embedder(model_name="test-model", revision="a" * 40)
-        lock = observed_lock
-        embedder._model_lock = lock
-        constructing = Event()
-        release = Event()
-        original_model, fresh_model = object(), object()
-
-        def construct(*_args, **_kwargs):
-            constructing.set()
-            assert release.wait(timeout=5)
-            return original_model
-
-        with (
-            patch("sentence_transformers.SentenceTransformer", side_effect=construct) as factory,
-            ThreadPoolExecutor(max_workers=2) as workers,
-        ):
-            loading = workers.submit(lambda: embedder.model)
-            try:
-                assert constructing.wait(timeout=5)
-                lock.wait_for_attempts(1)
-                unloading = workers.submit(embedder.unload)
-                lock.wait_for_attempts(1)
-                assert not unloading.done()
-            finally:
-                release.set()
-            assert loading.result(timeout=5) is original_model
-            unloading.result(timeout=5)
-            assert embedder._model is None
-            assert embedder._loaded_model_source is None
-
-            factory.side_effect = None
-            factory.return_value = fresh_model
-            assert embedder.model is fresh_model
-            assert embedder.model is fresh_model
-
-        assert factory.call_count == 2
-        assert embedder._loaded_model_source == ("test-model", "a" * 40)
-
-    def test_similarity_normalized(self, mock_sentence_transformer):
-        embedder = Embedder(model_name="test-model", normalize=True)
-
-        query_emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-        doc_embs = np.array(
-            [
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [0.5, 0.5, 0.0],
-            ],
-            dtype=np.float32,
-        )
-
-        doc_embs = doc_embs / np.linalg.norm(doc_embs, axis=1, keepdims=True)
-
-        similarities = embedder.similarity(query_emb, doc_embs)
-
-        assert similarities.shape == (3,)
-        assert similarities[0] == pytest.approx(1.0, abs=0.01)
-        assert similarities[1] == pytest.approx(0.0, abs=0.01)
-
-    def test_similarity_unnormalized(self, mock_sentence_transformer):
-        embedder = Embedder(model_name="test-model", normalize=False)
-
-        query_emb = np.array([2.0, 0.0], dtype=np.float32)
-        doc_embs = np.array(
-            [
-                [3.0, 0.0],
-                [0.0, 1.0],
-            ],
-            dtype=np.float32,
-        )
-
-        similarities = embedder.similarity(query_emb, doc_embs)
-
-        assert similarities.shape == (2,)
-        assert similarities[0] == pytest.approx(1.0, abs=0.01)
-        assert similarities[1] == pytest.approx(0.0, abs=0.01)
-
     def test_show_progress_flag(self, mock_sentence_transformer):
         embedder = Embedder(model_name="test-model")
         texts = ["text"] * 5
@@ -4640,22 +4192,15 @@ class TestEmbedder:
             model.assert_not_called()
 
     @pytest.mark.parametrize("changed_field", ["model_name", "revision"])
-    def test_loaded_weights_cannot_be_relabelled_before_unload(
-        self, mock_sentence_transformer, changed_field
-    ):
+    def test_loaded_weights_cannot_be_relabelled(self, mock_sentence_transformer, changed_field):
         embedder = Embedder(model_name="test-model", revision="a" * 40)
-        original = embedder.embedding_config
+        _ = embedder.embedding_config
         changed = "another-model" if changed_field == "model_name" else "b" * 40
         setattr(embedder, changed_field, changed)
 
         with pytest.raises(EmbeddingConfigError):
             _ = embedder.embedding_config
         mock_sentence_transformer.encode.assert_not_called()
-
-        embedder.unload()
-        reloaded = embedder.embedding_config
-        assert getattr(reloaded, changed_field) == changed
-        assert reloaded != original
 
 
 @pytest.fixture
@@ -4835,33 +4380,6 @@ def test_valid_vectors_are_preserved_as_float32(model_factory):
     )
 
 
-@pytest.mark.parametrize("scale", [1e-30, 1.0, 1e20, 1e38])
-def test_cosine_similarity_handles_finite_float32_scales(scale):
-    embedder = Embedder(normalize=False)
-    query = np.array([scale, 0], dtype=np.float32)
-    documents = np.array([[scale, 0], [0, scale], [-scale, 0], [0, 0]], dtype=np.float32)
-    original_query = query.copy()
-    original_documents = documents.copy()
-
-    with np.errstate(all="raise"):
-        scores = embedder.similarity(query, documents)
-
-    np.testing.assert_array_equal(scores, [1, 0, -1, 0])
-    assert scores.dtype == np.float32
-    np.testing.assert_array_equal(query, original_query)
-    np.testing.assert_array_equal(documents, original_documents)
-
-
-def test_cosine_similarity_of_zero_query_is_zero():
-    query = np.zeros(2, dtype=np.float32)
-    documents = np.array([[1, 0], [0, 0]], dtype=np.float32)
-
-    with np.errstate(all="raise"):
-        scores = Embedder(normalize=False).similarity(query, documents)
-
-    np.testing.assert_array_equal(scores, [0, 0])
-
-
 @pytest.mark.parametrize(
     "metadata,expected",
     [
@@ -4954,16 +4472,15 @@ def test_non_string_candidates_do_not_invoke_conversion_or_truthiness():
     )
 
 
-@pytest.mark.parametrize("chunker_type", [HierarchicalChunker, FixedSizeChunker])
 @pytest.mark.parametrize("invalid_name", [" \t", 42])
-def test_chunks_use_a_valid_filename_when_the_original_name_is_invalid(chunker_type, invalid_name):
+def test_chunks_use_a_valid_filename_when_the_original_name_is_invalid(invalid_name):
     document = ParsedDocument(
         "paper",
         "The measured voltage is 3.3 V.",
         {"original_filename": invalid_name, "filename": "paper.pdf"},
     )
 
-    chunks = chunker_type().chunk(document)
+    chunks = HierarchicalChunker().chunk(document)
 
     assert chunks
     assert all(chunk.document_name == "paper.pdf" for chunk in chunks)
@@ -5135,7 +4652,7 @@ def test_close_waits_for_http_client_construction(monkeypatch, observed_lock):
     "query", ["What is CVS?", "What is VSV infection?", "What is reasonable evidence?"]
 )
 def test_query_words_do_not_trigger_substring_instructions(query):
-    assert QueryAnalyzer().analyze(query).query_type is QueryType.FACTUAL
+    assert QueryAnalyzer().classify(query) is QueryType.FACTUAL
 
 
 @pytest.mark.parametrize(
@@ -5150,7 +4667,7 @@ def test_query_words_do_not_trigger_substring_instructions(query):
     ],
 )
 def test_comparison_and_causal_words_keep_their_meaning(query, expected):
-    assert QueryAnalyzer().analyze(query).query_type is expected
+    assert QueryAnalyzer().classify(query) is expected
 
 
 @pytest.mark.parametrize(
@@ -5161,7 +4678,6 @@ def test_vague_rewriting_normalizes_whitespace(query):
     assert analyzer.rewrite_vague_query(query) == analyzer.rewrite_vague_query(
         "tell me about this paper"
     )
-    assert analyzer.analyze(query).original == query
 
 
 def test_specific_query_is_not_rewritten():
@@ -5292,7 +4808,6 @@ def test_default_prompt_and_generation_options_are_preserved(passage):
     response = Synthesizer(llm).synthesize("What was measured?", [passage])
 
     assert response.answer == " Answer [1].\n"
-    assert response.raw_response == " Answer [1].\n"
     assert llm.generate.call_args.args == (
         "QUESTION: What was measured?\n\n"
         "SOURCES:\n"
@@ -5345,9 +4860,6 @@ class StubRetriever:
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]:
         return self.results
 
-    def retrieve_traced(self, query: str, top_k: int = 5) -> tuple[list[RetrievalResult], bool]:
-        return self.results, False
-
 
 class StubGrounding:
     """Fixed grounding."""
@@ -5367,14 +4879,13 @@ class TestCitationValidation:
         result = AnswerVerifier().verify("Claim one [1] and bogus [5].", sources)
 
         assert result.citations_valid == [1]
-        assert result.citations_invalid == [5]
         assert "[5]" not in result.verified_answer
         assert "[1]" in result.verified_answer
         assert any("out-of-range" in w for w in result.warnings)
 
     def test_no_citations_warns(self) -> None:
         result = AnswerVerifier().verify("Plain answer.", [])
-        assert result.citations_found == []
+        assert result.citations_valid == []
         assert any("no sources" in w for w in result.warnings)
 
     def test_citations_match_actual_source_indices(self) -> None:
@@ -5386,7 +4897,7 @@ class TestCitationValidation:
         result = AnswerVerifier().verify("Claim [1] [2] [4] [5].", sources)
 
         assert result.citations_valid == [2, 4]
-        assert result.citations_invalid == [1, 5]
+        assert "removed 2 out-of-range citation(s): [1, 5]" in result.warnings
         assert "[2]" in result.verified_answer and "[4]" in result.verified_answer
         assert "[1]" not in result.verified_answer and "[5]" not in result.verified_answer
 
@@ -5400,9 +4911,7 @@ class TestCitationValidation:
         )
 
         assert result.verified_answer == "Claim and. Known [1], invalid."
-        assert result.citations_found == [1, 9]
         assert result.citations_valid == [1]
-        assert result.citations_invalid == [9]
         assert "removed 2 unparseable numeric citation(s)" in result.warnings
         assert "removed 1 out-of-range citation(s): [9]" in result.warnings
 
@@ -5556,7 +5065,6 @@ class TestOrchestratorWiring:
 
         resp = orch.query("q?")
 
-        assert resp.faithfulness == 0.5
         assert resp.confidence == 0.5
         assert any("not grounded" in w for w in resp.warnings)
 
@@ -5577,7 +5085,6 @@ class TestOrchestratorWiring:
 
         assert response.answer == "Unable to generate response. Please try again."
         assert response.confidence == 0.0
-        assert response.faithfulness is None
         assert response.sources[0].content == "Retrieved evidence"
         assert response.warnings == ["Answer generation failed."]
         grounding.verify.assert_not_called()
@@ -5601,7 +5108,6 @@ class TestOrchestratorWiring:
 
         assert response.answer == error
         assert response.sources == []
-        assert response.faithfulness is None
         assert response.warnings == [error]
         llm.generate.assert_not_called()
         orch.verifier.verify.assert_not_called()
@@ -5642,7 +5148,6 @@ class TestOrchestratorWiring:
         assert response.answer == error
         assert response.sources == []
         assert response.confidence == 0.0
-        assert response.faithfulness is None
         assert response.warnings == [error]
         llm.generate.assert_not_called()
         grounding.verify.assert_not_called()
@@ -6349,7 +5854,6 @@ def test_metrics_http_response_preserves_counts_types_and_rounding(monkeypatch, 
         total_documents=3,
         total_chunks=12,
         total_words=1200,
-        storage_path="unused",
         llm_model="fixture-generator",
         embedding_model="fixture-embedder",
         llm_available=False,
@@ -6773,7 +6277,6 @@ def orchestrator():
     ]
     retriever = Mock(spec=CorrectiveRetriever)
     retriever.retrieve.return_value = results
-    retriever.retrieve_traced.return_value = (results, False)
     llm = Mock(spec=LLMClient)
     llm.generate.return_value = "A claim [1]."
     return Orchestrator(retriever, llm)
@@ -6807,7 +6310,7 @@ def test_verification_errors_propagate(orchestrator, stage):
 def test_answer_confidence_stays_bounded_for_finite_ranking_scores(
     orchestrator, scores, cited, expected
 ):
-    results, _ = orchestrator.retriever.retrieve_traced.return_value
+    results = orchestrator.retriever.retrieve.return_value
     for result, score in zip(results, scores, strict=True):
         result.score = score
     orchestrator.llm.generate.return_value = "A claim [1]." if cited else "A claim."
@@ -6824,7 +6327,6 @@ def test_invalid_retrieval_limit_fails_before_models(orchestrator, top_k):
         Orchestrator(orchestrator.retriever, orchestrator.llm, top_k=top_k)
 
     orchestrator.retriever.retrieve.assert_not_called()
-    orchestrator.retriever.retrieve_traced.assert_not_called()
     orchestrator.llm.generate.assert_not_called()
 
 
@@ -6835,14 +6337,13 @@ def test_invalid_question_fails_before_retrieval(orchestrator, question):
         orchestrator.query(question)
 
     orchestrator.retriever.retrieve.assert_not_called()
-    orchestrator.retriever.retrieve_traced.assert_not_called()
     orchestrator.llm.generate.assert_not_called()
 
 
 def test_question_whitespace_is_trimmed_before_retrieval(orchestrator):
     orchestrator.query("  What was measured? \n")
 
-    orchestrator.retriever.retrieve_traced.assert_called_once_with("What was measured?", top_k=5)
+    orchestrator.retriever.retrieve.assert_called_once_with("What was measured?", top_k=5)
 
 
 def test_falsey_metadata_store_still_supplies_document_names(orchestrator):
@@ -7321,7 +6822,7 @@ class TestPdfEdgeCases:
         monkeypatch.setattr("scinexusrag.ingestion.parser.PdfReader", lambda path: reader)
         pdf_path = tmp_path / "mixed.pdf"
         pdf_path.write_bytes(b"%PDF-1.4 fake")
-        chunks = SemanticChunker().chunk(DocumentParser().parse(pdf_path))
+        chunks = HierarchicalChunker().chunk(DocumentParser().parse(pdf_path))
 
         assert any("Critical measurements" in chunk.content for chunk in chunks)
         assert (
@@ -7380,7 +6881,7 @@ class TestPreamblePreserved:
 
         txt = tmp_path / "doc.txt"
         txt.write_text("Critical preamble sentence.\n\nMETHODS\nBody under heading.\n")
-        chunks = SemanticChunker().chunk(DocumentParser().parse(txt))
+        chunks = HierarchicalChunker().chunk(DocumentParser().parse(txt))
 
         assert any("Critical preamble sentence." in chunk.content for chunk in chunks)
         assert any("Body under heading." in chunk.content for chunk in chunks)
@@ -7953,13 +7454,6 @@ class TestBM25Retriever:
         assert "the" not in tokens and "is" not in tokens
         assert "quick" in tokens and "brown" in tokens
 
-    def test_explicit_empty_stopwords_keep_common_words(self):
-        assert BM25Retriever(stopwords=set()).tokenize("the quick fox") == [
-            "the",
-            "quick",
-            "fox",
-        ]
-
     def test_incremental_add_and_remove(self, sample_chunks):
         r = BM25Retriever()
         r.add(sample_chunks[:3])
@@ -8408,7 +7902,6 @@ def test_unavailable_llm_keeps_valid_pipeline_health_visible(failure_client, mon
         total_documents=3,
         total_chunks=12,
         total_words=1200,
-        storage_path="unused",
         llm_model="fixture-generator",
         embedding_model="fixture-embedder",
         llm_available=False,
@@ -8737,7 +8230,6 @@ def route_rag(monkeypatch):
         total_documents=2,
         total_chunks=10,
         total_words=5000,
-        storage_path="/tmp/scinexusrag",
         llm_model="llama3.2:3b",
         embedding_model="all-MiniLM-L6-v2",
         llm_available=True,
@@ -10017,7 +9509,7 @@ def _assert_source(chunks, content, sectioned):
 @pytest.mark.parametrize("target", [1200, 2000])
 def test_small_leading_paragraph_cannot_merge_past_maximum(sectioned, target):
     content = "word " * 70 + "\n\n" + "long " * 295
-    chunker = SemanticChunker(target_chunk_size=target, overlap_size=0, include_context=False)
+    chunker = HierarchicalChunker(target_chunk_size=target, overlap_size=0, include_context=False)
     chunks = chunker.chunk(_document(content, sectioned))
     assert len(chunks) >= 2
     assert all(len(chunk.content) <= chunker.max_chunk_size for chunk in chunks)
@@ -10028,7 +9520,7 @@ def test_small_leading_paragraph_cannot_merge_past_maximum(sectioned, target):
 @pytest.mark.parametrize("leading_words", [400, 500])
 def test_default_overlap_is_dropped_when_next_paragraph_needs_the_budget(sectioned, leading_words):
     content = "a " * leading_words + "\n\n" + "b " * 100 + "\n\n" + "c " * 700
-    chunker = SemanticChunker(include_context=False)
+    chunker = HierarchicalChunker(include_context=False)
     chunks = chunker.chunk(_document(content, sectioned))
     assert all(len(chunk.content) <= chunker.max_chunk_size for chunk in chunks)
     _assert_source(chunks, content, sectioned)
@@ -10037,7 +9529,7 @@ def test_default_overlap_is_dropped_when_next_paragraph_needs_the_budget(section
 def test_overlap_is_retained_when_header_and_new_paragraph_fit():
     content = "alpha " * 10 + "\n\n" + "beta " * 10
     document = _document(content, True)
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20,
         target_chunk_size=80,
         max_chunk_size=150,
@@ -10056,7 +9548,7 @@ def test_overlap_is_retained_when_header_and_new_paragraph_fit():
 @pytest.mark.parametrize("extra", [0, 1])
 def test_exact_joined_paragraph_length_includes_header_and_separator(extra):
     content = "a" * 60 + "\n\n" + "b" * (77 + extra)
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20,
         target_chunk_size=200,
         max_chunk_size=150,
@@ -10074,7 +9566,7 @@ def test_section_header_without_any_content_budget_is_rejected(title):
     document = ParsedDocument(
         id="header", content="word", sections=[Section(title=title, content="word", level=1)]
     )
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20, target_chunk_size=100, max_chunk_size=150, overlap_size=0
     )
     with pytest.raises(ValueError, match="section header.*max_chunk_size"):
@@ -10086,7 +9578,7 @@ def test_header_and_word_can_use_exactly_the_maximum_budget():
     document = ParsedDocument(
         id="exact", content="x", sections=[Section(title=title, content="x", level=1)]
     )
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20, target_chunk_size=100, max_chunk_size=150, overlap_size=0
     )
     chunks = chunker.chunk(document)
@@ -10098,7 +9590,7 @@ def test_header_and_word_can_use_exactly_the_maximum_budget():
 @pytest.mark.parametrize("sectioned", [False, True])
 def test_oversized_word_is_split_within_the_chunk_budget(sectioned):
     content = "Valid first paragraph.\n\n" + "x" * 3001 + " tail"
-    chunker = SemanticChunker(include_context=False)
+    chunker = HierarchicalChunker(include_context=False)
     chunks = chunker.chunk(_document(content, sectioned))
     prefix = "[Methods]\n\n" if sectioned else ""
     bodies = [chunk.content.removeprefix(prefix) for chunk in chunks]
@@ -10114,7 +9606,7 @@ def test_oversized_word_is_split_within_the_chunk_budget(sectioned):
 
 def test_header_reduces_the_available_word_budget():
     document = _document("x" * 141, True)
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         min_chunk_size=20, target_chunk_size=100, max_chunk_size=150, overlap_size=0
     )
 
@@ -10529,36 +10021,6 @@ def test_removing_no_passages_does_not_rebuild(monkeypatch, chunk_ids):
     assert [result.chunk.id for result in retriever.retrieve("kinase")] == ["old"]
 
 
-def test_custom_stopword_mutation_does_not_change_an_existing_index():
-    stopwords = set()
-    retriever = BM25Retriever(stopwords=stopwords)
-    retriever.add([Chunk(id="original", document_id="paper", content="kinase inhibition")])
-    stopwords.add("kinase")
-
-    assert [result.chunk.id for result in retriever.retrieve("kinase")] == ["original"]
-    assert retriever.tokenize("kinase") == ["kinase"]
-
-
-def test_custom_stopwords_are_copied_when_the_retriever_is_created():
-    stopwords = {"kinase"}
-    retriever = BM25Retriever(stopwords=stopwords)
-    stopwords.clear()
-    retriever.add([Chunk(id="original", document_id="paper", content="kinase inhibition")])
-
-    assert retriever.tokenize("kinase inhibition") == ["inhibition"]
-    assert retriever.retrieve("kinase") == []
-
-
-def test_stopword_configuration_cannot_be_replaced_after_indexing():
-    retriever = BM25Retriever(stopwords=frozenset())
-    retriever.add([Chunk(id="original", document_id="paper", content="kinase inhibition")])
-
-    with pytest.raises(AttributeError):
-        retriever.stopwords = frozenset({"kinase"})
-
-    assert [result.chunk.id for result in retriever.retrieve("kinase")] == ["original"]
-
-
 @pytest.mark.parametrize("indexed", [False, True])
 @pytest.mark.parametrize("top_k", [True, False, 1.5, "2", None])
 def test_invalid_depth_is_rejected_even_with_an_empty_index(indexed, top_k):
@@ -10880,7 +10342,7 @@ def test_existing_abbreviation_decimal_and_citation_grouping_is_preserved(text):
 def test_quoted_sentence_chunking_keeps_exact_source_offsets():
     first, second = '"First complete claim."', '"Second complete claim."'
     content = first + "  \n\t" + second
-    chunker = SemanticChunker(
+    chunker = HierarchicalChunker(
         target_chunk_size=32,
         max_chunk_size=32,
         min_chunk_size=1,
@@ -10983,32 +10445,16 @@ def test_search_score_clamped_to_unit_interval(vector_store) -> None:
     assert results[0].score == 0.0
 
 
-@pytest.mark.parametrize(
-    "operation",
-    [
-        "delete",
-        "delete_by_document",
-        "search_by_document",
-        "get_chunks_by_document",
-        "get_chunk_ids_by_document",
-    ],
-)
+@pytest.mark.parametrize("operation", ["delete_by_document", "get_chunk_ids_by_document"])
 def test_trailing_newline_id_is_rejected_before_database_access(vector_store, operation) -> None:
 
     with pytest.raises(ValueError, match="Invalid ID format"):
-        if operation == "delete":
-            vector_store.delete(["paper\n"])
-        elif operation == "delete_by_document":
-            vector_store.delete_by_document("paper\n")
-        elif operation == "search_by_document":
-            vector_store.search_by_document(np.ones(4, dtype=np.float32), "paper\n")
-        else:
-            getattr(vector_store, operation)("paper\n")
+        getattr(vector_store, operation)("paper\n")
 
     assert vector_store._db is None
 
 
-@pytest.mark.parametrize("access", ["search", "get_all_chunks", "get_chunks_by_document"])
+@pytest.mark.parametrize("access", ["search", "get_all_chunks"])
 def test_chunk_context_and_citation_metadata_survive_reload(tmp_path, access, vector_store) -> None:
     chunk = Chunk(
         id="context",
@@ -11029,10 +10475,8 @@ def test_chunk_context_and_citation_metadata_survive_reload(tmp_path, access, ve
     reloaded = _store(tmp_path)
     if access == "search":
         restored = reloaded.search(np.array([1, 0, 0, 0], np.float32))[0].chunk
-    elif access == "get_all_chunks":
-        restored = reloaded.get_all_chunks()[0]
     else:
-        restored = reloaded.get_chunks_by_document("paper")[0]
+        restored = reloaded.get_all_chunks()[0]
 
     assert restored.full_context == chunk.full_context
     assert restored.document_name == "Paper.pdf"
@@ -11043,7 +10487,7 @@ def test_chunk_context_and_citation_metadata_survive_reload(tmp_path, access, ve
     assert restored.metadata["start_offset"] == chunk.start_offset
     assert restored.metadata["end_offset"] == chunk.end_offset
     assert restored.metadata["file_type"] == "pdf"
-    assert reloaded.list_documents() == ["paper"]
+    assert reloaded.get_chunk_ids_by_document("paper") == {"context"}
 
 
 @pytest.mark.parametrize("existing", [False, True])
@@ -11169,16 +10613,7 @@ def test_changed_configuration_rejects_before_vector_query_or_write(
     assert table.schema.metadata == original_metadata
 
 
-@pytest.mark.parametrize(
-    "operation",
-    [
-        "count",
-        "list_documents",
-        "get_all_chunks",
-        "get_chunks_by_document",
-        "get_chunk_ids_by_document",
-    ],
-)
+@pytest.mark.parametrize("operation", ["count", "get_all_chunks", "get_chunk_ids_by_document"])
 def test_read_helpers_propagate_configuration_errors(tmp_path, operation) -> None:
     original = _store(tmp_path)
     original.add(
@@ -11188,7 +10623,7 @@ def test_read_helpers_propagate_configuration_errors(tmp_path, operation) -> Non
     changed = _store(tmp_path, revision="b" * 40)
 
     with pytest.raises(EmbeddingConfigError):
-        if operation in {"get_chunks_by_document", "get_chunk_ids_by_document"}:
+        if operation == "get_chunk_ids_by_document":
             getattr(changed, operation)("paper")
         else:
             getattr(changed, operation)()
@@ -11222,16 +10657,11 @@ def test_document_scans_cross_page_boundaries_without_losing_rows(
     unrelated = Chunk(id="other", content="Different document", document_id="other")
     vector_store.add([unrelated, *chunks], np.ones((chunk_count + 1, 4), dtype=np.float32))
 
-    assert {chunk.id for chunk in vector_store.get_chunks_by_document("paper")} == {
-        chunk.id for chunk in chunks
-    }
     assert vector_store.get_chunk_ids_by_document("paper") == {chunk.id for chunk in chunks}
     assert {chunk.id for chunk in vector_store.get_all_chunks()} == {
         "other",
         *(c.id for c in chunks),
     }
-    assert set(vector_store.list_documents()) == ({"other", "paper"} if chunks else {"other"})
-    assert vector_store.get_chunks_by_document("missing") == []
     assert vector_store.get_chunk_ids_by_document("missing") == set()
 
 
@@ -11252,13 +10682,10 @@ def test_document_scans_include_chunks_beyond_the_previous_100000_limit(vector_s
     )
 
     assert vector_store.get_chunk_ids_by_document("large-paper") == set(ids)
-    assert {chunk.id for chunk in vector_store.get_chunks_by_document("large-paper")} == set(ids)
+    assert {chunk.id for chunk in vector_store.get_all_chunks()} == set(ids)
 
 
-@pytest.mark.parametrize(
-    "operation",
-    ["list_documents", "get_all_chunks", "get_chunks_by_document", "get_chunk_ids_by_document"],
-)
+@pytest.mark.parametrize("operation", ["get_all_chunks", "get_chunk_ids_by_document"])
 def test_failed_scan_does_not_report_an_empty_or_partial_corpus(
     vector_store, monkeypatch, operation
 ) -> None:
@@ -11267,7 +10694,7 @@ def test_failed_scan_does_not_report_an_empty_or_partial_corpus(
     monkeypatch.setattr(table, "search", MagicMock(side_effect=failure))
 
     with pytest.raises(VectorStoreError, match="read passages") as raised:
-        if operation in {"get_chunks_by_document", "get_chunk_ids_by_document"}:
+        if operation == "get_chunk_ids_by_document":
             getattr(vector_store, operation)("paper")
         else:
             getattr(vector_store, operation)()
@@ -11296,7 +10723,7 @@ def test_failure_on_a_later_scan_page_does_not_return_a_partial_document(
 
     monkeypatch.setattr(table, "search", fail_on_second_page)
     with pytest.raises(VectorStoreError, match="read passages"):
-        vector_store.get_chunks_by_document("paper")
+        vector_store.get_chunk_ids_by_document("paper")
 
     assert calls == 2
 
@@ -11312,7 +10739,7 @@ def test_vector_search_failure_is_distinct_from_empty_results(vector_store, monk
 
 
 @pytest.mark.parametrize("metadata", ["not JSON", "[]", "null"])
-@pytest.mark.parametrize("operation", ["get_all_chunks", "get_chunks_by_document", "search"])
+@pytest.mark.parametrize("operation", ["get_all_chunks", "search"])
 def test_corrupt_passage_metadata_is_reported_as_a_storage_error(
     vector_store, metadata, operation
 ) -> None:
@@ -11329,9 +10756,7 @@ def test_corrupt_passage_metadata_is_reported_as_a_storage_error(
     )
 
     with pytest.raises(VectorStoreError, match="decode passage metadata"):
-        if operation == "get_chunks_by_document":
-            vector_store.get_chunks_by_document("paper")
-        elif operation == "search":
+        if operation == "search":
             vector_store.search(np.ones(4, dtype=np.float32))
         else:
             vector_store.get_all_chunks()
@@ -11419,16 +10844,13 @@ def test_active_embedder_configuration_must_match_store(vector_store) -> None:
     assert vector_store.count() == 0
 
 
-@pytest.mark.parametrize("document_id", [None, "paper"])
-def test_dense_retrieval_checks_active_configuration_before_embedding(
-    vector_store, document_id
-) -> None:
+def test_dense_retrieval_checks_active_configuration_before_embedding(vector_store) -> None:
     embedder = MagicMock()
     embedder.embedding_config = _config(query_prefix="another query prefix: ")
     retriever = DenseRetriever(embedder, vector_store)
 
     with pytest.raises(EmbeddingConfigError):
-        retriever.retrieve("Which measurement?", document_id=document_id)
+        retriever.retrieve("Which measurement?")
 
     embedder.embed_query.assert_not_called()
     assert vector_store._db is None
@@ -11471,7 +10893,7 @@ def test_explicit_clear_recovers_rejected_table_with_a_new_dimension(
     reopened = _store(tmp_path, dim=2, model_name="new-model")
     assert reopened.count() == 1
     assert reopened.table.schema.field("vector").type.list_size == 2
-    assert reopened.list_documents() == ["new-paper"]
+    assert reopened.get_chunk_ids_by_document("new-paper") == {"new"}
     assert reopened.search(np.array([1, 0], dtype=np.float32))[0].chunk.id == "new"
 
 
@@ -11502,7 +10924,7 @@ def test_cached_handle_rejects_a_recreated_collection(tmp_path, operation, extra
             )
 
     assert replacement.count() == 1
-    assert replacement.list_documents() == ["new-paper"]
+    assert replacement.get_chunk_ids_by_document("new-paper") == {"new"}
 
 
 @pytest.mark.parametrize("bootstrap_stage", ["connect", "create_table"])
@@ -11839,7 +11261,7 @@ def test_existing_ids_are_checked_across_bounded_batches(contract_vectors, monke
         contract_vectors.add(incoming, np.ones((5, 2), np.float32))
 
     assert contract_vectors.count() == 1
-    assert contract_vectors.list_documents() == ["original"]
+    assert contract_vectors.get_chunk_ids_by_document("original") == {"existing"}
 
 
 def test_failed_duplicate_check_never_writes_vectors(contract_vectors, monkeypatch):
@@ -11856,10 +11278,7 @@ def test_failed_duplicate_check_never_writes_vectors(contract_vectors, monkeypat
     writer.assert_not_called()
 
 
-@pytest.mark.parametrize("operation", ["delete", "delete_by_document"])
-def test_deletion_count_ignores_unrelated_concurrent_writes(
-    contract_vectors, monkeypatch, operation
-):
+def test_deletion_count_ignores_unrelated_concurrent_writes(contract_vectors, monkeypatch):
     contract_vectors.add(
         [Chunk("target", "target passage", "paper"), Chunk("other", "other passage", "other")],
         np.ones((2, 2), dtype=np.float32),
@@ -11876,23 +11295,9 @@ def test_deletion_count_ignores_unrelated_concurrent_writes(
 
     monkeypatch.setattr(contract_vectors.table, "delete", delete_after_other_write)
 
-    deleted = (
-        contract_vectors.delete(["target"])
-        if operation == "delete"
-        else contract_vectors.delete_by_document("paper")
-    )
-
-    assert deleted == 1
+    assert contract_vectors.delete_by_document("paper") == 1
     assert contract_vectors.count() == 4
     assert contract_vectors.get_chunk_ids_by_document("paper") == set()
-
-
-def test_repeated_delete_ids_count_each_stored_row_once(contract_vectors):
-    contract_vectors.add([Chunk("chunk", "passage", "paper")], np.ones((1, 2), dtype=np.float32))
-
-    assert contract_vectors.delete(["chunk", "chunk", "missing"]) == 1
-    assert contract_vectors.delete(["chunk"]) == 0
-    assert contract_vectors.count() == 0
 
 
 def test_partial_failed_deletion_reports_error_and_can_retry(contract_vectors, monkeypatch):
@@ -11931,7 +11336,7 @@ def test_paginated_scans_keep_one_version_across_other_handles(
 
     first = next(scan)["id"]
     if mutation == "delete":
-        writer.delete([first])
+        writer.table.delete(f"id = '{first}'")
     else:
         writer.add([Chunk("new", "new passage", "paper")], np.ones((1, 2), np.float32))
     remaining = [row["id"] for row in scan]

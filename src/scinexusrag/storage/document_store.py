@@ -58,10 +58,6 @@ class DocumentStore:
 
         return doc_id
 
-    @property
-    def index(self) -> dict[str, dict[str, Any]]:
-        return self.list_with_metadata()
-
     def _get_index(self) -> dict[str, dict[str, Any]]:
         if self._index is None:
             self._index = self._load_index()
@@ -309,10 +305,6 @@ class DocumentStore:
                 raise
             return True
 
-    def count(self) -> int:
-        with self._index_lock:
-            return len(self._get_index())
-
     def clear(self) -> int:
         with self._index_lock:
             index = self._get_index()
@@ -329,12 +321,7 @@ class DocumentStore:
 
     def get_stats(self) -> dict[str, Any]:
         metadata = self.list_with_metadata()
-        total_words = sum(entry.get("word_count", 0) for entry in metadata.values())
-        total_sections = sum(entry.get("section_count", 0) for entry in metadata.values())
-
         return {
             "document_count": len(metadata),
-            "total_words": total_words,
-            "total_sections": total_sections,
-            "storage_path": str(self.path),
+            "total_words": sum(entry.get("word_count", 0) for entry in metadata.values()),
         }

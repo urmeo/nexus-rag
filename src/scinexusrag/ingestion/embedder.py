@@ -127,7 +127,7 @@ class Embedder:
             source = (self.model_name, self.revision)
             if self._model is not None and self._loaded_model_source != source:
                 raise EmbeddingConfigError(
-                    "Model settings changed after loading. Unload the model first."
+                    "Model settings changed after loading; create a new embedder."
                 )
             if self._model is None:
                 model_name, revision = source
@@ -157,12 +157,6 @@ class Embedder:
             normalize=self.normalize,
             dimension=self.dimension,
         )
-
-    def unload(self) -> None:
-        with self._model_lock:
-            self._model = None
-            self._loaded_model_source = None
-        gc.collect()
 
     @property
     def dimension(self) -> int:
@@ -211,20 +205,3 @@ class Embedder:
             convert_to_numpy=True,
         )
         return _embedding_array(embedding, (dimension,))
-
-    def similarity(
-        self,
-        query_embedding: NDArray[np.float32],
-        document_embeddings: NDArray[np.float32],
-    ) -> NDArray[np.float32]:
-        if self.normalize:
-            return np.asarray(np.dot(document_embeddings, query_embedding), dtype=np.float32)
-        query = query_embedding.astype(np.float64)
-        documents = document_embeddings.astype(np.float64)
-        query_norm = np.linalg.norm(query)
-        if query_norm:
-            query = query / query_norm
-        document_norms = np.linalg.norm(documents, axis=1, keepdims=True)
-        document_norms[document_norms == 0] = 1.0
-        documents = documents / document_norms
-        return np.asarray(np.dot(documents, query), dtype=np.float32)
