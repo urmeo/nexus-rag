@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from threading import Barrier, Event
 from types import ModuleType, SimpleNamespace
 from typing import Any
-from unittest.mock import Mock, call
+from unittest.mock import Mock
 
 import httpx
 import numpy as np
@@ -163,7 +163,10 @@ def test_empty_nli_batch_does_not_load_a_model():
 def test_blank_sources_cannot_ground_an_answer_or_load_a_model():
     verifier = GroundingVerifier()
 
-    report = verifier.verify("The measurement is valid.", ["", None, " \n\t"])
+    report = verifier.verify(
+        "The measurement is valid.",
+        ["", " \n\t", Source(index=1, chunk_id="c", document_id="d", content=" ")],
+    )
 
     assert report.faithfulness == 0.0
     assert report.unsupported == ["The measurement is valid."]
@@ -175,23 +178,13 @@ def test_grounding_preserves_original_source_positions_after_skipping_blanks():
     verifier = GroundingVerifier()
     verifier._model = SimpleNamespace(predict=predict)
 
-    report = verifier.verify(
-        "The measurement is valid.",
-        ["", None, " \n\t", SimpleNamespace(content="Measured evidence.")],
-    )
+    evidence = Source(index=1, chunk_id="c", document_id="d", content="Measured evidence.")
+
+    report = verifier.verify("The measurement is valid.", ["", " \n\t", evidence])
 
     assert report.faithfulness == 1.0
-    assert report.sentences[0].source_index == 3
+    assert report.sentences[0].source_index == 2
     assert predict.call_args.args == ([("Measured evidence.", "The measurement is valid.")],)
-
-
-def test_invalid_source_content_fails_before_model_loading():
-    verifier = GroundingVerifier()
-
-    with pytest.raises(ValueError, match="source text must be a string"):
-        verifier.verify("The measurement is valid.", [SimpleNamespace(content=123)])
-
-    assert verifier._model is None
 
 
 @pytest.mark.parametrize(
@@ -1346,7 +1339,7 @@ def test_complete_answers_preserve_their_layout(orchestrator, answer):
 
 def test_short_numeric_claims_are_each_checked_for_grounding(monkeypatch):
     verifier = GroundingVerifier()
-    scores = Mock(side_effect=[[1.0], [0.0]])
+    scores = Mock(return_value=[1.0, 0.0])
     monkeypatch.setattr(verifier, "entailment_scores", scores)
 
     report = verifier.verify("42. 5.", ["The measured value is 42."])
@@ -1354,8 +1347,27 @@ def test_short_numeric_claims_are_each_checked_for_grounding(monkeypatch):
     assert [item.sentence for item in report.sentences] == ["42.", "5."]
     assert report.faithfulness == 0.5
     assert report.unsupported == ["5."]
-    assert scores.call_args_list == [
-        call([("The measured value is 42.", "42.")]),
-        call([("The measured value is 42.", "5.")]),
-    ]
+    scores.assert_called_once_with(
+        [("The measured value is 42.", "42."), ("The measured value is 42.", "5.")]
+    )
     assert verifier._model is None
+
+
+def test_grounding_scores_all_sentences_and_sources_in_one_batch(monkeypatch):
+    verifier = GroundingVerifier(threshold=0.5)
+    scores = Mock(return_value=[0.1, 0.9, 0.2, 0.3])
+    monkeypatch.setattr(verifier, "entailment_scores", scores)
+
+    report = verifier.verify("First claim. Second claim.", ["Source one.", "Source two."])
+
+    scores.assert_called_once_with(
+        [
+            ("Source one.", "First claim."),
+            ("Source two.", "First claim."),
+            ("Source one.", "Second claim."),
+            ("Source two.", "Second claim."),
+        ]
+    )
+    assert [grade.source_index for grade in report.sentences] == [1, None]
+    assert [grade.entailment for grade in report.sentences] == [0.9, 0.3]
+    assert report.unsupported == ["Second claim."]

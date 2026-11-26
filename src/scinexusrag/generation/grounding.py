@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from threading import Lock
 from typing import Any, Literal
 
+from scinexusrag.generation.synthesizer import Source
 from scinexusrag.settings import HF_REVISIONS
 from scinexusrag.utils.text import split_sentences
 
@@ -102,38 +104,35 @@ class GroundingVerifier:
             raise ValueError("NLI entailment label is outside the prediction classes")
         return [float(x) for x in probs[:, self.entail_idx]]
 
-    def verify(self, answer: str, sources: list[Any]) -> GroundingReport:
+    def verify(self, answer: str, sources: Sequence[Source | str]) -> GroundingReport:
+        """Grade every answer sentence against every non-blank source in one NLI batch."""
         sentences = split_sentences(answer)
-        source_texts: list[tuple[int, str]] = []
-        for index, source in enumerate(sources):
-            if source is None:
-                continue
-            text = getattr(source, "full_content", "") or getattr(source, "content", str(source))
-            if not isinstance(text, str):
-                raise ValueError("source text must be a string")
-            if text.strip():
-                source_texts.append((index, text))
-
-        if not sentences or not source_texts:
+        texts = [(index, _source_text(source)) for index, source in enumerate(sources)]
+        texts = [(index, text) for index, text in texts if text.strip()]
+        if not sentences or not texts:
             return GroundingReport(faithfulness=0.0, sentences=[], unsupported=sentences)
 
+        scores = self.entailment_scores(
+            [(text, sentence) for sentence in sentences for _, text in texts]
+        )
         graded: list[SentenceGrounding] = []
-        unsupported: list[str] = []
-        for sentence in sentences:
-            pairs = [(text, sentence) for _, text in source_texts]
-            scores = self.entailment_scores(pairs)
-            best = max(range(len(scores)), key=lambda i: scores[i])
-            grounded = scores[best] >= self.threshold
+        for row, sentence in enumerate(sentences):
+            row_scores = scores[row * len(texts) : (row + 1) * len(texts)]
+            best = max(range(len(texts)), key=row_scores.__getitem__)
+            grounded = row_scores[best] >= self.threshold
             graded.append(
                 SentenceGrounding(
                     sentence=sentence,
-                    entailment=scores[best],
-                    source_index=source_texts[best][0] if grounded else None,
+                    entailment=row_scores[best],
+                    source_index=texts[best][0] if grounded else None,
                     grounded=grounded,
                 )
             )
-            if not grounded:
-                unsupported.append(sentence)
 
-        faithfulness = sum(1 for g in graded if g.grounded) / len(graded)
+        unsupported = [grade.sentence for grade in graded if not grade.grounded]
+        faithfulness = sum(1 for grade in graded if grade.grounded) / len(graded)
         return GroundingReport(faithfulness=faithfulness, sentences=graded, unsupported=unsupported)
+
+
+def _source_text(source: Source | str) -> str:
+    return source if isinstance(source, str) else source.full_content or source.content
