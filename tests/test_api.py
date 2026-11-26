@@ -26,6 +26,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from starlette.datastructures import Headers
 from starlette.requests import Request
+from support import sparse_index_loaded
 
 import scinexusrag.api.app as api
 from scinexusrag.api import metrics, middleware, routes, security, uploads
@@ -1020,7 +1021,7 @@ def test_corrupt_metadata_is_reported_as_server_error(local_client, monkeypatch,
     assert index_path.read_text(encoding="utf-8") == corrupt_index
     assert rag._embedder is None
     assert rag._vector_store is None
-    assert rag._bm25 is None
+    assert not sparse_index_loaded(rag)
     assert rag._llm is None
     assert not settings.storage.lancedb_path.exists()
 

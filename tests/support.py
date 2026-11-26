@@ -22,3 +22,7 @@ def make_config(dim: int = 4, **changes) -> EmbeddingConfig:
 
 def make_store(tmp_path, dim: int = 4, **changes) -> VectorStore:
     return VectorStore(path=tmp_path / "lancedb", embedding_config=make_config(dim, **changes))
+
+
+def sparse_index_loaded(rag) -> bool:
+    return rag._collection is not None and rag._collection._sparse is not None

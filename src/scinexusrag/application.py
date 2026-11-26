@@ -1,4 +1,4 @@
-"""Document workflow."""
+"""The NexusRAG application: component wiring plus the ingest, query and delete flows."""
 
 import gc
 import logging
@@ -14,15 +14,15 @@ from numpy.typing import NDArray
 from scinexusrag.generation.llm import LLMClient
 from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
 from scinexusrag.ingestion.chunker import HierarchicalChunker
-from scinexusrag.models import Chunk
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfigError
 from scinexusrag.ingestion.parser import DocumentParseError, DocumentParser
-from scinexusrag.models import ParsedDocument
+from scinexusrag.models import Chunk, ParsedDocument
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
 from scinexusrag.retrieval.dense import DenseRetriever
 from scinexusrag.retrieval.hybrid import AdaptiveHybridRetriever
 from scinexusrag.retrieval.sparse import BM25Retriever
 from scinexusrag.settings import Settings, get_settings
+from scinexusrag.storage.collection import Collection
 from scinexusrag.storage.document_store import DocumentExistsError, DocumentStore
 from scinexusrag.storage.vector_store import VectorStore, VectorStoreError, drop_table
 
@@ -70,7 +70,7 @@ class NexusRAG:
         self._embedder: Embedder | None = None
         self._vector_store: VectorStore | None = None
         self._document_store: DocumentStore | None = None
-        self._bm25: BM25Retriever | None = None
+        self._collection: Collection | None = None
         self._llm: LLMClient | None = None
         self._orchestrator: Orchestrator | None = None
 
@@ -124,12 +124,18 @@ class NexusRAG:
         return self._document_store
 
     @property
+    def collection(self) -> Collection:
+        with self._write_lock:
+            if self._collection is None:
+                self._collection = Collection(
+                    self.document_store, self.vector_store, on_sparse_reset=self._discard_retrievers
+                )
+            return self._collection
+
+    @property
     def bm25(self) -> BM25Retriever:
         with self._write_lock:
-            if self._bm25 is None:
-                self._rebuild_bm25_index()
-            assert self._bm25 is not None
-            return self._bm25
+            return self.collection.sparse
 
     @property
     def llm(self) -> LLMClient:
@@ -182,26 +188,7 @@ class NexusRAG:
     ) -> None:
         with self._write_lock:
             self.vector_store.validate_embedding_config(self.embedder.embedding_config)
-            self.document_store.add(document)
-            try:
-                self.vector_store.add(chunks, embeddings)
-                self.bm25.add(chunks)
-                self.document_store.update_metadata(document.id, "chunk_count", len(chunks))
-                self._assert_indexes_synced("persist")
-            except Exception:
-                try:
-                    self.vector_store.delete_by_document(document.id)
-                    self._rebuild_bm25_index()
-                    self.document_store.delete(document.id)
-                except Exception:
-                    logger.warning("Ingestion rollback did not finish", exc_info=True)
-                    self._recover_sparse_index("failed ingestion rollback")
-                raise
-
-    def _assert_indexes_synced(self, where: str) -> None:
-        bm25_n, vector_n = self.bm25.count(), self.vector_store.count()
-        if bm25_n != vector_n:
-            raise RuntimeError(f"index desync after {where}: bm25={bm25_n} vector={vector_n}")
+            self.collection.add(document, chunks, embeddings)
 
     def _ingest_document(
         self, document: ParsedDocument, filename: str, show_progress: bool
@@ -296,29 +283,15 @@ class NexusRAG:
         with self._write_lock:
             if not self.document_store.exists(document_id):
                 return False
-
-            sparse = self.bm25
-            chunk_ids = self.vector_store.get_chunk_ids_by_document(document_id)
-            try:
-                self.vector_store.delete_by_document(document_id)
-                if chunk_ids:
-                    sparse.remove(chunk_ids)
-                self._assert_indexes_synced("delete")
-                self.document_store.delete(document_id)
-            except Exception:
-                self._recover_sparse_index("failed deletion")
-                raise
-            return True
+            return self.collection.delete(document_id)
 
     def clear_all(self) -> None:
         with self._write_lock:
             if self._vector_store is not None:
-                self._vector_store.clear()
+                self.collection.clear()
             else:
                 drop_table(self.settings.storage.lancedb_path, self.settings.storage.table_name)
-            if self._bm25 is not None:
-                self._bm25.clear()
-            self.document_store.clear()
+                self.document_store.clear()
 
     def get_stats(self) -> SystemStats:
         with self._write_lock:
@@ -348,17 +321,5 @@ class NexusRAG:
                 total_chunks=self.vector_store.count(),
             )
 
-    def _rebuild_bm25_index(self) -> None:
-        with self._write_lock:
-            chunks = self.vector_store.get_all_chunks()
-            sparse = self._bm25 if self._bm25 is not None else BM25Retriever()
-            sparse.rebuild(chunks)
-            self._bm25 = sparse
-
-    def _recover_sparse_index(self, operation: str) -> None:
-        try:
-            self._rebuild_bm25_index()
-        except Exception:
-            self._bm25 = None
-            self._orchestrator = None
-            logger.exception("Could not rebuild the sparse index after %s", operation)
+    def _discard_retrievers(self) -> None:
+        self._orchestrator = None

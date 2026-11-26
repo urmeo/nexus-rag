@@ -19,6 +19,7 @@ from support import document, make_config, make_store
 
 from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
 from scinexusrag.models import Chunk, ParsedDocument
+from scinexusrag.storage.collection import Collection
 from scinexusrag.storage.document_store import (
     DocumentExistsError,
     DocumentStore,
@@ -1786,3 +1787,36 @@ def test_cosine_scores_do_not_depend_on_finite_vector_scale(
     assert contract_vectors.embedding_config == config
     np.testing.assert_array_equal(vectors, original_vectors)
     np.testing.assert_array_equal(query, original_query)
+
+
+def test_collection_keeps_all_three_stores_in_step(tmp_path):
+    collection = Collection(DocumentStore(tmp_path / "documents"), make_store(tmp_path))
+    parsed = document()
+
+    collection.add(parsed, [Chunk("passage", "Two words.", parsed.id)], np.ones((1, 4), np.float32))
+
+    assert collection.sparse.count() == collection.vectors.count() == 1
+    assert collection.documents.list_with_metadata()[parsed.id]["chunk_count"] == 1
+    assert collection.delete(parsed.id) is True
+    assert collection.sparse.count() == collection.vectors.count() == 0
+    assert not collection.documents.exists(parsed.id)
+    assert collection.delete(parsed.id) is False
+
+
+def test_collection_drops_an_unrepairable_sparse_index_and_notifies(tmp_path, monkeypatch):
+    resets = []
+    vectors = make_store(tmp_path)
+    collection = Collection(
+        DocumentStore(tmp_path / "documents"), vectors, on_sparse_reset=lambda: resets.append(1)
+    )
+    parsed = document()
+    collection.add(parsed, [Chunk("passage", "Two words.", parsed.id)], np.ones((1, 4), np.float32))
+    monkeypatch.setattr(collection.sparse, "remove", Mock(side_effect=OSError("sparse failed")))
+    monkeypatch.setattr(vectors, "get_all_chunks", Mock(side_effect=VectorStoreError("offline")))
+
+    with pytest.raises(OSError, match="sparse failed"):
+        collection.delete(parsed.id)
+
+    assert collection._sparse is None
+    assert resets == [1]
+    assert collection.documents.exists(parsed.id)

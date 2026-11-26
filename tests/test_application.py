@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, Mock, PropertyMock
 import numpy as np
 import pytest
 from docx import Document as DocxDocument
+from support import sparse_index_loaded
 
 from scinexusrag.application import DocumentInventory, IngestResult, NexusRAG
 from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
@@ -355,9 +356,9 @@ class TestBasicPipelineWorkflow:
             if lazy:
                 _ = pipeline_rag.bm25
             else:
-                pipeline_rag._rebuild_bm25_index()
+                pipeline_rag.collection.rebuild_sparse()
 
-        assert pipeline_rag._bm25 is None
+        assert not sparse_index_loaded(pipeline_rag)
         monkeypatch.setattr(pipeline_rag.vector_store, "get_all_chunks", get_all_chunks)
         assert pipeline_rag.bm25.count() == result.chunk_count
 
@@ -428,7 +429,7 @@ class TestBasicPipelineWorkflow:
         with pytest.raises(OSError, match="Sparse deletion failed"):
             pipeline_rag.delete_document(result.document_id)
 
-        assert pipeline_rag._bm25 is None
+        assert not sparse_index_loaded(pipeline_rag)
         assert pipeline_rag._orchestrator is None
         assert pipeline_rag.document_store.exists(result.document_id)
         assert pipeline_rag.vector_store.count() == 0
@@ -847,7 +848,7 @@ class TestLazyLoading:
         assert pipeline_rag._chunker is None
         assert pipeline_rag._vector_store is None
         assert pipeline_rag._document_store is None
-        assert pipeline_rag._bm25 is None
+        assert not sparse_index_loaded(pipeline_rag)
 
     @pytest.mark.parametrize("component", ["parser", "chunker", "document_store"])
     def test_component_lazy_loads_on_access(self, pipeline_rag, component):
@@ -1169,7 +1170,7 @@ class TestIngestRollback:
         assert pipeline_rag.document_store.exists(document.id)
         assert pipeline_rag.document_store.exists(other.document_id)
         if stage == "sparse_read":
-            assert pipeline_rag._bm25 is None
+            assert not sparse_index_loaded(pipeline_rag)
             assert pipeline_rag._orchestrator is None
         monkeypatch.setattr(owner, method, cleanup)
         expected_remaining = 3 if stage == "dense_before" else 2 if stage == "dense_partial" else 0
@@ -1299,7 +1300,7 @@ class TestLazyResourceLifecycle:
             first = workers.submit(lambda: getattr(pipeline_rag, resource))
             try:
                 assert entered.wait(timeout=5)
-                assert pipeline_rag._bm25 is None
+                assert not sparse_index_loaded(pipeline_rag)
                 assert pipeline_rag._orchestrator is None
                 second = workers.submit(lambda: getattr(pipeline_rag, resource))
                 lock.wait_for_threads(2)
@@ -1419,7 +1420,7 @@ class TestStoredEmbeddingConfiguration:
             not in original.vector_store.db.list_tables().tables
         )
         assert restarted._vector_store is None
-        assert restarted._bm25 is None
+        assert not sparse_index_loaded(restarted)
 
     def test_changed_model_rejects_query_before_embedding_or_generation(
         self, pipeline_rag: NexusRAG, pipeline_text_file: Path
