@@ -2031,12 +2031,27 @@ def test_citation_removal_cleans_only_its_local_padding(answer, expected):
     assert strip_citations(answer, set()) == expected
 
 
+@pytest.mark.parametrize(
+    "answer,expected",
+    [
+        ("invalid [9].", "invalid."),
+        ("invalid [9] .", "invalid."),
+        ("see [1] [9], then", "see [1], then"),
+        ("(see [9])", "(see)"),
+        ("Claim [9]\nNext", "Claim\nNext"),
+        ("Claim [9]", "Claim"),
+    ],
+)
+def test_citation_removal_leaves_no_space_before_punctuation_or_line_ends(answer, expected):
+    assert strip_citations(answer, {1}) == expected
+
+
 def test_citation_cleanup_retains_unicode_numbers_and_original_spelling():
     answer = "Evidence [١] [００２] and invalid [9]."
 
     cleaned = strip_citations(answer, {1, 2})
 
-    assert cleaned == "Evidence [١] [００２] and invalid ."
+    assert cleaned == "Evidence [١] [００２] and invalid."
     assert extract_citations(cleaned) == [1, 2]
 
 
@@ -5419,7 +5434,7 @@ class TestCitationValidation:
             f"Claim {citation} and {citation}. Known [1], invalid [9].", sources
         )
 
-        assert result.verified_answer == "Claim and . Known [1], invalid ."
+        assert result.verified_answer == "Claim and. Known [1], invalid."
         assert result.citations_found == [1, 9]
         assert result.citations_valid == [1]
         assert result.citations_invalid == [9]
@@ -5534,7 +5549,7 @@ class TestOrchestratorWiring:
     ) -> None:
         citation = f"[{digits}]"
         raw_answer = f"Claim {citation}. Known [1]."
-        expected = raw_answer if valid else "Claim . Known [1]."
+        expected = raw_answer if valid else "Claim. Known [1]."
 
         def reply(request: httpx.Request) -> httpx.Response:
             if json.loads(request.content)["stream"]:
@@ -5631,8 +5646,8 @@ class TestOrchestratorWiring:
         ("tokens", "expected_answer", "expected_citations"),
         [
             (["Fact ", "[1]."], "Fact [1].", [1]),
-            (["Claim ", "[99]."], "Claim .", []),
-            (["Fact ", "[1] and [9]."], "Fact [1] and .", [1]),
+            (["Claim ", "[99]."], "Claim.", []),
+            (["Fact ", "[1] and [9]."], "Fact [1] and.", [1]),
         ],
     )
     def test_streaming_replaces_provisional_text_with_verified_answer(
