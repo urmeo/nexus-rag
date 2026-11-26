@@ -2,7 +2,6 @@
 
 import hashlib
 import re
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -19,36 +18,11 @@ from lxml.etree import XMLSyntaxError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
+from scinexusrag.models import ParsedDocument, Section
+
 
 class DocumentParseError(ValueError):
     """Parsing failed."""
-
-
-@dataclass
-class Section:
-    """Source section."""
-
-    title: str
-    content: str
-    level: int = 0
-    page_number: int | None = None
-    start_offset: int | None = None
-    end_offset: int | None = None
-    heading_only: bool = False
-
-
-@dataclass
-class ParsedDocument:
-    """Parsed document."""
-
-    id: str
-    content: str
-    metadata: dict[str, Any] = field(default_factory=dict)
-    sections: list[Section] = field(default_factory=list)
-
-    @property
-    def word_count(self) -> int:
-        return len(self.content.split())
 
 
 class DocumentParser:

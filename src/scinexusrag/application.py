@@ -13,9 +13,11 @@ from numpy.typing import NDArray
 
 from scinexusrag.generation.llm import LLMClient
 from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
-from scinexusrag.ingestion.chunker import Chunk, HierarchicalChunker
+from scinexusrag.ingestion.chunker import HierarchicalChunker
+from scinexusrag.models import Chunk
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfigError
-from scinexusrag.ingestion.parser import DocumentParseError, DocumentParser, ParsedDocument
+from scinexusrag.ingestion.parser import DocumentParseError, DocumentParser
+from scinexusrag.models import ParsedDocument
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
 from scinexusrag.retrieval.dense import DenseRetriever
 from scinexusrag.retrieval.hybrid import AdaptiveHybridRetriever

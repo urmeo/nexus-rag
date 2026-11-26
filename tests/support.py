@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from scinexusrag.ingestion.embedder import EmbeddingConfig
-from scinexusrag.ingestion.parser import ParsedDocument
+from scinexusrag.models import ParsedDocument
 from scinexusrag.storage.vector_store import VectorStore
 
 

@@ -7,8 +7,8 @@ from heapq import nlargest
 
 from rank_bm25 import BM25Okapi
 
-from scinexusrag.ingestion.chunker import Chunk
-from scinexusrag.retrieval.dense import RetrievalResult
+from scinexusrag.models import Chunk
+from scinexusrag.retrieval.base import RetrievalResult
 from scinexusrag.retrieval.stopwords import STOP_WORDS
 
 

@@ -37,7 +37,7 @@ def evaluate(
         raise ValueError("limit must be positive")
     provenance = evaluation_provenance()
     if include_splade:
-        from scinexusrag.retrieval.splade import DEFAULT_MODEL
+        from scinexusrag.eval.splade import DEFAULT_MODEL
 
         splade_model = splade_model or DEFAULT_MODEL
         if splade_revision is None:

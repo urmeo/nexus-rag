@@ -9,8 +9,8 @@ from typing import Any, Literal
 import numpy as np
 from scipy import sparse
 
-from scinexusrag.ingestion.chunker import Chunk
-from scinexusrag.retrieval.dense import RetrievalResult
+from scinexusrag.models import Chunk
+from scinexusrag.retrieval.base import RetrievalResult
 from scinexusrag.settings import HF_REVISIONS
 
 DEFAULT_MODEL = "naver/splade-cocondenser-ensembledistil"

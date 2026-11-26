@@ -17,9 +17,8 @@ import pyarrow as pa
 import pytest
 from support import document, make_config, make_store
 
-from scinexusrag.ingestion.chunker import Chunk
 from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
-from scinexusrag.ingestion.parser import ParsedDocument
+from scinexusrag.models import Chunk, ParsedDocument
 from scinexusrag.storage.document_store import (
     DocumentExistsError,
     DocumentStore,

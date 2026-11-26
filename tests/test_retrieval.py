@@ -14,14 +14,15 @@ import pytest
 from scipy import sparse
 from support import PIN, make_config
 
-from scinexusrag.ingestion.chunker import Chunk
+from scinexusrag.eval.splade import DEFAULT_MODEL, SpladeRetriever
 from scinexusrag.ingestion.embedder import EmbeddingConfigError
+from scinexusrag.models import Chunk
+from scinexusrag.retrieval.base import RetrievalResult
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
-from scinexusrag.retrieval.dense import DenseRetriever, RetrievalResult
+from scinexusrag.retrieval.dense import DenseRetriever
 from scinexusrag.retrieval.hybrid import AdaptiveHybridRetriever, HybridRetriever, rrf_fuse
 from scinexusrag.retrieval.reranker import Reranker
 from scinexusrag.retrieval.sparse import BM25Retriever
-from scinexusrag.retrieval.splade import DEFAULT_MODEL, SpladeRetriever
 from scinexusrag.storage.vector_store import SearchResult, VectorStoreError
 
 

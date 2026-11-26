@@ -25,9 +25,9 @@ from scinexusrag.generation.orchestrator import Orchestrator, RAGResponse
 from scinexusrag.generation.query_analyzer import QueryAnalyzer, QueryType
 from scinexusrag.generation.synthesizer import Source, Synthesizer
 from scinexusrag.generation.verifier import AnswerVerifier
-from scinexusrag.ingestion.chunker import Chunk
+from scinexusrag.models import Chunk
+from scinexusrag.retrieval.base import RetrievalResult
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
-from scinexusrag.retrieval.dense import RetrievalResult
 
 
 @pytest.mark.parametrize("threshold", [-0.1, 1.1, float("nan"), float("inf"), float("-inf")])

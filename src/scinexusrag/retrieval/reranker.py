@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from scinexusrag.retrieval.dense import RetrievalResult
+from scinexusrag.retrieval.base import RetrievalResult
 from scinexusrag.settings import HF_REVISIONS
 
 

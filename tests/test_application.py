@@ -17,9 +17,8 @@ import pytest
 from docx import Document as DocxDocument
 
 from scinexusrag.application import DocumentInventory, IngestResult, NexusRAG
-from scinexusrag.ingestion.chunker import Chunk
 from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
-from scinexusrag.ingestion.parser import ParsedDocument
+from scinexusrag.models import Chunk, ParsedDocument
 from scinexusrag.settings import Settings, StorageSettings
 from scinexusrag.storage.document_store import DocumentStore
 from scinexusrag.storage.vector_store import VectorStore, VectorStoreError

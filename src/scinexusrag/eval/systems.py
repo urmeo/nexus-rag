@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from scinexusrag.eval.indexes import ExactDenseRetriever, unique_document_ids
-from scinexusrag.ingestion.chunker import Chunk
+from scinexusrag.models import Chunk
 from scinexusrag.ingestion.embedder import Embedder
 from scinexusrag.retrieval.corrective import CorrectiveRetriever
 from scinexusrag.retrieval.hybrid import AdaptiveHybridRetriever, HybridRetriever
@@ -60,7 +60,7 @@ def build_systems(
         systems["+ Rerank (cross-enc)"] = with_rerank
 
     if include_splade:
-        from scinexusrag.retrieval.splade import DEFAULT_MODEL, SpladeRetriever
+        from scinexusrag.eval.splade import DEFAULT_MODEL, SpladeRetriever
 
         splade = SpladeRetriever(
             chunks,

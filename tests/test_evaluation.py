@@ -45,10 +45,10 @@ from scinexusrag.eval.report import (
     write_figures,
 )
 from scinexusrag.eval.result_files import load_result, write_csv_results
-from scinexusrag.ingestion.chunker import Chunk
+from scinexusrag.eval.splade import DEFAULT_MODEL
 from scinexusrag.ingestion.embedder import Embedder
-from scinexusrag.retrieval.dense import RetrievalResult
-from scinexusrag.retrieval.splade import DEFAULT_MODEL
+from scinexusrag.models import Chunk
+from scinexusrag.retrieval.base import RetrievalResult
 from scinexusrag.settings import HF_REVISIONS
 
 
@@ -2170,7 +2170,7 @@ def test_enabled_eval_records_revision_passed_to_retriever(
         constructed.append(kwargs)
         return SimpleNamespace(retrieve=lambda *a, **k: [RetrievalResult(chunks[0], 1.0, "splade")])
 
-    monkeypatch.setattr("scinexusrag.retrieval.splade.SpladeRetriever", fake_splade)
+    monkeypatch.setattr("scinexusrag.eval.splade.SpladeRetriever", fake_splade)
 
     def splade_only(*args, **kwargs):
         built = systems.build_systems(*args, **kwargs)

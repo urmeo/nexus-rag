@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from numbers import Real
 
-from scinexusrag.retrieval.dense import RetrievalResult
+from scinexusrag.retrieval.base import RetrievalResult
 from scinexusrag.retrieval.hybrid import HybridRetriever, _search_requested, rrf_fuse
 
 

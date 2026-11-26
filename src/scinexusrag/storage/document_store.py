@@ -14,7 +14,7 @@ from math import isfinite
 from pathlib import Path
 from typing import Any
 
-from scinexusrag.ingestion.parser import ParsedDocument
+from scinexusrag.models import ParsedDocument
 from scinexusrag.utils.filenames import resolve_display_name
 
 logger = logging.getLogger(__name__)

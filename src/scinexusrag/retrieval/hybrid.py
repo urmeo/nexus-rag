@@ -9,7 +9,7 @@ from heapq import nlargest
 from numbers import Real
 from sys import float_info
 
-from scinexusrag.retrieval.dense import DenseSearcher, RetrievalResult
+from scinexusrag.retrieval.base import Retriever, RetrievalResult
 from scinexusrag.retrieval.sparse import BM25Retriever
 
 
@@ -88,7 +88,7 @@ class HybridRetriever:
 
     def __init__(
         self,
-        dense_retriever: DenseSearcher,
+        dense_retriever: Retriever,
         sparse_retriever: BM25Retriever,
         dense_weight: float = 0.5,
         sparse_weight: float = 0.5,
@@ -128,7 +128,7 @@ class AdaptiveHybridRetriever(HybridRetriever):
 
     def __init__(
         self,
-        dense_retriever: DenseSearcher,
+        dense_retriever: Retriever,
         sparse_retriever: BM25Retriever,
         dense_weight: float = 0.5,
         sparse_weight: float = 0.5,

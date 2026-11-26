@@ -18,7 +18,7 @@ import pyarrow as pa
 from lancedb.query import LanceVectorQueryBuilder
 from numpy.typing import NDArray
 
-from scinexusrag.ingestion.chunker import Chunk
+from scinexusrag.models import Chunk
 from scinexusrag.ingestion.embedder import EmbeddingConfig, EmbeddingConfigError
 
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")

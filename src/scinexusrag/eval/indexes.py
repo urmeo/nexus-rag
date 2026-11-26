@@ -7,9 +7,9 @@ from copy import deepcopy
 
 import numpy as np
 
-from scinexusrag.ingestion.chunker import Chunk
+from scinexusrag.models import Chunk
 from scinexusrag.ingestion.embedder import Embedder
-from scinexusrag.retrieval.dense import RetrievalResult
+from scinexusrag.retrieval.base import RetrievalResult
 
 
 def unique_document_ids(results: Sequence[RetrievalResult]) -> list[str]:

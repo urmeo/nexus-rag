@@ -10,8 +10,9 @@ import numpy as np
 import pytest
 from support import make_store
 
-from scinexusrag.ingestion.chunker import Chunk
-from scinexusrag.retrieval.dense import DenseRetriever, RetrievalResult
+from scinexusrag.models import Chunk
+from scinexusrag.retrieval.base import RetrievalResult
+from scinexusrag.retrieval.dense import DenseRetriever
 from scinexusrag.settings import (
     EmbeddingSettings,
     IngestionSettings,

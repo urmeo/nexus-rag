@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from scinexusrag.generation.llm import LLMClient, LLMError
 from scinexusrag.generation.query_analyzer import QueryType
-from scinexusrag.retrieval.dense import RetrievalResult
+from scinexusrag.retrieval.base import RetrievalResult
 
 logger = logging.getLogger(__name__)
 

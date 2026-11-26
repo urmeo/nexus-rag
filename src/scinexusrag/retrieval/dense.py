@@ -1,24 +1,8 @@
 """Vector retrieval."""
 
-from dataclasses import dataclass
-from typing import Protocol
-
-from scinexusrag.ingestion.chunker import Chunk
 from scinexusrag.ingestion.embedder import Embedder
+from scinexusrag.retrieval.base import RetrievalResult
 from scinexusrag.storage.vector_store import VectorStore
-
-
-@dataclass
-class RetrievalResult:
-    chunk: Chunk
-    score: float
-    source: str = "dense"
-
-
-class DenseSearcher(Protocol):
-    """Vector search."""
-
-    def retrieve(self, query: str, top_k: int = 5) -> list[RetrievalResult]: ...
 
 
 class DenseRetriever:

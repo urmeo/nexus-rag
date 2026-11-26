@@ -4,41 +4,13 @@ import hashlib
 import logging
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass, field
-from scinexusrag.ingestion.parser import ParsedDocument
+from dataclasses import dataclass
+
+from scinexusrag.models import Chunk, ParsedDocument
 from scinexusrag.utils.filenames import resolve_display_name
 from scinexusrag.utils.text import SENTENCE_BOUNDARY
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Chunk:
-    """Text passage."""
-
-    id: str
-    content: str
-    document_id: str
-    metadata: dict[str, object] = field(default_factory=dict)
-
-    document_name: str = ""
-    section_title: str = ""
-    page_number: int | None = None
-    chunk_index: int = 0
-    context_before: str = ""
-    context_after: str = ""
-    start_offset: int | None = None
-    end_offset: int | None = None
-
-    @property
-    def full_context(self) -> str:
-        parts = []
-        if self.context_before:
-            parts.append(f"[...]{self.context_before}")
-        parts.append(self.content)
-        if self.context_after:
-            parts.append(f"{self.context_after}[...]")
-        return " ".join(parts)
 
 
 @dataclass(frozen=True)

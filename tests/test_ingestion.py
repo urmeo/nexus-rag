@@ -17,9 +17,10 @@ import pytest
 from docx import Document as DocxDocument
 from support import make_config
 
-from scinexusrag.ingestion.chunker import Chunk, HierarchicalChunker
+from scinexusrag.ingestion.chunker import HierarchicalChunker
 from scinexusrag.ingestion.embedder import Embedder, EmbeddingConfig, EmbeddingConfigError
-from scinexusrag.ingestion.parser import DocumentParseError, DocumentParser, ParsedDocument, Section
+from scinexusrag.ingestion.parser import DocumentParseError, DocumentParser
+from scinexusrag.models import Chunk, ParsedDocument, Section
 from scinexusrag.settings import HF_REVISIONS
 from scinexusrag.storage.vector_store import VectorStoreError
 
