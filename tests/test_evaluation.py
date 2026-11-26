@@ -19,6 +19,7 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
+from support import PIN
 
 from scinexusrag.eval import (
     corrective,
@@ -32,10 +33,11 @@ from scinexusrag.eval import (
     report,
     reproduce,
     run,
+    systems,
 )
 from scinexusrag.eval.datasets import IRDataset
 from scinexusrag.eval.indexes import ExactDenseRetriever, corpus_to_chunks
-from scinexusrag.eval.metrics import pr_auc, roc_auc
+from scinexusrag.eval.metrics import holm_correction, pr_auc, risk_coverage_auc, roc_auc
 from scinexusrag.eval.provenance import evaluation_provenance
 from scinexusrag.eval.report import (
     binary_curve_points,
@@ -43,6 +45,7 @@ from scinexusrag.eval.report import (
     write_figures,
 )
 from scinexusrag.eval.result_files import load_result, write_csv_results
+from scinexusrag.ingestion.chunker import Chunk
 from scinexusrag.ingestion.embedder import Embedder
 from scinexusrag.retrieval.dense import RetrievalResult
 from scinexusrag.retrieval.splade import DEFAULT_MODEL
@@ -2114,3 +2117,101 @@ def test_published_directory_contains_only_csv_and_images():
     assert paths
     extensions = {".csv", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"}
     assert all(path.is_file() and path.suffix.lower() in extensions for path in paths)
+
+
+def test_roc_auc_known_value():
+    assert math.isclose(roc_auc([0.1, 0.4, 0.35, 0.8], [0, 0, 1, 1]), 0.75)
+    assert roc_auc([0.1, 0.2, 0.3, 0.4], [0, 0, 1, 1]) == 1.0
+    assert roc_auc([0.4, 0.3, 0.2, 0.1], [0, 0, 1, 1]) == 0.0
+
+
+def test_roc_auc_handles_ties():
+    assert roc_auc([0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]) == 0.5
+
+
+def test_pr_auc_known_value():
+    assert math.isclose(pr_auc([0.1, 0.4, 0.35, 0.8], [0, 0, 1, 1]), 0.8333333, rel_tol=1e-5)
+
+
+def test_holm_is_monotone_and_scales_smallest():
+    adj = holm_correction({"a": 0.01, "b": 0.02, "c": 0.5})
+    assert math.isclose(adj["a"], 0.03)
+    assert adj["a"] <= adj["b"] <= adj["c"]
+
+
+def test_risk_coverage_auc_rewards_confident_correct():
+    assert risk_coverage_auc([0.9, 0.8, 0.7], [1, 1, 1]) == 0.0
+    assert risk_coverage_auc([0.9, 0.8, 0.7], [0, 0, 0]) == 1.0
+    assert math.isclose(risk_coverage_auc([0.9, 0.8], [1, 0]), 0.25)
+
+
+@pytest.mark.parametrize(
+    "model_name,revision,expected_model,expected_revision",
+    [
+        (None, None, DEFAULT_MODEL, PIN),
+        ("custom/sparse-model", "custom-pin", "custom/sparse-model", "custom-pin"),
+        ("custom/sparse-model", None, "custom/sparse-model", None),
+    ],
+)
+def test_enabled_eval_records_revision_passed_to_retriever(
+    monkeypatch, model_name, revision, expected_model, expected_revision
+):
+    dataset = datasets.IRDataset(
+        name="fixture",
+        corpus={"doc": {"title": "", "text": "Scientific evidence."}},
+        queries={"query": "Which evidence?"},
+        qrels={"query": {"doc": 1}},
+    )
+    monkeypatch.setattr(datasets, "load", lambda *a, **k: dataset)
+    monkeypatch.setattr(systems, "ExactDenseRetriever", lambda *a: object())
+    constructed = []
+
+    def fake_splade(chunks: list[Chunk], **kwargs):
+        constructed.append(kwargs)
+        return SimpleNamespace(retrieve=lambda *a, **k: [RetrievalResult(chunks[0], 1.0, "splade")])
+
+    monkeypatch.setattr("scinexusrag.retrieval.splade.SpladeRetriever", fake_splade)
+
+    def splade_only(*args, **kwargs):
+        built = systems.build_systems(*args, **kwargs)
+        return {"SPLADE": built["SPLADE"]}
+
+    monkeypatch.setattr(run, "build_systems", splade_only)
+    output = run.evaluate(
+        use_sample=True,
+        include_splade=True,
+        splade_model=model_name,
+        splade_revision=revision,
+    )
+
+    assert constructed == [
+        {"model_name": expected_model, "revision": expected_revision, "device": "cpu"}
+    ]
+    assert output["provenance"]["splade_model"] == expected_model
+    assert output["provenance"]["splade_revision"] == expected_revision
+    assert output["systems"]["SPLADE"]["means"]["nDCG@10"] == 1.0
+
+
+def test_cli_forwards_splade_model_and_revision(monkeypatch, tmp_path):
+    evaluate = Mock(return_value={"dataset": "fixture"})
+    monkeypatch.setattr(run, "evaluate", evaluate)
+    monkeypatch.setattr(run, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "scinexusrag-eval",
+            "--splade",
+            "--splade-model",
+            "custom/sparse-model",
+            "--splade-revision",
+            "custom-pin",
+            "--out",
+            str(tmp_path / "result.json"),
+        ],
+    )
+    run.main()
+
+    assert evaluate.call_args.kwargs["include_splade"] is True
+    assert evaluate.call_args.kwargs["splade_model"] == "custom/sparse-model"
+    assert evaluate.call_args.kwargs["splade_revision"] == "custom-pin"

@@ -4,8 +4,22 @@ import asyncio
 from pathlib import Path
 from queue import Queue
 from threading import Lock, RLock, get_ident
+from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
+from support import make_store
+
+from scinexusrag.ingestion.chunker import Chunk
+from scinexusrag.retrieval.dense import DenseRetriever, RetrievalResult
+from scinexusrag.settings import (
+    EmbeddingSettings,
+    IngestionSettings,
+    LLMSettings,
+    Settings,
+    StorageSettings,
+)
+from scinexusrag.storage.vector_store import VectorStore
 
 
 @pytest.fixture(autouse=True)
@@ -183,3 +197,51 @@ def asgi_request():
         return messages, consumed
 
     return request
+
+
+@pytest.fixture
+def retriever():
+    embedder = MagicMock()
+    embedder.embed_query.return_value = np.array([1, 0], dtype=np.float32)
+    store = MagicMock()
+    store.search.return_value = []
+    return DenseRetriever(embedder, store)
+
+
+@pytest.fixture
+def passage():
+    return RetrievalResult(
+        chunk=Chunk(id="chunk", document_id="doc", content="Measured evidence."), score=0.8
+    )
+
+
+@pytest.fixture
+def vector_store(tmp_path) -> VectorStore:
+    return make_store(tmp_path)
+
+
+@pytest.fixture
+def test_settings(tmp_path: Path) -> Settings:
+    return Settings(
+        data_dir=tmp_path,
+        storage=StorageSettings(
+            lancedb_path=tmp_path / "lancedb",
+            table_name="test_documents",
+        ),
+        embedding=EmbeddingSettings(
+            model="test-model",
+            revision="a" * 40,
+            device="cpu",
+            batch_size=8,
+        ),
+        llm=LLMSettings(
+            model="test-llm",
+            base_url="http://localhost:11434",
+            timeout=30,
+        ),
+        ingestion=IngestionSettings(
+            chunk_size=200,
+            chunk_overlap=50,
+            min_chunk_size=20,
+        ),
+    )
