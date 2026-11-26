@@ -27,7 +27,7 @@ SCAN_PAGE_SIZE = 10_000
 
 
 class VectorStoreError(RuntimeError):
-    """Storage failure."""
+    """The vector index cannot be read or written."""
 
 
 def _sanitize_id(value: str) -> str:
@@ -105,14 +105,13 @@ def drop_table(path: str | Path, table_name: str) -> None:
 
 @dataclass
 class SearchResult:
-    """Retrieved passage."""
-
     chunk: Chunk
     score: float
 
 
 class VectorStore:
-    """Passage vectors."""
+    """LanceDB table of passage embeddings, bound to the embedding configuration it was
+    created with."""
 
     def __init__(
         self,
@@ -133,7 +132,6 @@ class VectorStore:
 
     @property
     def db(self) -> lancedb.DBConnection:
-        """Database connection."""
         with self._init_lock:
             if self._db is None:
                 self.path.mkdir(parents=True, exist_ok=True)
@@ -142,7 +140,7 @@ class VectorStore:
 
     @property
     def table(self) -> lancedb.table.Table:
-        """Passage table."""
+        """Created on first use and checked against the embedding configuration."""
         with self._access("Cannot open or read the vector index."):
             table = self._table
             if table is None:
@@ -368,7 +366,7 @@ class VectorStore:
     def _read_rows(
         self, columns: list[str], filter_expr: str | None = None
     ) -> Iterator[dict[str, Any]]:
-        """Snapshot scan."""
+        """Yield rows from one table version so paging stays consistent while others write."""
         with self._access("Cannot read passages from the vector index."):
             table = self.table
             completed = False

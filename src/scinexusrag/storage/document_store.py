@@ -27,11 +27,11 @@ INDEX_STEM = "_index"
 
 
 class DocumentStoreError(RuntimeError):
-    """Document storage."""
+    """Stored documents or their index cannot be read safely."""
 
 
 class DocumentExistsError(ValueError):
-    """Duplicate document."""
+    """A document with this ID is already stored."""
 
 
 class DocumentStore:
@@ -184,7 +184,8 @@ class DocumentStore:
         self._write_json(self._index_path, self._get_index())
 
     def _write_json(self, target: Path, value: dict[str, Any], *, overwrite: bool = True) -> None:
-        """Atomic JSON."""
+        """Write through a temporary file so readers never see partial JSON; with
+        ``overwrite=False`` an existing file is never replaced."""
         if target.is_symlink():
             raise DocumentStoreError("Stored JSON target cannot be a symbolic link")
         data = json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False)
@@ -256,7 +257,6 @@ class DocumentStore:
         return doc_id
 
     def update_metadata(self, doc_id: str, key: str, value: Any) -> bool:
-        """Update metadata."""
         self._validate_doc_id(doc_id)
         if not isinstance(key, str) or not key:
             raise ValueError("Metadata key must be a nonempty string")
@@ -281,7 +281,7 @@ class DocumentStore:
             return doc_id in self._get_index()
 
     def list_with_metadata(self) -> dict[str, dict[str, Any]]:
-        """Metadata snapshot."""
+        """A deep copy, so callers cannot change the store's index."""
         with self._index_lock:
             return deepcopy(self._get_index())
 

@@ -6,7 +6,7 @@ from typing import Any
 
 @dataclass
 class Section:
-    """Source section."""
+    """A titled span of a document; ``heading_only`` marks a heading without body text."""
 
     title: str
     content: str
@@ -19,8 +19,6 @@ class Section:
 
 @dataclass
 class ParsedDocument:
-    """Parsed document."""
-
     id: str
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -33,7 +31,7 @@ class ParsedDocument:
 
 @dataclass
 class Chunk:
-    """Text passage."""
+    """A passage of a document with its location and the text around it."""
 
     id: str
     content: str

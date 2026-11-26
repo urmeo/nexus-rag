@@ -12,7 +12,7 @@ AVAILABILITY_TIMEOUT = 3.0
 
 
 class LLMError(RuntimeError):
-    """Backend failure."""
+    """Ollama could not produce a usable answer."""
 
 
 class LLMClient:

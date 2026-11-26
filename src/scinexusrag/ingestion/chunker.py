@@ -64,7 +64,10 @@ def _word_windows(source: _TextSpan, width: int) -> list[_TextSpan]:
 
 
 class HierarchicalChunker:
-    """Section-aware chunking."""
+    """Packs paragraphs into passages per section and records where each one came from.
+
+    Paragraphs that do not fit are split by sentence, and words that do not fit by length.
+    """
 
     DEFAULT_TARGET_SIZE = 1200
     DEFAULT_MAX_SIZE = 1500

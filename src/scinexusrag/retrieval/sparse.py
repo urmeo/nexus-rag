@@ -24,7 +24,7 @@ class BM25Index:
 
 
 class BM25Retriever:
-    """BM25 retrieval."""
+    """In-memory BM25 index, rebuilt from the vector index after a restart."""
 
     def __init__(self) -> None:
         self._index: BM25Index | None = None

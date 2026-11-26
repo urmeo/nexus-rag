@@ -35,7 +35,8 @@ def rrf_fuse(
     k: int = 60,
     top_k: int | None = None,
 ) -> list[RetrievalResult]:
-    """Rank fusion."""
+    """Weighted reciprocal rank fusion; each list votes once per chunk and the best result
+    scores 1."""
     values = _fusion_weights(weights, k)
     if len(ranked_lists) != len(values):
         raise ValueError("Each ranked list must have one fusion weight.")
@@ -68,7 +69,7 @@ def rrf_fuse(
 
 
 class HybridRetriever:
-    """Hybrid retrieval."""
+    """Fuses dense and BM25 rankings with weighted reciprocal rank fusion."""
 
     def __init__(
         self,
@@ -103,12 +104,13 @@ class HybridRetriever:
     def retrieve_with_dense_top(
         self, query: str, top_k: int = 10, depth: int = 50
     ) -> tuple[list[RetrievalResult], float]:
-        """Dense confidence."""
+        """Fused results plus the best dense similarity, which gates corrective retrieval."""
         return self._run(query, top_k, depth)
 
 
 class AdaptiveHybridRetriever(HybridRetriever):
-    """Query-aware fusion."""
+    """Shifts weight toward BM25 for short or technical questions and toward dense search for
+    long ones."""
 
     def __init__(
         self,

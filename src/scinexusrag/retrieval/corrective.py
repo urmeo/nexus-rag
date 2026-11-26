@@ -9,7 +9,8 @@ from scinexusrag.retrieval.hybrid import HybridRetriever, rrf_fuse, search_reque
 
 
 class CorrectiveRetriever:
-    """Conditional feedback."""
+    """Searches once more with frequent terms from the leading passages when the best dense
+    match is weak (pseudo-relevance feedback)."""
 
     def __init__(
         self,

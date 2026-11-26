@@ -68,7 +68,7 @@ class GroundingVerifier:
             return self._model
 
     def class_probs(self, pairs: list[tuple[str, str]]) -> Any:
-        """Class probabilities."""
+        """Softmax over raw NLI logits; a single-logit model gets a sigmoid instead."""
         import numpy as np
 
         if not pairs:
@@ -96,7 +96,6 @@ class GroundingVerifier:
             return exp / exp.sum(axis=1, keepdims=True)
 
     def entailment_scores(self, pairs: list[tuple[str, str]]) -> list[float]:
-        """Entailment scores."""
         probs = self.class_probs(pairs)
         if probs.shape[0] == 0:
             return []

@@ -23,12 +23,10 @@ from scinexusrag.models import ParsedDocument, Section
 
 
 class DocumentParseError(ValueError):
-    """Parsing failed."""
+    """A document cannot be read; the message is safe to show to the uploader."""
 
 
 class DocumentParser:
-    """Document parser."""
-
     MAX_PDF_PAGES = 1000
     MAX_EXTRACTED_CHARS = 2_000_000
 

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class EmbeddingConfigError(RuntimeError):
-    """Incompatible embeddings."""
+    """Embedding settings are invalid or differ from the ones an index was built with."""
 
 
 def _pinned_revision(revision: str | None) -> str:
@@ -89,8 +89,6 @@ def _embedding_array(values: Any, shape: tuple[int, ...]) -> NDArray[np.float32]
 
 
 class Embedder:
-    """Sentence embeddings."""
-
     def __init__(
         self,
         model_name: str = "BAAI/bge-small-en-v1.5",

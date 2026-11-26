@@ -18,7 +18,6 @@ def _citation_number(digits: str) -> int | None:
 
 
 def extract_citations(text: str) -> list[int]:
-    """Citation numbers."""
     return [
         number
         for digits in _CITATION.findall(text)
