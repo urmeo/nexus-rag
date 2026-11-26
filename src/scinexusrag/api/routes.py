@@ -25,6 +25,7 @@ from scinexusrag.api.security import (
 )
 from scinexusrag.generation.synthesizer import Source
 from scinexusrag.ingestion.embedder import EmbeddingConfigError
+from scinexusrag.ingestion.parser import FORMATS
 from scinexusrag.settings import get_settings
 from scinexusrag.storage.document_store import INDEX_STEM, MAX_ID_LENGTH, SAFE_ID_PATTERN
 from scinexusrag.storage.vector_store import VectorStoreError
@@ -229,10 +230,11 @@ async def _ingest_upload(file: UploadFile) -> UploadResponse:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
     extension = PurePosixPath(filename).suffix.lower()
-    if extension not in {".pdf", ".docx", ".txt", ".md"}:
+    if extension not in FORMATS:
+        supported = ", ".join(document_format.label for document_format in FORMATS.values())
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type: {extension or 'no extension'}. Supported: PDF, DOCX, TXT, MD",
+            detail=f"Unsupported file type: {extension or 'no extension'}. Supported: {supported}",
         )
 
     max_mb = get_settings().api.max_upload_mb

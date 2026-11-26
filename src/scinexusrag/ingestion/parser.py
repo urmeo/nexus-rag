@@ -1,11 +1,12 @@
 """Document parsing."""
 
 import hashlib
+import io
 import re
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import Any
 from zipfile import BadZipFile
 
 from docx import Document as DocxDocument
@@ -28,7 +29,6 @@ class DocumentParseError(ValueError):
 class DocumentParser:
     """Document parser."""
 
-    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md"}
     MAX_PDF_PAGES = 1000
     MAX_EXTRACTED_CHARS = 2_000_000
 
@@ -36,20 +36,21 @@ class DocumentParser:
         path = Path(file_path)
         if not path.is_file():
             raise DocumentParseError(f"File not found: {path.name}")
+        document_format = _format(path.suffix)
+        document = self._read(document_format, path.read_bytes(), path.name)
+        stat = path.stat()
+        document.metadata["created_at"] = datetime.fromtimestamp(stat.st_ctime, tz=UTC).isoformat()
+        document.metadata["modified_at"] = datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat()
+        return document
 
-        extension = path.suffix.lower()
-        if extension not in self.SUPPORTED_EXTENSIONS:
-            raise DocumentParseError(f"Unsupported format: {extension}")
+    def parse_bytes(self, data: bytes, filename: str, extension: str) -> ParsedDocument:
+        return self._read(_format(extension), data, filename)
 
-        parser_map = {
-            ".pdf": self._parse_pdf,
-            ".docx": self._parse_docx,
-            ".txt": self._parse_text,
-            ".md": self._parse_markdown,
-        }
-
+    def _read(
+        self, document_format: "DocumentFormat", data: bytes, filename: str
+    ) -> ParsedDocument:
         try:
-            content, sections = parser_map[extension](path)
+            content, sections = document_format.read(self, data)
         except (
             PdfReadError,
             PackageNotFoundError,
@@ -58,38 +59,26 @@ class DocumentParser:
             XMLSyntaxError,
         ) as exc:
             raise DocumentParseError(
-                f"Cannot read {extension[1:].upper()} file; it may be damaged or have the wrong format"
+                f"Cannot read {document_format.label} file; it may be damaged or have the wrong format"
             ) from exc
         if len(content) > self.MAX_EXTRACTED_CHARS:
             raise DocumentParseError(
                 f"Document exceeds the extracted text limit of {self.MAX_EXTRACTED_CHARS:,} characters"
             )
         return ParsedDocument(
-            id=self._generate_id(path, content),
+            id=self._generate_id(Path(filename).name, content),
             content=content,
-            metadata=self._extract_metadata(path),
+            metadata={
+                "filename": filename,
+                "extension": document_format.extension,
+                "file_type": document_format.extension[1:],
+                "size_bytes": len(data),
+            },
             sections=sections,
         )
 
-    def parse_bytes(self, data: bytes, filename: str, extension: str) -> ParsedDocument:
-        """Parse upload."""
-        extension = extension.lower()
-        if not extension.startswith("."):
-            extension = f".{extension}"
-        if extension not in self.SUPPORTED_EXTENSIONS:
-            raise DocumentParseError(f"Unsupported format: {extension}")
-
-        with TemporaryDirectory() as directory:
-            tmp_path = Path(directory) / f"upload{extension}"
-            tmp_path.write_bytes(data)
-            doc = self.parse(tmp_path)
-            doc.id = self._generate_id(Path(filename), doc.content)
-            doc.metadata["filename"] = filename
-            doc.metadata["file_type"] = extension.lstrip(".")
-            return doc
-
-    def _parse_pdf(self, path: Path) -> tuple[str, list[Section]]:
-        reader = PdfReader(path)
+    def _parse_pdf(self, data: bytes) -> tuple[str, list[Section]]:
+        reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted:
             raise DocumentParseError(
                 "PDF is password-protected; remove the password and upload again"
@@ -136,9 +125,9 @@ class DocumentParser:
 
         return full_text, sections
 
-    def _parse_docx(self, path: Path) -> tuple[str, list[Section]]:
+    def _parse_docx(self, data: bytes) -> tuple[str, list[Section]]:
         try:
-            doc = DocxDocument(str(path))
+            doc = DocxDocument(io.BytesIO(data))
         except (KeyError, ValueError) as exc:
             raise DocumentParseError(
                 "Cannot read DOCX file; required Word document content is missing or invalid"
@@ -201,20 +190,21 @@ class DocumentParser:
         return "\n".join(rows)
 
     @staticmethod
-    def _read_text(path: Path) -> str:
+    def _read_text(data: bytes) -> str:
         try:
-            return path.read_text(encoding="utf-8-sig")
+            text = data.decode("utf-8-sig")
         except UnicodeDecodeError as exc:
             raise DocumentParseError(
                 "File is not valid UTF-8 text; re-save it as UTF-8 and upload again"
             ) from exc
+        return text.replace("\r\n", "\n").replace("\r", "\n")
 
-    def _parse_text(self, path: Path) -> tuple[str, list[Section]]:
-        content = self._clean_text(self._read_text(path))
+    def _parse_text(self, data: bytes) -> tuple[str, list[Section]]:
+        content = self._clean_text(self._read_text(data))
         return content, self._extract_sections_from_text(content)
 
-    def _parse_markdown(self, path: Path) -> tuple[str, list[Section]]:
-        source = self._read_text(path)
+    def _parse_markdown(self, data: bytes) -> tuple[str, list[Section]]:
+        source = self._read_text(data)
         content = self._clean_text(source)
         source_lines = (line for line in source.split("\n") if line.strip())
         content_lines = (
@@ -318,18 +308,50 @@ class DocumentParser:
         return text.strip()
 
     @staticmethod
-    def _generate_id(path: Path, content: str) -> str:
+    def _generate_id(filename: str, content: str) -> str:
         normalized = re.sub(r"\s+", " ", content).strip()
-        hash_input = f"{path.name}:{normalized}"
+        hash_input = f"{filename}:{normalized}"
         return hashlib.sha256(hash_input.encode()).hexdigest()[:16]
 
-    @staticmethod
-    def _extract_metadata(path: Path) -> dict[str, Any]:
-        stat = path.stat()
-        return {
-            "filename": path.name,
-            "extension": path.suffix.lower(),
-            "size_bytes": stat.st_size,
-            "created_at": datetime.fromtimestamp(stat.st_ctime, tz=UTC).isoformat(),
-            "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat(),
-        }
+
+@dataclass(frozen=True, slots=True)
+class DocumentFormat:
+    """How a supported file type is recognized and read."""
+
+    extension: str
+    label: str
+    content_types: tuple[str, ...]
+    signatures: tuple[bytes, ...]
+    read: Callable[[DocumentParser, bytes], tuple[str, list[Section]]]
+    text: bool = False
+
+
+_TEXT_TYPES = ("text/plain", "text/markdown")
+FORMATS: dict[str, DocumentFormat] = {
+    document_format.extension: document_format
+    for document_format in (
+        DocumentFormat(".pdf", "PDF", ("application/pdf",), (b"%PDF",), DocumentParser._parse_pdf),
+        DocumentFormat(
+            ".docx",
+            "DOCX",
+            (
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/zip",
+            ),
+            (b"PK\x03\x04", b"PK\x05\x06"),
+            DocumentParser._parse_docx,
+        ),
+        DocumentFormat(".txt", "TXT", _TEXT_TYPES, (), DocumentParser._parse_text, text=True),
+        DocumentFormat(".md", "MD", _TEXT_TYPES, (), DocumentParser._parse_markdown, text=True),
+    )
+}
+
+
+def _format(extension: str) -> DocumentFormat:
+    extension = extension.lower()
+    if not extension.startswith("."):
+        extension = f".{extension}"
+    document_format = FORMATS.get(extension)
+    if document_format is None:
+        raise DocumentParseError(f"Unsupported format: {extension}")
+    return document_format

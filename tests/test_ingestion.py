@@ -1712,34 +1712,19 @@ def test_parser_preserves_non_document_failures(tmp_path, monkeypatch, error_typ
 
 
 @pytest.mark.parametrize("extension", [".unknown", ".bad/format", ""])
-def test_upload_rejects_unsupported_extensions_before_creating_files(
-    tmp_path, monkeypatch, extension
-):
-    monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
-
+def test_upload_rejects_unsupported_extensions(extension):
     with pytest.raises(DocumentParseError, match="Unsupported format"):
         DocumentParser().parse_bytes(b"contents", "paper", extension)
 
-    assert not list(tmp_path.iterdir())
-
-
-def test_upload_cleans_temporary_files_after_a_write_failure(tmp_path, monkeypatch):
-    monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
-
-    def fail_write(_path, _data):
-        raise OSError("disk full")
-
-    monkeypatch.setattr(Path, "write_bytes", fail_write)
-
-    with pytest.raises(OSError, match="disk full"):
-        DocumentParser().parse_bytes(b"contents", "paper.txt", ".txt")
-
-    assert not list(tmp_path.iterdir())
-
 
 @pytest.mark.parametrize("data", [b"a reading", b"\xff"])
-def test_upload_cleans_temporary_files_after_parsing(tmp_path, monkeypatch, data):
-    monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
+def test_uploads_are_parsed_without_temporary_files(monkeypatch, data):
+    def no_files(*_args, **_kwargs):
+        raise AssertionError("uploads must be parsed in memory")
+
+    monkeypatch.setattr("tempfile.mkstemp", no_files)
+    monkeypatch.setattr("tempfile.TemporaryDirectory", no_files)
+    monkeypatch.setattr(Path, "write_bytes", no_files)
 
     if data == b"\xff":
         with pytest.raises(DocumentParseError, match="UTF-8"):
@@ -1747,7 +1732,20 @@ def test_upload_cleans_temporary_files_after_parsing(tmp_path, monkeypatch, data
     else:
         assert DocumentParser().parse_bytes(data, "paper.txt", ".txt").content == "a reading"
 
-    assert not list(tmp_path.iterdir())
+
+@pytest.mark.parametrize("extension", [".txt", ".md"])
+def test_uploaded_text_matches_the_same_file_read_from_disk(tmp_path, extension):
+    data = b"\xef\xbb\xbfTitle\r\n\r\nFirst line.\rSecond line.\r\n"
+    path = tmp_path / f"paper{extension}"
+    path.write_bytes(data)
+
+    from_file = DocumentParser().parse(path)
+    uploaded = DocumentParser().parse_bytes(data, path.name, extension)
+
+    assert uploaded.content == from_file.content == "Title\n\nFirst line.\nSecond line."
+    assert uploaded.id == from_file.id
+    assert uploaded.sections == from_file.sections
+    assert uploaded.metadata["file_type"] == from_file.metadata["file_type"] == extension[1:]
 
 
 @pytest.mark.parametrize("marker", ["```", "~~~", " ````", "   ~~~~"])
