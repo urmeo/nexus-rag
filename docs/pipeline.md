@@ -2,7 +2,7 @@
 
 NexusRAG indexes documents, retrieves passages and sends them to Ollama for an answer with numbered sources. The app's **Pipeline** page at `/pipeline` explains the defaults; it is not a live progress view.
 
-![Document indexing, passage retrieval, answer generation and source checks.](../assets/figures/pipeline.svg)
+![Document indexing, passage retrieval, answer generation and source checks.](../src/scinexusrag/web/images/pipeline.svg)
 
 ## Documents
 
@@ -94,11 +94,11 @@ Run commands from the repository root. Keep scratch work outside the repository.
 
 | Diagram | Figma | SVG |
 | --- | --- | --- |
-| Pipeline | [Source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2) | [pipeline.svg](../assets/figures/pipeline.svg) |
+| Pipeline | [Source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=29-2) | [pipeline.svg](../src/scinexusrag/web/images/pipeline.svg) |
 | Retrieval | [Source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=12-2) | [retrieval-flow.svg](../assets/figures/retrieval-flow.svg) |
 | Answer checks | [Source](https://www.figma.com/design/bRUVlmkQKApYB2bWdHiblv?node-id=13-20) | [answer-checks.svg](../assets/figures/answer-checks.svg) |
 
-Keep the three frames on Figma's **NexusRAG** page and their SVGs in sync. The [app SVG](../src/scinexusrag/web/images/pipeline.svg) must match the README diagram. Update the [editable layout snapshot](../assets/figma/pipeline.json) when the pipeline frame changes. SVGs include accessible titles, descriptions and font fallbacks.
+Keep the three frames on Figma's **NexusRAG** page and their SVGs in sync. The README, these docs and the app's pipeline page share one pipeline SVG. Update the [editable layout snapshot](../assets/figma/pipeline.json) when the pipeline frame changes. SVGs include accessible titles, descriptions and font fallbacks.
 
 The [21.1-second upload recording](../assets/media/interface-walkthrough.mp4) used Chrome on 12 October 2026 at [609c0c8](https://github.com/urmeo/nexus-rag/commit/609c0c8472baffc65982af3c4f2021b7fa5c2f75). The real local app and API used isolated data, without mocked responses or altered interface content. A 301-word fictional document produced six BGE-small passages. It shows indexing, desktop/mobile views and a question typed without submission. Ollama was unavailable; no answer is shown. The H.264 video has no audio, uses a 1440 × 1000 canvas and preserves capture timing and viewport proportions.
 
