@@ -3063,11 +3063,12 @@ def test_fixed_character_overlap_shrinks_to_fit_the_next_word():
     assert [chunk.content for chunk in chunks] == ["one two", "abcdefghi", "end"]
 
 
-def test_fixed_character_chunker_rejects_an_indivisible_oversized_word():
-    with pytest.raises(ValueError, match="word length exceeds available chunk size"):
-        FixedSizeChunker(chunk_size=10, chunk_overlap=0).chunk(
-            ParsedDocument(id="word", content="valid " + "x" * 11)
-        )
+def test_fixed_character_chunker_splits_an_oversized_word():
+    chunks = FixedSizeChunker(chunk_size=10, chunk_overlap=0).chunk(
+        ParsedDocument(id="word", content="valid " + "x" * 11)
+    )
+
+    assert [chunk.content for chunk in chunks] == ["valid", "x" * 10, "x"]
 
 
 def test_fixed_chunker_rejects_an_unknown_length_unit():
@@ -10256,11 +10257,20 @@ def test_header_and_word_can_use_exactly_the_maximum_budget():
 
 
 @pytest.mark.parametrize("sectioned", [False, True])
-def test_indivisible_oversized_word_is_rejected_without_returning_partial_chunks(sectioned):
-    content = "Valid first paragraph.\n\n" + "x" * 1501
+def test_oversized_word_is_split_within_the_chunk_budget(sectioned):
+    content = "Valid first paragraph.\n\n" + "x" * 3001 + " tail"
     chunker = SemanticChunker(include_context=False)
-    with pytest.raises(ValueError, match="word length exceeds available chunk size"):
-        chunker.chunk(_document(content, sectioned))
+    chunks = chunker.chunk(_document(content, sectioned))
+    prefix = "[Methods]\n\n" if sectioned else ""
+    bodies = [chunk.content.removeprefix(prefix) for chunk in chunks]
+
+    assert bodies[0] == "Valid first paragraph."
+    assert "".join(bodies[1:]) == "x" * 3001 + " tail"
+    assert all(len(chunk.content) <= chunker.max_chunk_size for chunk in chunks)
+    assert all(
+        content[chunk.start_offset : chunk.end_offset] == body
+        for chunk, body in zip(chunks, bodies, strict=True)
+    )
 
 
 def test_header_reduces_the_available_word_budget():
@@ -10268,8 +10278,11 @@ def test_header_reduces_the_available_word_budget():
     chunker = SemanticChunker(
         min_chunk_size=20, target_chunk_size=100, max_chunk_size=150, overlap_size=0
     )
-    with pytest.raises(ValueError, match="word length exceeds available chunk size"):
-        chunker.chunk(document)
+
+    assert [chunk.content for chunk in chunker.chunk(document)] == [
+        "[Methods]\n\n" + "x" * 139,
+        "[Methods]\n\nxx",
+    ]
 
 
 @pytest.fixture

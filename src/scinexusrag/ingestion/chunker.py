@@ -3,6 +3,7 @@
 import hashlib
 import logging
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -75,14 +76,18 @@ def _join_spans(spans: list[_TextSpan], separator: str, prefix: str = "") -> _Te
     )
 
 
+def _words(source: _TextSpan, width: int) -> Iterator[_TextSpan]:
+    """Yield words, hard-splitting any longer than ``width`` such as base64 or unspaced text."""
+    for match in re.finditer(r"\S+", source.text):
+        for start in range(match.start(), match.end(), width):
+            yield source.slice(start, min(start + width, match.end()))
+
+
 def _word_windows(source: _TextSpan, width: int, overlap: int = 0) -> list[_TextSpan]:
     windows: list[_TextSpan] = []
     current: list[_TextSpan] = []
     current_length = 0
-    for match in re.finditer(r"\S+", source.text):
-        word = source.slice(match.start(), match.end())
-        if len(word.text) > width:
-            raise ValueError("word length exceeds available chunk size")
+    for word in _words(source, width):
         if current and current_length + 1 + len(word.text) > width:
             windows.append(_join_spans(current, " "))
             suffix: list[_TextSpan] = []
