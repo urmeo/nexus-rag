@@ -4117,6 +4117,43 @@ def test_missing_document_files_are_removed_from_cached_metadata(
     assert DocumentStore(tmp_path).count() == 0
 
 
+def test_clear_rewrites_the_index_once(tmp_path, monkeypatch, document_store):
+    for doc_id in ("first", "second", "third"):
+        document_store.add(_doc(doc_id))
+    write_json = document_store._write_json
+    targets = []
+
+    def record(target, value, **options):
+        targets.append(target)
+        write_json(target, value, **options)
+
+    monkeypatch.setattr(document_store, "_write_json", record)
+
+    assert document_store.clear() == 3
+    assert targets == [tmp_path / "_index.json"]
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["_index.json"]
+    assert DocumentStore(tmp_path).count() == 0
+
+
+def test_interrupted_clear_reloads_the_remaining_documents(tmp_path, monkeypatch, document_store):
+    for doc_id in ("first", "second"):
+        document_store.add(_doc(doc_id))
+    unlink = Path.unlink
+
+    def fail_on_second(path, missing_ok=False):
+        if path.stem == "second":
+            raise PermissionError("file is locked")
+        unlink(path, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", fail_on_second)
+    with pytest.raises(PermissionError):
+        document_store.clear()
+    monkeypatch.setattr(Path, "unlink", unlink)
+
+    assert set(document_store.list_with_metadata()) == {"second"}
+    assert set(DocumentStore(tmp_path).list_with_metadata()) == {"second"}
+
+
 def test_failed_missing_file_cleanup_reconciles_on_retry(tmp_path, monkeypatch, document_store):
     document_store.add(document())
     (tmp_path / "paper.json").unlink()

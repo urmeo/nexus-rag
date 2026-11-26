@@ -317,8 +317,14 @@ class DocumentStore:
         with self._index_lock:
             index = self._get_index()
             count = len(index)
-            for doc_id in list(index):
-                self.delete(doc_id)
+            try:
+                for doc_id in list(index):
+                    self._doc_path(doc_id).unlink(missing_ok=True)
+                    del index[doc_id]
+                self._save_index()
+            except BaseException:
+                self._index = None
+                raise
             return count
 
     def get_stats(self) -> dict[str, Any]:
