@@ -30,9 +30,9 @@ git clone https://github.com/urmeo/nexus-rag.git
 cd nexus-rag
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -e .
 ollama pull llama3.2:3b
-PYTHONPATH=src python -m scinexusrag.api
+python -m scinexusrag.api
 ```
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000), upload a document and wait for indexing. Ask a question, then inspect its numbered source excerpts.

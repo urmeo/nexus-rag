@@ -44,7 +44,6 @@ Plots group ties at distinct thresholds. ROC-AUC uses rank-based area; the preci
 Install the [development dependencies](../CONTRIBUTING.md#setup), then run from the repository root:
 
 ```bash
-export PYTHONPATH="$PWD/src"
 python -m scinexusrag.eval --sample
 ```
 
