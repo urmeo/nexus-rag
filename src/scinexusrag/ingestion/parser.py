@@ -60,12 +60,12 @@ class DocumentParser:
 
     def parse(self, file_path: str | Path) -> ParsedDocument:
         path = Path(file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+        if not path.is_file():
+            raise DocumentParseError(f"File not found: {path.name}")
 
         extension = path.suffix.lower()
         if extension not in self.SUPPORTED_EXTENSIONS:
-            raise ValueError(f"Unsupported format: {extension}")
+            raise DocumentParseError(f"Unsupported format: {extension}")
 
         parser_map = {
             ".pdf": self._parse_pdf,
@@ -103,7 +103,7 @@ class DocumentParser:
         if not extension.startswith("."):
             extension = f".{extension}"
         if extension not in self.SUPPORTED_EXTENSIONS:
-            raise ValueError(f"Unsupported format: {extension}")
+            raise DocumentParseError(f"Unsupported format: {extension}")
 
         with TemporaryDirectory() as directory:
             tmp_path = Path(directory) / f"upload{extension}"

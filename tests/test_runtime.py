@@ -971,7 +971,7 @@ class TestPipelineErrors:
         result = pipeline_rag.ingest("/nonexistent/path/file.txt")
 
         assert result.success is False
-        assert "Ingestion failed" in result.error or "FileNotFoundError" in result.error
+        assert result.error == "File not found: file.txt"
 
     def test_ingest_unsupported_format(self, pipeline_rag: NexusRAG, tmp_path: Path):
         unsupported = tmp_path / "file.xyz"
@@ -980,7 +980,7 @@ class TestPipelineErrors:
         result = pipeline_rag.ingest(unsupported)
 
         assert result.success is False
-        assert "Ingestion failed" in result.error
+        assert result.error == "Unsupported format: .xyz"
 
     def test_ingest_directory_nonexistent(self, pipeline_rag: NexusRAG):
         with pytest.raises(ValueError, match="Not a directory"):
@@ -5619,6 +5619,14 @@ class TestOrchestratorWiring:
         assert response.warnings == ["Answer generation failed."]
         grounding.verify.assert_not_called()
 
+    def test_unexpected_generation_errors_are_not_reported_as_backend_failures(self) -> None:
+        retriever = StubRetriever([_generation_result(1, "Retrieved evidence", score=1.0)])
+        llm = Mock(spec=StubLLM)
+        llm.generate.side_effect = KeyError("prompt")
+
+        with pytest.raises(KeyError):
+            Orchestrator(retriever, llm).query("What did the study find?")  # type: ignore[arg-type]
+
     @pytest.mark.parametrize(
         ("tokens", "expected_answer", "expected_citations"),
         [
@@ -5811,7 +5819,7 @@ class TestLLMRetry:
 
     def test_does_not_retry_on_4xx(self) -> None:
         client, fake = _client_with([httpx.Response(404)])
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(LLMError, match="HTTP 404"):
             client.generate("hi")
 
         assert fake.post.call_count == 1
@@ -6307,7 +6315,7 @@ def test_backend_errors_and_tracebacks_omit_private_url_components(
     base_url, secrets = private_backend
     with (
         _failed_backend(base_url, failure) as client,
-        pytest.raises((LLMError, httpx.HTTPStatusError)) as raised,
+        pytest.raises(LLMError) as raised,
     ):
         if streaming:
             list(client.stream("Question"))
@@ -7162,15 +7170,18 @@ class TestDocumentParser:
         assert any("abstract" in t for t in section_titles)
         assert any("introduction" in t for t in section_titles)
 
-    def test_parse_nonexistent_file(self, parser, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            parser.parse(tmp_path / "nonexistent.txt")
+    @pytest.mark.parametrize("name", ["nonexistent.txt", "folder.txt"])
+    def test_parse_missing_file(self, parser, tmp_path, name):
+        (tmp_path / "folder.txt").mkdir()
+
+        with pytest.raises(DocumentParseError, match=f"File not found: {name}"):
+            parser.parse(tmp_path / name)
 
     def test_parse_unsupported_format(self, parser, tmp_path):
         unsupported = tmp_path / "file.xyz"
         unsupported.write_text("content")
 
-        with pytest.raises(ValueError, match="Unsupported format"):
+        with pytest.raises(DocumentParseError, match="Unsupported format"):
             parser.parse(unsupported)
 
     @pytest.mark.parametrize("extension,content", [(".txt", "café résumé"), (".md", "# café")])
@@ -7706,7 +7717,7 @@ def test_upload_rejects_unsupported_extensions_before_creating_files(
 ):
     monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
 
-    with pytest.raises(ValueError, match="Unsupported format"):
+    with pytest.raises(DocumentParseError, match="Unsupported format"):
         DocumentParser().parse_bytes(b"contents", "paper", extension)
 
     assert not list(tmp_path.iterdir())

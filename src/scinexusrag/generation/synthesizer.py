@@ -5,7 +5,7 @@ import math
 from collections.abc import Generator
 from dataclasses import dataclass
 
-from scinexusrag.generation.llm import LLMClient
+from scinexusrag.generation.llm import LLMClient, LLMError
 from scinexusrag.generation.query_analyzer import QueryType
 from scinexusrag.retrieval.dense import RetrievalResult
 from scinexusrag.utils.filenames import resolve_display_name
@@ -162,7 +162,7 @@ class Synthesizer:
                 temperature=self.temperature,
                 max_tokens=self._token_budget(prepared.sources),
             )
-        except Exception:
+        except LLMError:
             logger.error("LLM generation failed", exc_info=True)
             return SynthesisResult(
                 answer="Unable to generate response. Please try again.",

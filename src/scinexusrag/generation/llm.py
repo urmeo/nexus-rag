@@ -64,14 +64,10 @@ class LLMClient:
         return f"model={self.model} base_url={endpoint}"
 
     def _check_status(self, response: httpx.Response, path: str) -> None:
-        try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError:
-            raise httpx.HTTPStatusError(
-                f"LLM request to {path} returned HTTP {response.status_code} ({self._where()})",
-                request=response.request,
-                response=response,
-            ) from None
+        if not response.is_success:
+            raise LLMError(
+                f"LLM request to {path} returned HTTP {response.status_code} ({self._where()})"
+            )
 
     def _post(self, path: str, payload: dict[str, object]) -> httpx.Response:
         failure = "request failed"
