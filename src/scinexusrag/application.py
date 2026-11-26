@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import lancedb
 import numpy as np
 from numpy.typing import NDArray
 
@@ -24,7 +23,7 @@ from scinexusrag.retrieval.hybrid import AdaptiveHybridRetriever
 from scinexusrag.retrieval.sparse import BM25Retriever
 from scinexusrag.settings import Settings, get_settings
 from scinexusrag.storage.document_store import DocumentExistsError, DocumentStore
-from scinexusrag.storage.vector_store import VectorStore, VectorStoreError
+from scinexusrag.storage.vector_store import VectorStore, VectorStoreError, drop_table
 
 logger = logging.getLogger(__name__)
 
@@ -362,9 +361,7 @@ class NexusRAG:
             if self._vector_store is not None:
                 self._vector_store.clear()
             else:
-                lancedb.connect(str(self.settings.storage.lancedb_path)).drop_table(
-                    self.settings.storage.table_name, ignore_missing=True
-                )
+                drop_table(self.settings.storage.lancedb_path, self.settings.storage.table_name)
             if self._bm25 is not None:
                 self._bm25.clear()
             self.document_store.clear()

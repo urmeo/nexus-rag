@@ -81,6 +81,28 @@ def _metadata_json(metadata: dict[str, Any]) -> str:
         raise ValueError("Passage metadata must contain finite JSON values") from exc
 
 
+def _table_exists(db: lancedb.DBConnection, table_name: str) -> bool:
+    list_tables = getattr(db, "list_tables", None)
+    if list_tables is None:
+        return table_name in db.table_names()
+
+    page_token: str | None = None
+    while True:
+        page = list_tables(page_token=page_token)
+        if table_name in page.tables:
+            return True
+        page_token = page.page_token
+        if not page_token:
+            return False
+
+
+def drop_table(path: str | Path, table_name: str) -> None:
+    """Drop a passage table without opening it, so no embedding configuration is needed."""
+    db = lancedb.connect(str(path))
+    if _table_exists(db, table_name):
+        db.drop_table(table_name)
+
+
 @dataclass
 class SearchResult:
     """Retrieved passage."""
@@ -126,7 +148,7 @@ class VectorStore:
             if table is None:
                 table = (
                     self.db.open_table(self.table_name)
-                    if self._table_exists()
+                    if _table_exists(self.db, self.table_name)
                     else self._create_table()
                 )
             self._validate_table(table)
@@ -176,21 +198,6 @@ class VectorStore:
                 "Restore the original settings or rebuild in a new collection."
             )
         _ = self.table
-
-    def _table_exists(self) -> bool:
-        """Locate table."""
-        list_tables = getattr(self.db, "list_tables", None)
-        if list_tables is None:
-            return self.table_name in self.db.table_names()
-
-        page_token: str | None = None
-        while True:
-            page = list_tables(page_token=page_token)
-            if self.table_name in page.tables:
-                return True
-            page_token = page.page_token
-            if not page_token:
-                return False
 
     def _create_table(self) -> lancedb.table.Table:
         schema = pa.schema(
@@ -418,7 +425,7 @@ class VectorStore:
                     offset += len(rows)
             finally:
                 try:
-                    table.checkout_latest()
+                    table.checkout_latest()  # type: ignore[no-untyped-call]
                 except Exception:
                     self._table = None
                     if completed:
@@ -429,7 +436,7 @@ class VectorStore:
 
     def clear(self) -> None:
         with self._init_lock:
-            if self._table_exists():
+            if _table_exists(self.db, self.table_name):
                 self.db.drop_table(self.table_name)
             self._table = None
 
