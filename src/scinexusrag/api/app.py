@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from uvicorn.logging import DefaultFormatter
 
 from scinexusrag.api.routes import router
 from scinexusrag.api.security import (
@@ -26,9 +27,19 @@ from scinexusrag.version import __version__
 logger = logging.getLogger(__name__)
 
 
+def _configure_logging(level: str) -> None:
+    """Print package logs unless the host process configured logging itself."""
+    package_logger = logging.getLogger("scinexusrag")
+    package_logger.setLevel(level)
+    if not package_logger.handlers and not logging.getLogger().handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(DefaultFormatter("%(levelprefix)s %(name)s: %(message)s"))
+        package_logger.addHandler(handler)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
-    logging.getLogger("scinexusrag").setLevel(settings.log_level)
+    _configure_logging(settings.log_level)
 
     docs_enabled = settings.api.docs_enabled and not settings.api.api_key
     if not docs_enabled:

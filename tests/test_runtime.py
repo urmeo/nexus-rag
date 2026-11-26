@@ -2167,6 +2167,29 @@ class TestLogLevel:
             get_settings.cache_clear()
             logger.setLevel(original_level)
 
+    @pytest.mark.parametrize("host_configured", [False, True])
+    def test_create_app_prints_package_logs_once_unless_the_host_configured_logging(
+        self, monkeypatch, capsys, host_configured
+    ) -> None:
+        logger = logging.getLogger("scinexusrag")
+        original_level = logger.level
+        monkeypatch.setattr(
+            logging.getLogger(), "handlers", [logging.NullHandler()] if host_configured else []
+        )
+        monkeypatch.setattr(logger, "handlers", [])
+        monkeypatch.setenv("LOG_LEVEL", "INFO")
+        get_settings.cache_clear()
+        try:
+            create_app()
+            create_app()
+            logging.getLogger("scinexusrag.ingestion").info("Indexed %d passages", 3)
+        finally:
+            get_settings.cache_clear()
+            logger.setLevel(original_level)
+
+        printed = capsys.readouterr().err.count("scinexusrag.ingestion: Indexed 3 passages")
+        assert printed == (0 if host_configured else 1)
+
 
 def _write_frontend(directory: Path, label: str) -> Path:
     directory.mkdir()
